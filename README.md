@@ -1,185 +1,130 @@
-Star Wing – Game Design Document
+# Star Wing
+
+A 3D space shooter game built with Three.js, featuring roguelike progression and retro pixel art aesthetics.
+
+## Overview
+
+Star Wing is a web-based 3D space shooter that combines classic arcade gameplay with modern roguelike progression mechanics. Players control a starfighter through wave-based combat zones, upgrading their ship between battles to face increasingly challenging enemies.
+
+## Tech Stack
+
+- **Three.js**: 3D graphics and rendering
+- **TypeScript**: Type-safe JavaScript
+- **Vite**: Build tool and development server
+- **Howler.js**: Audio management
+- **GSAP**: UI animations and transitions
+
+## Development Setup
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/akolumbic/star-wing.git
+cd star-wing
+```
+
+2. Install dependencies:
+
+```bash
+npm install
+```
+
+3. Start the development server:
+
+```bash
+npm run dev
+```
+
+4. Build for production:
+
+```bash
+npm run build
+```
+
+## Project Structure
+
+```
+star-wing/
+├── src/
+│   ├── core/           # Core game systems
+│   │   ├── Game.ts     # Main game class
+│   │   ├── Scene.ts    # Three.js scene management
+│   │   └── Input.ts    # Input handling
+│   ├── entities/       # Game entities
+│   │   ├── Player.ts   # Player ship
+│   │   ├── Enemy.ts    # Enemy ships
+│   │   └── Projectile.ts # Weapons
+│   ├── systems/        # Game systems
+│   │   ├── Combat.ts   # Combat mechanics
+│   │   ├── Upgrade.ts  # Upgrade system
+│   │   └── Wave.ts     # Wave management
+│   ├── ui/            # User interface
+│   │   ├── HUD.ts     # Heads-up display
+│   │   └── Menu.ts    # Game menus
+│   ├── utils/         # Utility functions
+│   └── main.ts        # Entry point
+├── assets/           # Game assets
+│   ├── models/       # 3D models
+│   ├── textures/     # Textures
+│   └── audio/        # Sound effects and music
+├── public/          # Static files
+├── index.html       # HTML entry point
+├── package.json     # Dependencies and scripts
+├── tsconfig.json    # TypeScript configuration
+└── vite.config.ts   # Vite configuration
+```
+
+## Controls
+
+- **WASD**: Ship movement
+- **Mouse**: Aim weapons
+- **Left Click**: Fire primary weapon
+- **Right Click**: Fire secondary weapon
+- **Space**: Barrel roll/dodge
+- **1-3**: Switch weapon modes
+- **ESC/P**: Pause menu
+
+## Development Guidelines
+
+1. **Code Style**
+
+   - Use TypeScript for type safety
+   - Follow ESLint configuration
+   - Write meaningful comments for complex logic
+
+2. **Performance**
+
+   - Use object pooling for frequently created objects
+   - Implement frustum culling
+   - Optimize particle effects
+   - Profile regularly for bottlenecks
+
+3. **Asset Management**
 
-Introduction
+   - Keep 3D models low-poly
+   - Use pixel art textures
+   - Optimize audio files
+   - Implement proper asset loading
 
-Star Wing is a 3D spaceship shooter built with Three.js for web browsers. The player controls a lone starfighter pilot deep in hostile space, battling through wave-based combat zones filled with enemies and hazards. Between each zone, the pilot docks at a space carrier to repair damage and select upgrades, gradually building a more powerful ship. The game blends classic arcade shooter action with roguelike progression – players face an escalating challenge that pushes their skills, with only the most dedicated “hardcore” players surviving the later levels. A retro pixel-art aesthetic combined with neon cyberpunk effects and a synth-heavy soundtrack creates a stylized sci-fi atmosphere.
+4. **Testing**
+   - Write unit tests for core systems
+   - Test across different browsers
+   - Verify performance on various hardware
 
-Story & Setting
+## Contributing
 
-The game is set in a distant future where the player is the last surviving ace pilot on a critical mission. You roam lawless outer space zones, each overrun by pirates, alien raiders, and derelict war machines. The narrative is minimal but evocative: you jump into one hostile sector after another, clearing out enemies to make these regions safe for the galactic coalition. After each zone is cleared, your fighter docks with a massive space carrier (your mobile base) to refuel, repair, and upgrade. This carrier is both sanctuary and armory – a high-tech hangar where you install new weapons or enhancements before warping to the next battle.
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
-Each zone has a distinct setting and theme. For example, one level might be an asteroid mining field with broken ore freighters drifting among the rocks, while the next is a derelict ship graveyard illuminated by flickering neon lights from wrecked vessels. The tone is lone-hero versus the odds – a single starfighter against swarms of foes in the void. The story unfolds in brief mission briefings and log entries between zones, but largely it’s driven by the player’s actions. The emphasis is on the feeling of an endless struggle through space combat, “fighting off the worst scourges of space in a never-ending struggle for survival” ￼. As the player progresses, subtle hints of a final objective appear (e.g. intel about an enemy flagship or alien superweapon deep in the last sector) to give a sense of purpose beyond simply surviving waves.
+## License
 
-Player Controls
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-Star Wing is designed purely for desktop play with keyboard and mouse. The controls are simple to learn, focusing on responsive and tight arcade-style handling:
-	•	Movement: Use W, A, S, D keys for directional movement of the spaceship. The ship has full 3D freedom within the play area – W thrusts forward, S brakes/reverses, A strafes/rolls left, and D strafes/rolls right. There is no gravity or up/down limit, but the game often keeps action oriented toward a forward direction for clarity. Movement is tuned to feel agile but weighty; small fighters can dodge and weave quickly, while any heavier upgrades might slightly reduce handling responsiveness.
-	•	Aiming: The mouse is used to aim the ship’s weapons turret (or the ship itself if using a cockpit view). The player can move the mouse to rotate the ship’s facing or a targeting reticle on screen. This allows independent aiming: for example, you can circle-strafe around a target with WASD while keeping the mouse reticle (and thus your gunfire) trained on the enemy.
-	•	Shooting: Left-click fires the primary weapon (lasers, bullets, etc.), and right-click fires a secondary weapon or uses a special ability (if acquired, such as a missile volley or an EMP burst). Firing has no manual reloads (weapons may have cooldowns or ammo displayed on HUD), so the player can shoot freely; however, continuous fire might overheat certain guns if an overheat mechanic is introduced with upgrades.
-	•	Other Actions: The spacebar could be used for a quick barrel roll or dodge maneuver if the design includes a defensive evade move. This would have a short cooldown. Number keys 1–3 might switch weapon modes if the player’s ship has multiple weapon types installed (e.g. switching between laser, missiles, or flak cannon). The Escape or P key opens the pause menu, but otherwise gameplay is in real-time with no pauses in combat zones.
+## Acknowledgments
 
-These controls are not meant to simulate realistic spacecraft physics heavily – they are tuned for fun and responsiveness. The ship will immediately respond to input with arcade-style movement (with perhaps a slight inertia for feel). Mouse aim allows for precise shooting, enabling the classic shooter feel on PC. There is no mobile/touch control scheme at all; we focus on PC keyboard/mouse, meaning we can design UI and input complexity appropriate for those devices without compromise. The absence of a mobile adaptation means we can utilize the full keyboard for hotkeys if needed and push the graphical fidelity on WebGL beyond what a mobile browser could handle.
-
-Enemy & Obstacle Design
-
-The game features a variety of enemies and environmental obstacles to challenge the player. Each enemy type has distinct behavior and strengths, requiring the player to prioritize threats and adapt tactics on the fly. Environmental hazards in the levels also force the player to navigate carefully.
-
-Enemy Types:
-	•	Light Fighters: These are small, agile enemy ships. They often attack in groups or swarms, using hit-and-run tactics. Light fighters have low health and do modest damage, but they are fast and hard to hit. They will try to outflank the player, strafing from the sides or behind. The player must track them with quick mouse aiming. In early waves, these form the bulk of the opposition. By late-game, upgraded versions with minor shields or plasma guns appear. Example: a “Raider” fighter that zips by firing dual machine lasers, then loops around for another pass.
-	•	Heavy Fighters / Drones: Medium-sized enemies that are tougher and more lethal. Some might be attack drones or bombers. They move slower than light fighters but pack a punch (e.g. firing rockets or spread shots). These enemies often lead formations of smaller ships or act as minibosses during waves. They have identifiable weak points; for instance, a bomber might carry an explosive payload that can be shot to blow it up instantly. The player might encounter one or two of these in early waves as a difficulty spike, and larger numbers in later waves.
-	•	Capital Ships (Bosses): At the end of each zone (or after a certain number of waves), the player encounters a large capital ship – essentially a boss fight. These could be enemy frigates, destroyers, or alien motherships. A capital ship is many times larger than the player’s fighter, armed with multiple turrets, laser batteries, and missile launchers. They present a multi-phase battle: the player may need to destroy several subsystems (e.g. shield generators, weapon emplacements) before the capital ship goes down. Capital ships are not very mobile (they lumber slowly), but they deploy smaller enemies as support and create a bullet-hell style challenge with all their weapons. Surviving a boss requires skillful dodging of dense fire and targeting weak spots when they expose. Defeating a capital ship clears the zone and yields high rewards (health drops, score, and guaranteed upgrade choices).
-
-Environmental Hazards:
-	•	Asteroid Fields: Many levels feature sections filled with drifting asteroids. Colliding with an asteroid will damage or even destroy the player’s ship, and enemies are equally affected. This creates a “terrain” in space that the player can use as cover (breaking line of sight with enemy ships) but also must avoid. Some asteroids can be shattered by weapons, breaking into smaller rocks. Certain waves might occur entirely inside a dense asteroid belt, forcing slow navigation. The chaotic nature of flying through asteroids channels the classic Asteroids game feeling of constant movement and threat from all sides.
-	•	Debris and Mines: In war-torn zones, fields of space junk and inactive mines float in the battlefield. Hull debris from destroyed ships can ram into the player if not avoided. There may be derelict automated turrets or mines that activate when the player’s ship is nearby. These hazards keep the player on their toes even when enemies aren’t around. For example, an early zone might have the wreckage of a previous battle – broken ships that occasionally explode or power-up when shot, causing area damage.
-	•	Nebulae and Radiation Zones: Some levels include nebulas or radiation clouds that interfere with visibility or instruments. A nebula might obscure the HUD radar and produce flickering lights, making it harder to spot enemies until they are close. Radiation zones could slowly sap the player’s shields while inside, or supercharge certain enemy types. These environmental effects add variety and can change the optimal strategy (e.g. encouraging hit-and-run tactics in a radiation area to avoid staying in damaging zones too long).
-
-Each wave will mix enemy types and hazards to create interesting combat scenarios. For example, in one wave the player might dogfight a dozen light fighters through an asteroid cluster, using the rocks as cover from their lasers. In another, a heavy drone chases the player into a debris cloud where both must dodge scrap. The design of enemies + obstacles aims for emergent moments where the player can outsmart the foes (like luring enemies into crashing into asteroids or mines). The enemy AI is kept straightforward (fighters attempt to strafe and get behind the player; heavy ships aim where the player is heading to lead shots; etc.), but in groups their patterns create complexity. As levels progress, enemy speed, durability, and firepower increase, and new enemy variants appear (e.g. fighters that shoot spread shots or use cloaking devices). This escalation keeps even veteran players challenged.
-
-Weapon & Upgrade System
-
-Star Wing features a robust roguelike-style upgrade system that allows the player to improve their ship after each level. The core idea is that after surviving a zone (or reaching certain score thresholds in endless mode), the player is offered a choice of enhancements, similar to picking a boon or card in other roguelike games. This ensures each run or campaign can evolve with a unique build, increasing replayability.
-
-Weapons: The player’s starfighter comes equipped with a basic primary weapon (for example, a simple laser cannon). As the game progresses, new weapon types can be acquired either through pickups during battle or via the upgrade choices. Weapons generally fall into categories:
-	•	Ballistic Guns: rapid-fire machine guns, spread shot cannons, flak autocannons (good for shredding small agile enemies).
-	•	Energy Weapons: lasers (precise and instant-hit), plasma bolts (slow but high damage or area-of-effect on impact), lightning guns (chain damage between multiple enemies).
-	•	Explosive Ordinance: missiles (homing missiles, dumbfire rockets with splash damage), mines or bombs you can drop behind you.
-	•	Special Weapons: experimental tech like a gravity beam that slows enemies, or a remote drone you can deploy to fight alongside you.
-
-By default, the ship might have one primary and one secondary weapon slot. Through upgrades, players can add additional weapon systems or modify existing ones (e.g. add side-mounted guns that fire alongside your main gun).
-
-Upgrade Selection (Roguelike Mechanic):
-After clearing each zone (defeating the boss or final wave), the player enters the docking bay of the carrier and is presented with three random upgrade options, out of a large pool of possible upgrades. The player may choose one, and the rest disappear. This is similar to many roguelike games where you get random power-ups – for instance, Nova Drift and Hades offer a set of random upgrades each level up, and the player must decide which best suits their build ￼. In Star Wing, these upgrades are framed as “tech enhancements” or “ship systems” being installed while docked.
-
-Upgrades come in various types:
-	•	Weapon Upgrades: Improvements or modifications to your weapons. For example, an upgrade might increase your rate of fire by 20%, or add two extra projectiles to each shot, or cause your shots to explode on impact ￼. Some upgrades might grant entirely new weapons – e.g. replacing your basic laser with a spread-shot gun, or adding a homing missile launcher as a secondary. Weapon upgrades often stack, enabling the player to craft a build (e.g. multiple fire-rate boosts turning the ship into a bullet hose, or multiple damage boosts for a heavy-hitting sniper style).
-	•	Defense Upgrades: These enhance the ship’s survivability. Examples: additional armor plating (+20% hull strength), improved shield generator (shields recharge faster or can absorb one extra hit), or an automatic emergency repair system that slowly regenerates a portion of health over time. There are also agility upgrades, like improved thrusters (increasing movement speed or maneuverability) to help dodge enemy fire.
-	•	Special Systems: These are more unique power-ups that can fundamentally change gameplay. For instance, a reflective shield that has a chance to reflect enemy lasers back at targets, or a time dilation device that briefly slows down time when the player’s health is critically low. Another special upgrade could be a drone wingman: a little autonomous drone fighter that accompanies you and fires at enemies (essentially adding an AI ally). These kinds of upgrades are rarer and might only appear later in the game or under certain conditions.
-	•	Economy/Meta Upgrades: (If applicable) Some upgrades might not affect the moment-to-moment combat directly but give meta benefits, e.g. increasing the score earned from kills (useful for scoring runs), or granting an extra choice at the next upgrade pick (in true roguelike fashion, there could be an upgrade that lets you pick 1 out of 4 options instead of 3 next time, or keep an extra unused upgrade to swap later).
-
-Each upgrade choice is presented with a short description and icon in the upgrade UI. The player has to consider synergy with their current build. For example, if you have a missile launcher, a “High-Explosive Warheads – +50% blast radius” upgrade would greatly enhance it, whereas if you’re focused on laser damage, you might skip that and take something like “Overcharged Plasma – +15% energy weapon damage”. These choices emulate the fun build-crafting found in roguelike shooters – as one reviewer noted about a similar game, layering a deep upgrade system on classic shooter gameplay yields “a recipe for chaos, and possibly the most fun” ￼. We want players to feel that same excitement in Star Wing when combining upgrades.
-
-Upgrades are largely stackable and permanent for the run. Once installed at the carrier, they remain on your ship for all subsequent zones. There is no going back or re-spec (aside from rare upgrades that might let you swap one choice). This means early choices can shape the rest of the run – do you focus on pure offense, glass-cannon style, or balance with defenses? No two playthroughs will be exactly alike. By the final levels, a fully upgraded ship will feel significantly more powerful than at start, but the game’s difficulty will have ramped up to match. Designing the upgrades to maintain balance is key: for example, even if you stack many damage boosts, enemy waves in hardcore levels should be so intense that you need that firepower just to survive.
-
-To give a sense of scope, we plan a large pool of upgrades (perhaps 30-40 different upgrade cards). Weapons themselves number around a dozen base types. Combining them yields hundreds of possible builds. (As a comparison, Steredenn features 42 weapons and 30 upgrades in its arsenal ￼ – Star Wing aims for similar richness, with its own unique upgrade ideas.)
-
-The upgrade system also incorporates randomness (RNG) in a fair way. The three choices offered are random but weighted by context – for example, the first upgrade after Zone 1 will usually include at least one defensive option (so new players can increase survivability early) and at least one weapon option. Later on, the game might start offering more exotic upgrades. There could also be a reroll mechanic: perhaps the player can spend a rare resource or accept a score penalty to reroll the three options if none fit their strategy (similar to how some games allow rerolling upgrade choices ￼). This prevents runs from being ruined by bad luck and gives skilled players more agency.
-
-Upgrade UI/Experience:
-When the player’s ship docks, the action pauses and an upgrade selection screen is shown. This UI will present the three choices with their icon, name, and description. For example, the screen might show three card-like panels:
-
-Sample upgrade selection interface with multiple mod options (inspired by roguelike shooters). The player must choose one enhancement to install.
-
-After the player clicks on one, a confirmation shows it being installed on the ship (perhaps a brief animation of the ship in the hangar getting new parts). The other two choices fade away. The game then proceeds to the next zone. This loop repeats at the end of each zone. The pace of the game is therefore intense action during waves, then a short roguelike breather where you ponder upgrades and plan for the next challenges.
-
-Level Progression
-
-The game’s progression is divided into zones (levels), each composed of multiple waves of enemies. Clearing all waves (and the boss) in a zone allows the player to jump to the next zone. As the player advances, the difficulty increases significantly. The design goal is to have a scaling challenge that starts manageable for new players but becomes brutally hard in later stages, ensuring that reaching the final zones is a badge of honor for hardcore players.
-
-Waves and Zones: Each zone might contain, say, 5 to 10 waves of enemies, followed by a boss encounter. A wave is a grouping of enemies (and sometimes hazards) that attack in a cohort. Early on, a wave might simply be “5 small fighters spawn from ahead”, but later waves become complex: multiple spawn points, mixed enemy types, and environmental hazards at the same time. There could be brief lulls between waves where the player can catch their breath and collect any power-up drops, but generally zones are continuous fights until the boss is defeated.
-
-Difficulty increases in a curve. In early zones, waves are straightforward and teach the player the basics (e.g., Zone 1 introduces light fighters, Zone 2 adds some heavies and a few asteroids). By mid-game (Zones 3-4), waves throw larger enemy counts and trickier combinations at the player – for instance, attacking simultaneously from multiple directions or pairing dangerous enemies together (covering each other’s weaknesses). Late game zones (Zone 5 onward) become extremely intense: swarms of high-level fighters, multiple heavy units at once, environmental hazards that constrain movement, etc. Later bosses also gain new abilities (like screen-filling bullet patterns or spawn reinforcements during the fight). The final zone might even throw back-to-back boss fights or a final boss with multiple forms.
-
-Importantly, the wave structure is procedurally generated to some extent. While the zones have themes and certain set-piece moments, the exact composition of enemy waves can vary each playthrough. For example, Zone 3 might always have 8 waves and a battleship boss, but the mix of enemies in each wave could be randomized within parameters (maybe one playthrough you get more missile frigates, another time more sniper drones). This procedural content keeps the game replayable and prevents players from just memorizing patterns. We employ algorithms that scale enemy count and type based on a difficulty variable per level – similar to how developers might increase spawns as an internal “diff” value rises ￼. As one approach, each wave is allotted a difficulty budget, and enemies are spawned to fill that budget (with tougher enemies consuming more of it). Thus higher zones have higher budgets, spawning more or tougher enemies. We ensure that at fixed points some enemies appear (so there’s still a progression of introducing new enemy types in set order), but beyond that, randomness rules the exact encounters.
-
-To put the challenge in perspective, the later zones are tuned to truly test experienced players. Casual or first-time players might beat Zone 1 and 2 with some effort, but likely will struggle by Zone 3 or 4 until they master the upgrade system and controls. The game could have (if feasible) an endless mode after the final zone, or an option to continue increasing difficulty infinitely to compete for high scores. The idea is similar to classic arcade games or rogue-lites where eventually the game becomes nearly impossible and tests how far you can go. Each wave beyond the intended final one would push the “diff” scaling even further, spawning enemies nearly constantly or in huge numbers to overwhelm all but the perfect build/pilot. Star Wing thus caters to both regular players (who can enjoy a campaign of finite zones) and hardcore enthusiasts (who will try to “loop” the game or beat ultra-hard endless waves for leaderboard glory).
-
-We also plan boss rush or challenge modes once the main progression is beaten, but those are secondary. The primary progression is the wave-based zones. Between each zone, as described, the player gets to upgrade at the carrier, which is critical because the difficulty assumes you are improving your ship. Without upgrades, you’d quickly be outmatched. We avoid outright grinding though – each run or session, you start relatively fresh and progress. If the game includes meta-progression (like unlocking new starting weapons or ships), that will be through accomplishing certain zones or challenges, not traditional XP grinding.
-
-The balance of the progression will require a lot of testing. We want the early experience to hook the player (exciting but not too punishing), and the later experience to be a true gauntlet. There’s no dynamic difficulty scaling to player skill (no “rubber band” mechanics that adjust on the fly, as those can frustrate players ￼); instead, it’s a steady ramp-up. If a player is struggling, they must improve their skill or strategy – possibly replay earlier zones to practice or try different upgrade combinations. Over time, dedicated players will learn the patterns and best upgrades to tackle the later waves. The satisfaction of finally beating that nearly impossible final boss with 1 HP left and a crazy combination of upgrades is the high we aim to deliver.
-
-Visual & Audio Style
-
-Star Wing’s presentation pays homage to classic arcade and 16-bit era space shooters while leveraging modern 3D tech for flashy effects. The art style is a unique mix: retro pixel-art aesthetic for ships and assets, combined with vibrant neon-colored effects inspired by cyberpunk and synthwave art. The result is a game that looks both nostalgically old-school and stylishly futuristic.
-
-A retro pixel-art space battle scene with vibrant cosmic effects. Star Wing’s art style uses pixelated textures and neon explosions to evoke a classic sci-fi arcade feel.
-
-Graphics & Art Direction: The spaceship models and environmental objects in Star Wing are low-poly 3D models textured with pixel-art skins. This means that instead of realistic hi-res textures, we use deliberately pixelated, upscaled textures that give the impression of sprite artwork (even though the game is fully 3D). In gameplay, this might look like a modern take on games such as Star Fox (polygonal ships) but rendered in a pixel art style similar to 2D shooters like Galaga or Steredenn. The color palette is rich in neon tones – glowing purples, blues, and pinks for lasers and engine glows, hot reds and oranges for explosions. Effects like thruster flames, energy shields, and laser blasts all have a bright neon glow (using additive blending in Three.js to make them bloom). This neon glow set against a darker starfield backdrop gives a cool “cyberpunk in space” vibe, reminiscent of 80s retro-futuristic art.
-
-Despite the pixel art influence, the game uses modern effects: particles, bloom, light streaks, etc. Explosions might break a ship into pixelated fragments that then dissipate. When an enemy is destroyed, it could briefly turn into an 8-bit style explosion sprite (as an homage to old games) mixed with physics-driven particle debris. We also use post-processing shaders to reinforce the retro look – possibly a slight CRT screen curvature or scanline filter (subtle, not to impede clarity), and a neon glow filter for the color highlights.
-
-The UI and text also follow a retro style – using pixel fonts or simple geometric fonts – but kept very clean and legible (no overly ornate old-school UIs that obscure information). We balance nostalgia with clarity.
-
-To illustrate the intended style, consider how Steredenn is described as “carved in big beautiful pixels, with insane boss battles” ￼ – Star Wing aims for that kind of beautiful pixel art aesthetic but in a fully 3D space. Our backgrounds are dynamic space vistas: you might see a distant galaxy or a colorful nebula skybox, rendered in a pixel-painterly style. Key objects (like asteroids, space stations, etc.) are pixel-textured models to maintain consistency.
-
-Audio & Music: The soundtrack is decidedly synth-heavy and electronic to match the neon visuals. We will have an original score that takes inspiration from synthwave and retro electronic music. Thumping bass lines, soaring synthesizer melodies, and occasional electric guitar riffs (think 80s sci-fi action movie vibes) will accompany the action. Each zone might have its own track that ramps up in intensity as waves progress or as bosses appear. The music should evoke a sense of high-energy combat and futuristic atmosphere. Many modern retro-styled games lean on synthwave for this reason – it immediately sets a sci-fi mood and feels both retro and fresh. For example, an indie space shooter project describes itself as “a synthwave styled space shooter, inspired by the 80s arcades” with an awesome soundtrack ￼ – Star Wing fits into that niche as well.
-
-During quieter moments (like upgrade selection or briefings), the music can drop to a more ambient, toned-down piece – perhaps a simple cosmic ambient pad or a nostalgic melody – giving the player a breather. But once the next battle begins, the beat drops again.
-
-Sound effects are punchy and also somewhat retro. Lasers have that classic “pew pew” but with a modern punch layered in. Explosions are loud with pixelated crackle. We might incorporate some synthesized chiptune elements in the sound effects (for instance, the sound when you pick up an upgrade could be a little arpeggiated jingle, like grabbing a power-up in an old arcade game). The audio design will make sure the player gets clear feedback: different weapons have distinct sound profiles, enemies have audio cues (a warning siren for incoming missiles, or the growl of a boss engine), and UI actions (like selecting an upgrade or low health warning) are accompanied by appropriate beeps or alarms.
-
-Overall, the visual and audio style work hand-in-hand to deliver a cohesive retro-sci-fi feel. Imagine playing a space shooter on an arcade cabinet in a 1980s neon-lit arcade – that’s the feeling we want, but delivered through a modern web browser. The neon pixel art and synth music aren’t just for nostalgia; they also ensure the game stands out stylistically among other Three.js games which often go for realism. This style also has practical benefits: pixel art assets can be lighter and less demanding to render, helping us keep performance smooth (important since we prioritize fast action). And synth music, often being digitally produced, is easier to implement dynamically (we can layer tracks, trigger extra synth layers during boss fights, etc.).
-
-Technical Details
-
-Under the hood, Star Wing is powered by Three.js, a JavaScript 3D library, to render the action in the browser with WebGL. We take advantage of Three.js features while optimizing carefully for performance, aiming for a smooth 60 FPS gameplay even with dozens of objects on screen and flashy effects.
-
-Engine & Procedural Generation: The game’s levels (waves composition, enemy spawns, obstacle placement) are generated procedurally using predefined rulesets. We define spawn patterns (formations, timings) and then randomize within those constraints. For example, a simple algorithm for an endless wave system might have a difficulty value diff that increases over time, and spawn intervals shorten and enemy counts rise as diff goes up ￼. In Star Wing, each zone’s difficulty progression is configured but with randomness: one wave may choose a random formation pattern from a set appropriate for the current difficulty level. We ensure that as difficulty increases, not just enemy count but enemy composition gets harder (e.g. introducing shielded enemies or ones with trickier AI).
-
-Three.js will handle rendering of the 3D scene: models for ships, particles for bullets, and so on. We utilize efficient techniques such as object pooling (recycling bullet objects rather than constantly creating/deleting), and possibly instanced rendering for large numbers of similar enemies (to minimize draw calls when many fighters are on screen). Because the game can have many projectiles and explosions, we lean on GPU particle systems and Three.js’s ability to handle particle sprites.
-
-Collision detection (for bullets hitting ships, ships hitting asteroids, etc.) can be implemented using simple bounding spheres or boxes for performance. Given the arcade nature, hitboxes might intentionally be a bit forgiving (slightly smaller than the sprite) to make dodging feel fair. Three.js doesn’t have built-in physics beyond basic, so we’ll likely implement custom collision checks each frame – which is feasible with the number of entities (for example, checking each bullet against nearby enemies, possibly optimizing by spatial partitioning if needed).
-
-We also consider using shaders for effects: custom fragment shaders for the neon glow or pixelation effect. Three.js allows writing custom shader materials, which we’ll use for things like a shield effect that scrolls a glimmer across the ship when hit, or a cloaking device effect that warps the background stars behind an object.
-
-Performance Optimization: Since this is a browser game, we must ensure it runs well on common desktop hardware without requiring a high-end GPU. We will target a reasonable baseline (for instance, a typical laptop with integrated graphics should handle early levels, while a mid-range gaming PC easily handles everything). To achieve this, we’ll do the following:
-	•	Limit the polygon count of models (using low-poly ships fits our art style anyway). Pixel textures are also low-resolution by nature.
-	•	Use Level of Detail (LOD) if necessary – e.g., very distant ships or debris might be rendered as simpler sprites or not at all if off-screen.
-	•	Optimize particle effects: heavy use of particles can slow down WebGL, so we cap the number of active particles and fade them out quickly. Explosions might spawn, say, 20 particle sprites instead of 100, if 20 can visually suffice with a good shader.
-	•	Frustum culling: Three.js automatically culls objects outside the camera view. We ensure all objects have appropriate bounding volumes set so this works efficiently.
-	•	Minimize expensive physics or math in the main loop. We’ll pre-compute paths for enemy waves whenever possible rather than have complex AI. Enemies can use simple state machines or sine-wave movement patterns (common in shmups) which are computationally cheap.
-	•	Profiling and iterating: We’ll test with many enemies on screen to find bottlenecks. If needed, we’ll dial down some effects or provide a settings option to disable certain graphics (like turning off the CRT filter or reducing particle density for performance).
-
-It’s notable that one Three.js developer of a similar project said they “learned a lot about rendering pipeline, optimisations, shaders etc.” and initially the game “requires a bit of hardware” but they planned to improve optimization ￼. We take those lessons to heart from the start: building with optimization in mind so that Star Wing runs smoothly without needing cutting-edge hardware.
-
-Browser Considerations: The game will run in a desktop browser (Chrome, Firefox, etc.) with WebGL enabled. We’ll test across major browsers. There is no mobile support, which lets us use WebGL 2.0 features freely and not worry about downscaling for weaker mobile GPUs. Memory management is important in JavaScript, so we avoid garbage generation in the game loop to prevent GC stutters – e.g., reuse objects and arrays.
-
-We might use additional libraries for ease: e.g. GSAP or Three.js’s built-in Tween for smooth UI transitions, howler.js for audio to ensure consistent sound playback across browsers, etc. The game will likely be packaged with a bundler for distribution, and possibly deployed on a site like itch.io or our own server.
-
-Procedural Content & Random Seed: If we include a daily challenge or leaderboard, we might generate levels based on a random seed. Otherwise, pure randomness each run is fine for a single-player experience. The procedural generation is tuned to maintain fairness – we won’t generate completely impossible scenarios (our generator ensures a balance in spawns). This might involve constraints like “don’t spawn more than X heavy enemies at once before a certain zone” or “always give at least one health drop every Y waves”. These rules are behind the scenes but important for a good difficulty curve.
-
-Saving and Persistence: Since this is likely a roguelike structure, persistent progression is minimal (it’s about the run itself). However, we can allow saving the game state between zones for convenience (so you could close the browser and resume at the start of the last zone you reached, with your upgrades). Also, high scores or highest zone reached could be saved to local storage or a backend for leaderboards.
-
-UX & UI
-
-The user experience and interface in Star Wing are designed to be minimalist but clear, providing all necessary info at a glance without cluttering the screen. During the heat of battle, the player should be focusing on dodging and shooting, not deciphering the HUD – so we adhere to the principle of a “minimalist HUD” that keeps on-screen elements simple and unobtrusive, showing only essential information ￼.
-
-In-Game HUD:
-While flying and fighting, the player sees a heads-up display with a few key elements:
-	•	Health/Shields: A simple bar indicator (or two bars if we separate hull integrity and shield strength). This is usually at a corner or along the bottom edge. We might use a classic green bar for hull and blue bar for shields, or hearts/segments if using a retro metaphor. Numeric values can accompany (e.g. “75/100” health), but the bar gives the quick visual cue.
-	•	Weapon Status: Icons for current weapons equipped (primary and secondary). Next to each icon, if relevant, an ammo count or cooldown indicator. For example, if you have missiles with limited ammo, an icon of a missile with “5” next to it. If unlimited, no number. If a weapon overheats, a little meter or changing color on its icon might show heat level.
-	•	Ability Cooldowns: If you have special abilities (like that barrel roll dodge or a deployable drone), their icons and cooldown timers appear in a small UI cluster (say, bottom right). These use simple progress circles or a faded icon that brightens when ready.
-	•	Radar/Minimap: A small radar display helps situate enemies around you. This could be a circular radar dial showing enemy positions as blips relative to the player. The radar likely ranges a short distance (so surprise attacks can still happen from off-screen). It helps prevent situations where an enemy is behind you and you have no idea – a quick glance at radar shows a red dot behind, prompting you to turn. The radar is kept minimal – perhaps just outlines with different colored dots (red for enemies, maybe white for objectives).
-	•	Score and Wave Info: Somewhere unobtrusive (top of screen, small font) we show the current score and the current wave/zone number. For example, “Zone 3 – Wave 4/8” so the player knows progress in the level. Score is mainly for arcade enthusiasts; it could also flash when you gain points or combo multipliers if we have those mechanics.
-	•	Warnings: If the player’s health is critically low, or if a boss is incoming, temporary warning messages or icons appear. E.g. the health bar might start flashing red at <20% health, and text “WARNING!” might appear when a boss spawns (with maybe an arrow pointing toward the boss initial location).
-
-This HUD will use a transparent background or simple frame graphics – we keep it diegetic if possible (like it feels like a cockpit HUD overlay). By default, we avoid any flashy UI elements that distract from the game world. The color scheme for UI is likely a monochrome or duochrome style (white or light gray text/icons, maybe with a neon accent color for highlights) to match the game’s aesthetics but also stand out against the space background.
-
-Importantly, the HUD is fixed and does not overwhelm the screen. The play area remains largely clean. As per minimalist HUD design guidelines, we’re only showing what the player truly needs in combat ￼. That means no big decorative borders, no persistent large text blocks, etc. The interface should “disappear” in the player’s mind as they concentrate on action.
-
-Upgrade Selection UI:
-As described earlier, when it’s time to choose an upgrade, the game essentially pauses and a panel UI comes up. This interface lists three upgrade cards, each with:
-	•	A title (e.g. “Shield Overcharger”),
-	•	An icon (illustrating the upgrade type, like a shield emblem),
-	•	A short description (“Shields recharge 50% faster but max shield -20%” for example).
-We also possibly show the keyboard number keys or mouse click to select them (like [1], [2], [3] labels) to quickly pick via keyboard or just click on one with the mouse. This interface should be easy to read – using a slightly larger pixel font or a clean vector font. Because the game is paused here, we can allow more text (a couple of lines description each) without worrying about distracting the player during action.
-
-We ensure consistency in the look: these panels might have a stylized border (maybe looking like digital cards or monitors from your ship’s computer). The background of the upgrade screen could be a semi-transparent overlay so you still faintly see your docked ship in the hangar, reinforcing the narrative of upgrading at the carrier.
-
-If the player has a radar or map in-game, that likely fades out during upgrade selection to declutter the view, since it’s not needed then.
-
-Menus and Other UI:
-	•	The main menu (and pause menu) will be straightforward: retro-inspired text and maybe an animated starfield background. Options like “Start Game”, “Options”, “Controls” in a column. Perhaps styled as computer console text to fit the theme (imagine a terminal on your space carrier).
-	•	Options menu includes things like volume sliders, graphics toggles (maybe turning off CRT filter, adjusting effects if needed), key bindings, etc. We keep even these screens simple, not too many sub-menus.
-	•	HUD Customization: Possibly provide the player the option to move HUD elements or scale them. At minimum, an option to toggle the radar on/off or the display of the score might be given, to satisfy players who want an even more minimal screen or a more arcade info-heavy screen.
-	•	Feedback & Tutorial: The first time playing, subtle tutorial prompts can appear as floating text near relevant UI. For example, “WASD to move” could appear near the ship, or an arrow pointing to the health bar saying “Your Shield & Hull”. These would fade after a few seconds or once the player performs the action. This makes the game accessible without a separate tutorial level.
-
-Throughout all UI, we stick to the theme: minimal, neon-accented, pixel-flavored. That means maybe using pixelated icons and a limited color palette for UI elements (for consistency). Yet, clarity is king. We will user-test to ensure players can read everything easily and the HUD conveys info instantly. The font choice will likely be a legible pixel font for numbers (as those feel thematic) – many retro-style games use bitmap fonts that are very readable even at small sizes.
-
-In summary, Star Wing’s UX is designed so that the player feels immersed and informed. In battle, the HUD gives them the vital data (health, ammo, enemies around) without distracting from the action. In between battles, the UI for upgrades and menus is intuitive and stylistically aligned with the game’s retro-future theme. As one UX principle puts it, a clean interface can help players stay “in control throughout their gameplay journey” ￼ ￼ – our goal is exactly that: the interface should enhance the experience and never frustrate the player.
-
-Conclusion
-
-Star Wing is an amalgam of classic arcade shooter design and modern game elements, wrapped in a distinctive audio-visual style. This Game Design Document has outlined the key components: a lone pilot story driving wave-based levels; tight keyboard/mouse controls for agile ship movement and aiming; a diverse cast of enemies and hazards making each wave challenging; a roguelike upgrade system giving meaningful choices and ship customization; difficulty that ramps up to test even hardcore players; a consistent retro pixel-art and synthwave aesthetic; and the technical plan to implement and optimize all these features in Three.js for the web platform.
-
-With this design blueprint, the development team can move forward in creating a playable prototype, iterating on the feel of the controls and combat. The GDD will guide content creation (art, sound, levels) to ensure everything aligns with the envisioned experience. Star Wing aims to deliver fast-paced space action that is easy to pick up but hard to master, appealing to both nostalgic fans of space shooters and new players looking for a fresh browser game challenge. By adhering to this design document, we will build a game that is cohesive, fun, and memorable – putting players at the helm of a neon-soaked starfighter in an epic fight for survival among the stars.
+- Three.js community for 3D graphics support
+- Pixel art and synthwave communities for aesthetic inspiration
+- Classic space shooters for gameplay inspiration
