@@ -7,15 +7,20 @@ export class LoadingScreen {
   private executeButton!: HTMLDivElement;
   private ellipsisState: number = 0;
   private ellipsisInterval!: number;
+  private cursorBlinkInterval!: number;
   private buildLines: string[] = [
     "Initializing build environment...",
     "Compiling star-wing kernel components...",
     "Building navigation subsystems...",
     "Linking weapon modules...",
-    "Generating star field patterns...",
-    "Optimizing render pipeline...",
-    "Calibrating physics engine...",
-    "Loading audio drivers...",
+    "Charging laser banks to 42%...",
+    "Defragmenting hyperdrive memory allocations...",
+    "Converting caffeine to code efficiency...",
+    "Polishing pixels for maximum shininess...",
+    "Tuning synthwave oscillators to resonant frequency...",
+    "Injecting nostalgia modules into memory banks...",
+    "Increasing lens flare coefficient by 80s factor...",
+    "Feeding mogwai after midnight, contrary to warnings...",
     "Finalizing build process...",
   ];
 
@@ -55,14 +60,24 @@ export class LoadingScreen {
     this.terminal.style.border = "1px solid #33ff33";
     this.terminal.style.borderRadius = "5px";
     this.terminal.style.padding = "15px";
-    this.terminal.style.fontFamily = "monospace";
+    this.terminal.style.fontFamily = 'Courier, "Courier New", monospace';
     this.terminal.style.color = "#33ff33";
     this.terminal.style.fontSize = "14px";
     this.terminal.style.overflow = "hidden";
     this.terminal.style.boxShadow = "0 0 10px rgba(51, 255, 51, 0.5)";
-    this.terminal.style.display = "flex";
-    this.terminal.style.flexDirection = "column-reverse"; // New lines at bottom
-    this.terminal.style.textAlign = "left"; // Ensure text remains left-aligned
+
+    // Create an inner container for the text that can scroll
+    const terminalContent = document.createElement("div");
+    terminalContent.style.display = "flex";
+    terminalContent.style.flexDirection = "column-reverse"; // New lines at bottom
+    terminalContent.style.height = "100%";
+    terminalContent.style.overflowY = "hidden"; // No scroll bars but content can overflow
+    terminalContent.style.textAlign = "left";
+    terminalContent.style.fontFamily = 'Courier, "Courier New", monospace';
+    this.terminal.appendChild(terminalContent);
+
+    // Store reference to terminal content in the terminal element
+    this.terminal.dataset.content = "true";
 
     // Loading text below terminal
     this.loadingText = document.createElement("div");
@@ -70,7 +85,7 @@ export class LoadingScreen {
     this.loadingText.style.left = "50%";
     this.loadingText.style.transform = "translateX(-50%)";
     this.loadingText.style.top = "calc(50% + 160px)"; // Position below the terminal
-    this.loadingText.style.fontFamily = "monospace";
+    this.loadingText.style.fontFamily = 'Courier, "Courier New", monospace';
     this.loadingText.style.color = "#33ff33";
     this.loadingText.style.fontSize = "18px";
     this.loadingText.textContent = "Loading...";
@@ -85,14 +100,17 @@ export class LoadingScreen {
     this.executeButton.style.backgroundColor = "#000";
     this.executeButton.style.border = "2px solid #33ff33";
     this.executeButton.style.borderRadius = "5px";
-    this.executeButton.style.fontFamily = "monospace";
+    this.executeButton.style.fontFamily = 'Courier, "Courier New", monospace';
     this.executeButton.style.color = "#33ff33";
     this.executeButton.style.fontSize = "20px";
     this.executeButton.style.cursor = "pointer";
     this.executeButton.style.display = "none";
     this.executeButton.style.boxShadow = "0 0 15px rgba(51, 255, 51, 0.7)";
     this.executeButton.style.textAlign = "center";
-    this.executeButton.textContent = "> CLICK TO EXECUTE PROGRAM";
+
+    // The base text for the button - will be updated with cursor
+    const baseButtonText = "> CLICK TO EXECUTE PROGRAM";
+    this.executeButton.textContent = baseButtonText + "█"; // Start with block cursor
 
     // Add hover effect for button
     this.executeButton.addEventListener("mouseover", () => {
@@ -137,6 +155,8 @@ export class LoadingScreen {
 
   private startBuildProcess(): void {
     let lineIndex = 0;
+    // Get terminal content div
+    const terminalContent = this.terminal.firstChild as HTMLDivElement;
 
     const addLine = (text: string) => {
       const line = document.createElement("div");
@@ -145,14 +165,14 @@ export class LoadingScreen {
       line.style.overflow = "hidden";
       line.style.textAlign = "left";
 
-      // Add line at the beginning (bottom) of the terminal
-      if (this.terminal.firstChild) {
-        this.terminal.insertBefore(line, this.terminal.firstChild);
+      // Add line at the beginning (bottom) of the terminal content
+      if (terminalContent.firstChild) {
+        terminalContent.insertBefore(line, terminalContent.firstChild);
       } else {
-        this.terminal.appendChild(line);
+        terminalContent.appendChild(line);
       }
 
-      // Type-writer effect
+      // Type-writer effect - faster typing speed
       let charIndex = 0;
       const typingInterval = setInterval(() => {
         if (charIndex < text.length) {
@@ -163,19 +183,23 @@ export class LoadingScreen {
           clearInterval(typingInterval);
           processNextLine();
         }
-      }, 30);
+      }, 15); // Faster typing (was 30)
     };
 
     const processNextLine = () => {
       if (lineIndex < this.buildLines.length) {
+        // Consistent shorter delay between lines
+        const delay = 100 + Math.random() * 100; // Much faster delay between lines
+
         setTimeout(() => {
           addLine(this.buildLines[lineIndex]);
           lineIndex++;
-        }, 200 + Math.random() * 300);
+        }, delay);
       } else {
+        // Show button sooner after last line
         setTimeout(() => {
           this.showExecuteButton();
-        }, 1000);
+        }, 500); // Was 1000
       }
     };
 
@@ -210,15 +234,33 @@ export class LoadingScreen {
       this.executeButton.style.boxShadow = `0 0 15px rgba(51, 255, 51, ${glowIntensity})`;
     }, 50);
 
-    // Store interval to clear on hide
+    // Add terminal cursor blinking effect to button text
+    const baseButtonText = "> CLICK TO EXECUTE PROGRAM";
+    let cursorVisible = true;
+
+    this.cursorBlinkInterval = window.setInterval(() => {
+      cursorVisible = !cursorVisible;
+      this.executeButton.textContent =
+        baseButtonText + (cursorVisible ? "█" : " ");
+    }, 530); // Slightly off from 500ms to create a more authentic feel
+
+    // Store intervals to clear on hide
     this.executeButton.dataset.glowInterval = String(glowInterval);
+    this.executeButton.dataset.cursorInterval = String(
+      this.cursorBlinkInterval
+    );
   }
 
   public hide(): void {
-    // Clear any intervals
+    // Clear all intervals
     clearInterval(this.ellipsisInterval);
+    clearInterval(this.cursorBlinkInterval);
+
     if (this.executeButton.dataset.glowInterval) {
       clearInterval(parseInt(this.executeButton.dataset.glowInterval));
+    }
+    if (this.executeButton.dataset.cursorInterval) {
+      clearInterval(parseInt(this.executeButton.dataset.cursorInterval));
     }
 
     document.body.removeChild(this.container);
