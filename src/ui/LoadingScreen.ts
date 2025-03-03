@@ -8,21 +8,80 @@ export class LoadingScreen {
   private ellipsisState: number = 0;
   private ellipsisInterval!: number;
   private cursorBlinkInterval!: number;
-  private buildLines: string[] = [
+
+  // Fixed initial build messages
+  private initialBuildMessages: string[] = [
     "Initializing build environment...",
     "Compiling star-wing kernel components...",
     "Building navigation subsystems...",
     "Linking weapon modules...",
-    "Charging laser banks to 42%...",
-    "Defragmenting hyperdrive memory allocations...",
-    "Converting caffeine to code efficiency...",
-    "Polishing pixels for maximum shininess...",
-    "Tuning synthwave oscillators to resonant frequency...",
-    "Injecting nostalgia modules into memory banks...",
-    "Increasing lens flare coefficient by 80s factor...",
-    "Feeding mogwai after midnight, contrary to warnings...",
-    "Finalizing build process...",
   ];
+
+  // Fixed final build messages
+  private finalBuildMessages: string[] = ["Finalizing build process..."];
+
+  // Arrays of possible easter egg messages for each slot
+  private easterEggOptions: string[][] = [
+    // Slot 1 options
+    [
+      "Charging laser banks to 42%...",
+      "Calibrating primary weapon systems...",
+      "Aligning targeting matrix...",
+      "Loading photon torpedo modules...",
+    ],
+    // Slot 2 options
+    [
+      "Defragmenting hyperdrive memory allocations...",
+      "Optimizing warp field parameters...",
+      "Recalibrating flux capacitor...",
+      "Initializing quantum probability field...",
+    ],
+    // Slot 3 options
+    [
+      "Converting caffeine to code efficiency...",
+      "Brewing coffee for late-night coders...",
+      "Calculating optimal dev-to-snack ratio...",
+      "Refactoring spaghetti into lasagna code...",
+    ],
+    // Slot 4 options
+    [
+      "Polishing pixels for maximum shininess...",
+      "Rendering lens flares at 110% intensity...",
+      "Buffing sprites to a mirror finish...",
+      "Applying bloom filter to explosions...",
+    ],
+    // Slot 5 options
+    [
+      "Tuning synthwave oscillators to resonant frequency...",
+      "Adjusting reverb on background music...",
+      "Sampling 80s drum machines...",
+      "Setting bass levels to retrowave standards...",
+    ],
+    // Slot 6 options
+    [
+      "Injecting nostalgia modules into memory banks...",
+      "Loading cassette tape aesthetic...",
+      "Implementing CRT scan line filter...",
+      "Simulating VHS distortion effects...",
+    ],
+    // Slot 7 options
+    [
+      "Increasing lens flare coefficient by 80s factor...",
+      "Consulting design docs from 1986...",
+      "Setting neon glow to maximum intensity...",
+      "Implementing chrome typography standards...",
+    ],
+    // Slot 8 options
+    [
+      "Feeding mogwai after midnight, contrary to warnings...",
+      "Installing cow-level secret area...",
+      "Hiding konami code easter egg...",
+      "Running npm install --universe...",
+    ],
+  ];
+
+  // Build final message array with random selections
+  private buildLines: string[] = this.generateBuildLines();
 
   constructor(
     private onComplete: () => void,
@@ -30,6 +89,21 @@ export class LoadingScreen {
   ) {
     this.createElements();
     this.startBuildProcess();
+  }
+
+  private generateBuildLines(): string[] {
+    const lines: string[] = [...this.initialBuildMessages];
+
+    // Add random selection from each easter egg option array
+    this.easterEggOptions.forEach((optionsArray) => {
+      const randomIndex = Math.floor(Math.random() * optionsArray.length);
+      lines.push(optionsArray[randomIndex]);
+    });
+
+    // Add final build messages
+    lines.push(...this.finalBuildMessages);
+
+    return lines;
   }
 
   private createElements(): void {
