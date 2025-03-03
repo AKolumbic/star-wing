@@ -42,53 +42,67 @@ export class LoadingScreen {
     this.container.style.alignItems = "center";
     this.container.style.justifyContent = "center";
 
-    // Terminal window
+    // Terminal window - centered both horizontally and vertically
     this.terminal = document.createElement("div");
-    this.terminal.style.width = "80%";
-    this.terminal.style.maxWidth = "800px";
-    this.terminal.style.height = "60%";
-    this.terminal.style.backgroundColor = "#000";
+    this.terminal.style.position = "absolute";
+    this.terminal.style.left = "50%";
+    this.terminal.style.top = "50%";
+    this.terminal.style.transform = "translate(-50%, -50%)";
+    this.terminal.style.width = "600px";
+    this.terminal.style.maxWidth = "80%";
+    this.terminal.style.height = "300px";
+    this.terminal.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
     this.terminal.style.border = "1px solid #33ff33";
     this.terminal.style.borderRadius = "5px";
-    this.terminal.style.padding = "20px";
+    this.terminal.style.padding = "15px";
     this.terminal.style.fontFamily = "monospace";
     this.terminal.style.color = "#33ff33";
     this.terminal.style.fontSize = "14px";
     this.terminal.style.overflow = "hidden";
-    this.terminal.style.boxShadow = "0 0 10px #33ff33";
+    this.terminal.style.boxShadow = "0 0 10px rgba(51, 255, 51, 0.5)";
+    this.terminal.style.display = "flex";
+    this.terminal.style.flexDirection = "column-reverse"; // New lines at bottom
+    this.terminal.style.textAlign = "left"; // Ensure text remains left-aligned
 
-    // Loading text at the bottom
+    // Loading text below terminal
     this.loadingText = document.createElement("div");
-    this.loadingText.style.marginTop = "20px";
+    this.loadingText.style.position = "absolute";
+    this.loadingText.style.left = "50%";
+    this.loadingText.style.transform = "translateX(-50%)";
+    this.loadingText.style.top = "calc(50% + 160px)"; // Position below the terminal
     this.loadingText.style.fontFamily = "monospace";
     this.loadingText.style.color = "#33ff33";
     this.loadingText.style.fontSize = "18px";
     this.loadingText.textContent = "Loading...";
 
-    // Execute button (hidden initially)
+    // Execute button (hidden initially) - centered with glow
     this.executeButton = document.createElement("div");
-    this.executeButton.style.marginTop = "30px";
-    this.executeButton.style.padding = "10px 20px";
+    this.executeButton.style.position = "absolute";
+    this.executeButton.style.top = "50%";
+    this.executeButton.style.left = "50%";
+    this.executeButton.style.transform = "translate(-50%, -50%)";
+    this.executeButton.style.padding = "15px 25px";
     this.executeButton.style.backgroundColor = "#000";
     this.executeButton.style.border = "2px solid #33ff33";
     this.executeButton.style.borderRadius = "5px";
     this.executeButton.style.fontFamily = "monospace";
     this.executeButton.style.color = "#33ff33";
-    this.executeButton.style.fontSize = "16px";
+    this.executeButton.style.fontSize = "20px";
     this.executeButton.style.cursor = "pointer";
     this.executeButton.style.display = "none";
+    this.executeButton.style.boxShadow = "0 0 15px rgba(51, 255, 51, 0.7)";
+    this.executeButton.style.textAlign = "center";
     this.executeButton.textContent = "> CLICK TO EXECUTE PROGRAM";
-    this.executeButton.style.boxShadow = "0 0 5px #33ff33";
 
     // Add hover effect for button
     this.executeButton.addEventListener("mouseover", () => {
-      this.executeButton.style.backgroundColor = "#33ff33";
-      this.executeButton.style.color = "#000";
+      this.executeButton.style.backgroundColor = "rgba(51, 255, 51, 0.2)";
+      this.executeButton.style.boxShadow = "0 0 25px rgba(51, 255, 51, 0.9)";
     });
 
     this.executeButton.addEventListener("mouseout", () => {
       this.executeButton.style.backgroundColor = "#000";
-      this.executeButton.style.color = "#33ff33";
+      this.executeButton.style.boxShadow = "0 0 15px rgba(51, 255, 51, 0.7)";
     });
 
     // Add click handler
@@ -129,6 +143,14 @@ export class LoadingScreen {
       line.style.marginBottom = "8px";
       line.style.whiteSpace = "nowrap";
       line.style.overflow = "hidden";
+      line.style.textAlign = "left";
+
+      // Add line at the beginning (bottom) of the terminal
+      if (this.terminal.firstChild) {
+        this.terminal.insertBefore(line, this.terminal.firstChild);
+      } else {
+        this.terminal.appendChild(line);
+      }
 
       // Type-writer effect
       let charIndex = 0;
@@ -142,8 +164,6 @@ export class LoadingScreen {
           processNextLine();
         }
       }, 30);
-
-      this.terminal.appendChild(line);
     };
 
     const processNextLine = () => {
@@ -164,31 +184,43 @@ export class LoadingScreen {
   }
 
   private showExecuteButton(): void {
-    // Change loading text to completed
-    this.loadingText.textContent = "Build process completed";
-    this.loadingText.style.color = "#ffffff";
-
-    // Clear blinking interval
+    // Stop the loading ellipsis animation and hide the loading text
     clearInterval(this.ellipsisInterval);
+    this.loadingText.style.display = "none";
 
-    // Show execute button with a blink effect
+    // Show execute button
     this.executeButton.style.display = "block";
 
-    let blinkCount = 0;
-    const blinkInterval = setInterval(() => {
-      this.executeButton.style.visibility =
-        this.executeButton.style.visibility === "hidden" ? "visible" : "hidden";
-      blinkCount++;
-
-      if (blinkCount > 5) {
-        clearInterval(blinkInterval);
-        this.executeButton.style.visibility = "visible";
+    // Add pulsing glow effect
+    let glowIntensity = 0.7;
+    let increasing = true;
+    const glowInterval = setInterval(() => {
+      if (increasing) {
+        glowIntensity += 0.05;
+        if (glowIntensity >= 1.0) {
+          increasing = false;
+        }
+      } else {
+        glowIntensity -= 0.05;
+        if (glowIntensity <= 0.7) {
+          increasing = true;
+        }
       }
-    }, 300);
+
+      this.executeButton.style.boxShadow = `0 0 15px rgba(51, 255, 51, ${glowIntensity})`;
+    }, 50);
+
+    // Store interval to clear on hide
+    this.executeButton.dataset.glowInterval = String(glowInterval);
   }
 
   public hide(): void {
-    document.body.removeChild(this.container);
+    // Clear any intervals
     clearInterval(this.ellipsisInterval);
+    if (this.executeButton.dataset.glowInterval) {
+      clearInterval(parseInt(this.executeButton.dataset.glowInterval));
+    }
+
+    document.body.removeChild(this.container);
   }
 }
