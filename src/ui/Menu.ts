@@ -1,4 +1,5 @@
 import { Game } from "../core/Game";
+import { Settings } from "./Settings";
 
 export class Menu {
   private container: HTMLDivElement;
@@ -6,11 +7,13 @@ export class Menu {
   private currentSelection: number = 0;
   private menuOptions: string[] = ["START GAME", "SETTINGS", "HIGH SCORES"];
   private game: Game;
+  private settings: Settings;
 
   constructor(game: Game) {
     this.game = game;
     this.container = document.createElement("div");
     this.container.className = "terminal-overlay";
+    this.settings = new Settings(game);
     this.setupStyles();
     this.setupMenu();
   }
@@ -332,7 +335,7 @@ export class Menu {
         if (option === "START GAME") {
           this.hide();
         } else if (option === "SETTINGS") {
-          this.showControls();
+          this.showSettings();
         }
       });
       menuSection.appendChild(menuOption);
@@ -355,10 +358,6 @@ export class Menu {
 
     // Setup keyboard navigation
     document.addEventListener("keydown", this.handleKeyDown.bind(this));
-
-    // Add mute button to the menu
-    const muteButton = this.createMuteButton();
-    this.container.appendChild(muteButton);
   }
 
   private handleKeyDown(event: KeyboardEvent): void {
@@ -396,13 +395,19 @@ export class Menu {
     if (selectedOption === "START GAME") {
       this.hide();
     } else if (selectedOption === "SETTINGS") {
-      this.showControls();
+      this.showSettings();
     }
   }
 
-  private showControls(): void {
-    // In a real implementation, we would show the settings screen
-    console.log("Show settings");
+  private showSettings(): void {
+    // Hide the menu container but stay "active" logically
+    this.container.style.display = "none";
+    this.settings.show();
+
+    // Set up a callback to restore the menu when settings are closed
+    this.settings.setOnCloseCallback(() => {
+      this.container.style.display = "flex";
+    });
   }
 
   show(): void {
@@ -422,29 +427,6 @@ export class Menu {
   dispose(): void {
     document.body.removeChild(this.container);
     document.removeEventListener("keydown", this.handleKeyDown.bind(this));
-  }
-
-  private createMuteButton(): HTMLElement {
-    const muteButton = document.createElement("div");
-    muteButton.className = "pixel-button mute-button";
-    muteButton.textContent = "🔊";
-    muteButton.style.position = "absolute";
-    muteButton.style.bottom = "20px";
-    muteButton.style.right = "20px";
-    muteButton.style.cursor = "pointer";
-    muteButton.style.padding = "8px";
-    muteButton.style.color = "#00ff00";
-
-    let muted = false;
-
-    muteButton.addEventListener("click", () => {
-      if (this.game) {
-        this.game.getAudioManager().toggleMute();
-        muted = !muted;
-        muteButton.textContent = muted ? "🔇" : "��";
-      }
-    });
-
-    return muteButton;
+    this.settings.dispose();
   }
 }

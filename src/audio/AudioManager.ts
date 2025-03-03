@@ -167,6 +167,10 @@ export class AudioManager {
     this.mainGainNode.gain.value = this.isMuted ? 0 : 0.6;
   }
 
+  public getMuteState(): boolean {
+    return this.isMuted;
+  }
+
   private scheduleBeats(): void {
     // Log debugging info
     console.log(

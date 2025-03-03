@@ -187,15 +187,15 @@ export class LoadingScreen {
     this.executeButton.textContent = baseButtonText + "█"; // Start with block cursor
 
     // Add hover effect for button
-    this.executeButton.addEventListener("mouseover", () => {
-      this.executeButton.style.backgroundColor = "rgba(51, 255, 51, 0.2)";
-      this.executeButton.style.boxShadow = "0 0 25px rgba(51, 255, 51, 0.9)";
-    });
+    // this.executeButton.addEventListener("mouseover", () => {
+    //   this.executeButton.style.backgroundColor = "rgba(51, 255, 51, 0.2)";
+    //   this.executeButton.style.boxShadow = "0 0 25px rgba(51, 255, 51, 0.9)";
+    // });
 
-    this.executeButton.addEventListener("mouseout", () => {
-      this.executeButton.style.backgroundColor = "#000";
-      this.executeButton.style.boxShadow = "0 0 15px rgba(51, 255, 51, 0.7)";
-    });
+    // this.executeButton.addEventListener("mouseout", () => {
+    //   this.executeButton.style.backgroundColor = "#000";
+    //   this.executeButton.style.boxShadow = "0 0 15px rgba(51, 255, 51, 0.7)";
+    // });
 
     // Add click handler
     this.executeButton.addEventListener("click", () => {
@@ -289,24 +289,27 @@ export class LoadingScreen {
     // Show execute button
     this.executeButton.style.display = "block";
 
-    // Add pulsing glow effect
-    let glowIntensity = 0.7;
-    let increasing = true;
-    const glowInterval = setInterval(() => {
-      if (increasing) {
-        glowIntensity += 0.05;
-        if (glowIntensity >= 1.0) {
-          increasing = false;
-        }
-      } else {
-        glowIntensity -= 0.05;
-        if (glowIntensity <= 0.7) {
-          increasing = true;
-        }
-      }
+    // Remove hover effect - commenting out the pulsing glow effect
+    // let glowIntensity = 0.7;
+    // let increasing = true;
+    // const glowInterval = setInterval(() => {
+    //   if (increasing) {
+    //     glowIntensity += 0.05;
+    //     if (glowIntensity >= 1.0) {
+    //       increasing = false;
+    //     }
+    //   } else {
+    //     glowIntensity -= 0.05;
+    //     if (glowIntensity <= 0.7) {
+    //       increasing = true;
+    //     }
+    //   }
 
-      this.executeButton.style.boxShadow = `0 0 15px rgba(51, 255, 51, ${glowIntensity})`;
-    }, 50);
+    //   this.executeButton.style.boxShadow = `0 0 15px rgba(51, 255, 51, ${glowIntensity})`;
+    // }, 50);
+
+    // Set a static glow instead of a pulsing effect
+    this.executeButton.style.boxShadow = `0 0 15px rgba(51, 255, 51, 0.7)`;
 
     // Add terminal cursor blinking effect to button text
     const baseButtonText = "> CLICK TO EXECUTE PROGRAM";
@@ -318,8 +321,8 @@ export class LoadingScreen {
         baseButtonText + (cursorVisible ? "█" : " ");
     }, 530); // Slightly off from 500ms to create a more authentic feel
 
-    // Store intervals to clear on hide
-    this.executeButton.dataset.glowInterval = String(glowInterval);
+    // Store intervals to clear on hide - removed glowInterval
+    // this.executeButton.dataset.glowInterval = String(glowInterval);
     this.executeButton.dataset.cursorInterval = String(
       this.cursorBlinkInterval
     );
