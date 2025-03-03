@@ -2,17 +2,13 @@ export class Menu {
   private container: HTMLDivElement;
   private isVisible: boolean = true;
   private currentSelection: number = 0;
-  private menuOptions: string[] = ["START GAME", "CONTROLS", "HIGH SCORES"];
-  private animationFrame: number | null = null;
-  private frameCount: number = 0;
-  private shipPosition: number = 0;
+  private menuOptions: string[] = ["START GAME", "SETTINGS", "HIGH SCORES"];
 
   constructor() {
     this.container = document.createElement("div");
-    this.container.className = "arcade-cabinet";
+    this.container.className = "terminal-overlay";
     this.setupStyles();
     this.setupMenu();
-    this.startMenuAnimation();
   }
 
   private setupStyles(): void {
@@ -25,25 +21,53 @@ export class Menu {
         font-style: normal;
       }
 
-      .arcade-cabinet {
+      .terminal-overlay {
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        background-color: #000;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
-        align-items: center;
         font-family: 'PressStart2P', monospace;
         overflow: hidden;
         z-index: 1000;
         color: #fff;
+        box-sizing: border-box;
+        display: flex;
+        justify-content: center;
+        align-items: center;
       }
 
-      /* CRT scan line effect */
-      .arcade-cabinet::before {
+      /* Terminal Frame */
+      .terminal-frame {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: 28px solid #333;
+        box-sizing: border-box;
+        border-radius: 15px;
+        pointer-events: none;
+        background: transparent;
+        z-index: 1003;
+        box-shadow: 
+          inset 0 0 20px rgba(0, 0, 0, 0.8),
+          0 0 10px rgba(0, 0, 0, 0.8);
+      }
+
+      /* CRT Screen Effect with Viewport */
+      .terminal-viewport {
+        position: relative;
+        width: calc(100% - 56px);
+        height: calc(100% - 56px);
+        overflow: hidden;
+        background: transparent;
+        z-index: 1002;
+        box-shadow: 0 0 30px rgba(0, 0, 0, 0.5) inset;
+      }
+
+      /* Scan line effect */
+      .terminal-overlay::before {
         content: "";
         position: absolute;
         top: 0;
@@ -55,43 +79,66 @@ export class Menu {
           rgba(0, 0, 0, 0.25) 50%
         );
         background-size: 100% 4px;
-        z-index: 2000;
+        z-index: 1005;
         pointer-events: none;
-        opacity: 0.9;
+        opacity: 0.7;
       }
 
-      /* Screen border effect */
-      .arcade-cabinet::after {
+      /* Screen glare effect */
+      .terminal-overlay::after {
         content: "";
         position: absolute;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.9);
-        border-radius: 20px;
-        z-index: 1999;
+        background: radial-gradient(
+          ellipse at center,
+          rgba(255, 255, 255, 0.025) 0%,
+          rgba(0, 0, 0, 0) 99%
+        );
+        z-index: 1004;
         pointer-events: none;
       }
 
-      .game-screen {
-        width: 80%;
-        height: 90%;
-        margin-top: 2%;
+      /* Corner screws */
+      .screw {
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        background-color: #222;
+        border-radius: 50%;
+        z-index: 1010;
+        box-shadow: inset 0 0 2px rgba(255, 255, 255, 0.2);
+      }
+      .screw::after {
+        content: "+";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 8px;
+        color: #666;
+      }
+      .screw-tl { top: 8px; left: 8px; }
+      .screw-tr { top: 8px; right: 8px; }
+      .screw-bl { bottom: 8px; left: 8px; }
+      .screw-br { bottom: 8px; right: 8px; }
+
+      .content-container {
+        position: relative;
+        z-index: 1001;
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
-        padding: 20px;
-        border: 10px solid #333;
-        border-radius: 10px;
-        background-color: #000;
-        position: relative;
-        overflow: hidden;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        width: 100%;
       }
 
       .title-section {
         text-align: center;
-        margin-top: 5%;
+        margin-bottom: 2rem;
       }
 
       .game-title {
@@ -126,29 +173,21 @@ export class Menu {
         animation-delay: 0.5s;
       }
 
-      .credit-section {
-        display: flex;
-        justify-content: space-between;
-        width: 100%;
-        color: #ff0;
-        font-size: 0.8rem;
-        margin-top: 10px;
-      }
-
-      .credit-text {
-        animation: blink 1s infinite;
-      }
-
       .copyright {
         color: #fff;
-        font-size: 0.7rem;
+        font-size: 0.8rem;
+        text-align: center;
+        position: absolute;
+        bottom: 20px;
+        width: 100%;
+        z-index: 1006;
       }
 
       .menu-section {
         display: flex;
         flex-direction: column;
         align-items: center;
-        margin: 5% 0;
+        margin: 0;
       }
 
       .menu-option {
@@ -158,53 +197,47 @@ export class Menu {
         padding: 5px 20px;
         position: relative;
         transition: all 0.1s;
+        cursor: pointer;
       }
 
       .menu-option.selected {
         color: #0f0;
       }
 
-      .menu-option.selected::before {
-        content: "";
+      /* Power button */
+      .power-button {
         position: absolute;
-        width: 20px;
+        top: -20px;
+        right: 50px;
+        width: 40px;
         height: 20px;
-        left: -30px;
-        top: 50%;
-        transform: translateY(-50%);
+        background-color: #444;
+        border-radius: 10px 10px 0 0;
+        z-index: 1010;
+      }
+      .power-button::after {
+        content: "POWER";
+        position: absolute;
+        top: 3px;
+        left: 4px;
+        font-size: 5px;
+        color: #aaa;
+      }
+      .power-led {
+        position: absolute;
+        right: 5px;
+        top: 5px;
+        width: 5px;
+        height: 5px;
         background-color: #0f0;
-        clip-path: polygon(0 0, 0 100%, 100% 50%);
+        border-radius: 50%;
+        box-shadow: 0 0 5px #0f0;
+        animation: blink 4s infinite;
       }
 
-      .ship-container {
-        position: absolute;
-        bottom: 60px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 100%;
-        height: 60px;
-        overflow: hidden;
-      }
-
-      .player-ship {
-        position: absolute;
-        bottom: 0;
-        width: 50px;
-        height: 30px;
-        background-color: #0f0;
-        clip-path: polygon(0% 100%, 50% 0%, 100% 100%);
-        transition: left 0.1s linear;
-      }
-
-      .laser {
-        position: absolute;
-        bottom: 30px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 2px;
-        height: 20px;
-        background-color: #f00;
-        opacity: 0;
+      @keyframes blink {
+        0%, 95% { opacity: 1; }
+        96%, 100% { opacity: 0.7; }
       }
 
       @keyframes pulse {
@@ -213,19 +246,9 @@ export class Menu {
         100% { opacity: 1; }
       }
 
-      @keyframes blink {
-        0%, 49% { opacity: 1; }
-        50%, 100% { opacity: 0; }
-      }
-
       @keyframes invader-dance {
         0%, 50% { transform: translateY(0); }
         50.01%, 100% { transform: translateY(5px); }
-      }
-
-      @keyframes laser-shoot {
-        0% { height: 0; opacity: 1; }
-        100% { height: 500px; opacity: 1; }
       }
 
       @keyframes screen-flicker {
@@ -233,33 +256,40 @@ export class Menu {
         96%, 100% { opacity: 0.8; }
       }
 
-      .game-screen {
+      .screen-flicker {
         animation: screen-flicker 10s infinite;
-      }
-
-      .level-counter {
-        position: absolute;
-        top: 20px;
-        right: 20px;
-        color: #ff0;
-        font-size: 0.9rem;
-      }
-
-      .hi-score {
-        position: absolute;
-        top: 20px;
-        left: 20px;
-        color: #ff0;
-        font-size: 0.9rem;
       }
     `;
     document.head.appendChild(style);
   }
 
   private setupMenu(): void {
-    // Create game screen container
-    const gameScreen = document.createElement("div");
-    gameScreen.className = "game-screen";
+    // Create terminal elements
+    const terminalFrame = document.createElement("div");
+    terminalFrame.className = "terminal-frame";
+
+    const terminalViewport = document.createElement("div");
+    terminalViewport.className = "terminal-viewport";
+
+    // Add screws to corners
+    const screwPositions = ["tl", "tr", "bl", "br"];
+    screwPositions.forEach((pos) => {
+      const screw = document.createElement("div");
+      screw.className = `screw screw-${pos}`;
+      this.container.appendChild(screw);
+    });
+
+    // Add power button
+    const powerButton = document.createElement("div");
+    powerButton.className = "power-button";
+    const powerLed = document.createElement("div");
+    powerLed.className = "power-led";
+    powerButton.appendChild(powerLed);
+    this.container.appendChild(powerButton);
+
+    // Content container
+    const contentContainer = document.createElement("div");
+    contentContainer.className = "content-container screen-flicker";
 
     // Title section
     const titleSection = document.createElement("div");
@@ -297,61 +327,26 @@ export class Menu {
       menuOption.addEventListener("click", () => {
         if (option === "START GAME") {
           this.hide();
-        } else if (option === "CONTROLS") {
+        } else if (option === "SETTINGS") {
           this.showControls();
         }
       });
       menuSection.appendChild(menuOption);
     });
 
-    // Player ship animation at bottom
-    const shipContainer = document.createElement("div");
-    shipContainer.className = "ship-container";
-
-    const playerShip = document.createElement("div");
-    playerShip.className = "player-ship";
-    playerShip.style.left = "10%";
-
-    const laser = document.createElement("div");
-    laser.className = "laser";
-
-    shipContainer.appendChild(playerShip);
-    shipContainer.appendChild(laser);
-
-    // Credit and score section
-    const creditSection = document.createElement("div");
-    creditSection.className = "credit-section";
-
-    const creditText = document.createElement("div");
-    creditText.className = "credit-text";
-    creditText.textContent = "INSERT COIN";
-
+    // Copyright section
     const copyright = document.createElement("div");
     copyright.className = "copyright";
-    copyright.textContent = "© 2023 STAR WING";
-
-    creditSection.appendChild(creditText);
-    creditSection.appendChild(copyright);
-
-    // Hi-Score display
-    const hiScore = document.createElement("div");
-    hiScore.className = "hi-score";
-    hiScore.textContent = "HI-SCORE: 10000";
-
-    // Level counter
-    const levelCounter = document.createElement("div");
-    levelCounter.className = "level-counter";
-    levelCounter.textContent = "LEVEL 01";
+    copyright.textContent = "© 2025 DROSSHOLE";
 
     // Append all elements
-    gameScreen.appendChild(hiScore);
-    gameScreen.appendChild(levelCounter);
-    gameScreen.appendChild(titleSection);
-    gameScreen.appendChild(menuSection);
-    gameScreen.appendChild(shipContainer);
-    gameScreen.appendChild(creditSection);
+    contentContainer.appendChild(titleSection);
+    contentContainer.appendChild(menuSection);
+    contentContainer.appendChild(copyright);
 
-    this.container.appendChild(gameScreen);
+    terminalViewport.appendChild(contentContainer);
+    this.container.appendChild(terminalViewport);
+    this.container.appendChild(terminalFrame);
     document.body.appendChild(this.container);
 
     // Setup keyboard navigation
@@ -385,68 +380,31 @@ export class Menu {
     // Add new selection
     options[index].classList.add("selected");
     this.currentSelection = index;
-
-    // Play selection sound (would implement actual sound in a real game)
-    console.log("Selection sound");
   }
 
   private activateCurrentOption(): void {
     const selectedOption = this.menuOptions[this.currentSelection];
 
-    // Animate laser shot
-    const laser = document.querySelector(".laser") as HTMLElement;
-    laser.style.left = `${this.shipPosition + 25}px`;
-    laser.style.animation = "laser-shoot 0.5s forwards";
-
-    // Reset animation after completion
-    setTimeout(() => {
-      laser.style.animation = "";
-
-      if (selectedOption === "START GAME") {
-        this.hide();
-      } else if (selectedOption === "CONTROLS") {
-        this.showControls();
-      }
-    }, 500);
-  }
-
-  private startMenuAnimation(): void {
-    const animate = () => {
-      this.frameCount++;
-
-      // Move ship back and forth
-      const shipElement = document.querySelector(".player-ship") as HTMLElement;
-      if (shipElement) {
-        this.shipPosition = 50 + Math.sin(this.frameCount / 30) * 40;
-        shipElement.style.left = `${this.shipPosition}%`;
-      }
-
-      if (this.isVisible) {
-        this.animationFrame = requestAnimationFrame(animate);
-      }
-    };
-
-    this.animationFrame = requestAnimationFrame(animate);
+    if (selectedOption === "START GAME") {
+      this.hide();
+    } else if (selectedOption === "SETTINGS") {
+      this.showControls();
+    }
   }
 
   private showControls(): void {
-    // In a real implementation, we would show the controls screen
-    console.log("Show controls");
+    // In a real implementation, we would show the settings screen
+    console.log("Show settings");
   }
 
   show(): void {
     this.container.style.display = "flex";
     this.isVisible = true;
-    this.startMenuAnimation();
   }
 
   hide(): void {
     this.container.style.display = "none";
     this.isVisible = false;
-    if (this.animationFrame !== null) {
-      cancelAnimationFrame(this.animationFrame);
-      this.animationFrame = null;
-    }
   }
 
   isMenuVisible(): boolean {
@@ -454,9 +412,6 @@ export class Menu {
   }
 
   dispose(): void {
-    if (this.animationFrame !== null) {
-      cancelAnimationFrame(this.animationFrame);
-    }
     document.body.removeChild(this.container);
     document.removeEventListener("keydown", this.handleKeyDown.bind(this));
   }
