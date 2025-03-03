@@ -1,10 +1,14 @@
+import { Game } from "../core/Game";
+
 export class Menu {
   private container: HTMLDivElement;
   private isVisible: boolean = true;
   private currentSelection: number = 0;
   private menuOptions: string[] = ["START GAME", "SETTINGS", "HIGH SCORES"];
+  private game: Game;
 
-  constructor() {
+  constructor(game: Game) {
+    this.game = game;
     this.container = document.createElement("div");
     this.container.className = "terminal-overlay";
     this.setupStyles();
@@ -351,6 +355,10 @@ export class Menu {
 
     // Setup keyboard navigation
     document.addEventListener("keydown", this.handleKeyDown.bind(this));
+
+    // Add mute button to the menu
+    const muteButton = this.createMuteButton();
+    this.container.appendChild(muteButton);
   }
 
   private handleKeyDown(event: KeyboardEvent): void {
@@ -414,5 +422,29 @@ export class Menu {
   dispose(): void {
     document.body.removeChild(this.container);
     document.removeEventListener("keydown", this.handleKeyDown.bind(this));
+  }
+
+  private createMuteButton(): HTMLElement {
+    const muteButton = document.createElement("div");
+    muteButton.className = "pixel-button mute-button";
+    muteButton.textContent = "🔊";
+    muteButton.style.position = "absolute";
+    muteButton.style.bottom = "20px";
+    muteButton.style.right = "20px";
+    muteButton.style.cursor = "pointer";
+    muteButton.style.padding = "8px";
+    muteButton.style.color = "#00ff00";
+
+    let muted = false;
+
+    muteButton.addEventListener("click", () => {
+      if (this.game) {
+        this.game.getAudioManager().toggleMute();
+        muted = !muted;
+        muteButton.textContent = muted ? "🔇" : "��";
+      }
+    });
+
+    return muteButton;
   }
 }

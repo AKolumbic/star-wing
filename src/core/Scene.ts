@@ -10,7 +10,7 @@ export class Scene {
   private starPositions: Float32Array | null = null;
   private starSpeeds: Float32Array | null = null;
 
-  constructor() {
+  constructor(canvas?: HTMLCanvasElement) {
     this.width = window.innerWidth;
     this.height = window.innerHeight;
 
@@ -28,10 +28,17 @@ export class Scene {
     this.camera.position.z = 100;
 
     // Create renderer
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      canvas: canvas || undefined,
+    });
     this.renderer.setSize(this.width, this.height);
     this.renderer.setPixelRatio(window.devicePixelRatio);
-    document.body.appendChild(this.renderer.domElement);
+
+    // Only append to body if no canvas was provided
+    if (!canvas) {
+      document.body.appendChild(this.renderer.domElement);
+    }
 
     // Handle window resize
     window.addEventListener("resize", this.onWindowResize.bind(this));
