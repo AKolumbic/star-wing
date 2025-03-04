@@ -59,7 +59,20 @@ export class AudioManager {
 
     // Create main gain node for volume control
     this.mainGainNode = this.audioContext.createGain();
-    this.mainGainNode.gain.value = 0.6; // Increased volume from 0.375
+
+    // Load mute state from localStorage
+    const savedMuteState = localStorage.getItem("starWing_muted");
+    this.isMuted = savedMuteState ? savedMuteState === "true" : false;
+
+    // Set default volume to 25% if nothing is stored
+    if (!localStorage.getItem("starWing_volume")) {
+      localStorage.setItem("starWing_volume", "0.25");
+    }
+
+    // Set initial volume
+    const volume = this.isMuted ? 0 : this.getVolume() * 0.6;
+    this.mainGainNode.gain.value = volume;
+
     this.mainGainNode.connect(this.audioContext.destination);
 
     console.log("AudioManager: Constructor completed, audio context created");
@@ -162,13 +175,38 @@ export class AudioManager {
     }
   }
 
-  public toggleMute(): void {
-    this.isMuted = !this.isMuted;
-    this.mainGainNode.gain.value = this.isMuted ? 0 : 0.6;
-  }
-
   public getMuteState(): boolean {
     return this.isMuted;
+  }
+
+  public setVolume(volume: number): void {
+    // Clamp volume between 0 and 1
+    const clampedVolume = Math.max(0, Math.min(1, volume));
+
+    // If not muted, apply the volume directly
+    if (!this.isMuted) {
+      this.mainGainNode.gain.value = clampedVolume * 0.6; // Scale to max 0.6
+    }
+
+    // Store the volume setting for when unmuted
+    localStorage.setItem("starWing_volume", clampedVolume.toString());
+  }
+
+  public getVolume(): number {
+    // Get volume from localStorage or use default (0.25 = 25%)
+    const storedVolume = localStorage.getItem("starWing_volume");
+    return storedVolume ? parseFloat(storedVolume) : 0.25;
+  }
+
+  public toggleMute(): void {
+    this.isMuted = !this.isMuted;
+
+    // When muted, set volume to 0, otherwise restore to saved volume
+    const volume = this.isMuted ? 0 : this.getVolume() * 0.6;
+    this.mainGainNode.gain.value = volume;
+
+    // Store mute state in localStorage
+    localStorage.setItem("starWing_muted", this.isMuted.toString());
   }
 
   private scheduleBeats(): void {

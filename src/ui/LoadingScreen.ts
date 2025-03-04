@@ -5,9 +5,11 @@ export class LoadingScreen {
   private terminal!: HTMLDivElement;
   private loadingText!: HTMLDivElement;
   private executeButton!: HTMLDivElement;
+  private errorMessageElement!: HTMLDivElement;
   private ellipsisState: number = 0;
   private ellipsisInterval!: number;
   private cursorBlinkInterval!: number;
+  private isMobileDevice: boolean = false;
 
   // Fixed initial build messages
   private initialBuildMessages: string[] = [
@@ -87,8 +89,34 @@ export class LoadingScreen {
     private onComplete: () => void,
     private audioManager: AudioManager
   ) {
+    // Check for mobile device first
+    this.detectMobileDevice();
     this.createElements();
     this.startBuildProcess();
+  }
+
+  private detectMobileDevice(): void {
+    // Check for mobile device using user agent and screen size
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isMobile =
+      /iphone|ipad|ipod|android|blackberry|mini|windows\sce|palm/i.test(
+        userAgent
+      );
+    const isTablet = /tablet|ipad|playbook|silk|android(?!.*mobi)/i.test(
+      userAgent
+    );
+
+    // Also check screen width as a fallback
+    const touchScreen =
+      "ontouchstart" in window || navigator.maxTouchPoints > 0;
+    const smallScreen = window.innerWidth < 768;
+
+    this.isMobileDevice = isMobile || isTablet || (touchScreen && smallScreen);
+
+    console.log(
+      "Device detection: ",
+      this.isMobileDevice ? "Mobile device detected" : "Desktop device detected"
+    );
   }
 
   private generateBuildLines(): string[] {
@@ -164,52 +192,67 @@ export class LoadingScreen {
     this.loadingText.style.fontSize = "18px";
     this.loadingText.textContent = "Loading...";
 
-    // Execute button (hidden initially) - centered with glow
-    this.executeButton = document.createElement("div");
-    this.executeButton.style.position = "absolute";
-    this.executeButton.style.top = "50%";
-    this.executeButton.style.left = "50%";
-    this.executeButton.style.transform = "translate(-50%, -50%)";
-    this.executeButton.style.padding = "15px 25px";
-    this.executeButton.style.backgroundColor = "#000";
-    this.executeButton.style.border = "2px solid #33ff33";
-    this.executeButton.style.borderRadius = "5px";
-    this.executeButton.style.fontFamily = 'Courier, "Courier New", monospace';
-    this.executeButton.style.color = "#33ff33";
-    this.executeButton.style.fontSize = "20px";
-    this.executeButton.style.cursor = "pointer";
-    this.executeButton.style.display = "none";
-    this.executeButton.style.boxShadow = "0 0 15px rgba(51, 255, 51, 0.7)";
-    this.executeButton.style.textAlign = "center";
+    // Only create execute button if not on mobile device
+    if (!this.isMobileDevice) {
+      // Execute button (hidden initially) - centered with glow
+      this.executeButton = document.createElement("div");
+      this.executeButton.style.position = "absolute";
+      this.executeButton.style.top = "50%";
+      this.executeButton.style.left = "50%";
+      this.executeButton.style.transform = "translate(-50%, -50%)";
+      this.executeButton.style.padding = "15px 25px";
+      this.executeButton.style.backgroundColor = "#000";
+      this.executeButton.style.border = "2px solid #33ff33";
+      this.executeButton.style.borderRadius = "5px";
+      this.executeButton.style.fontFamily = 'Courier, "Courier New", monospace';
+      this.executeButton.style.color = "#33ff33";
+      this.executeButton.style.fontSize = "20px";
+      this.executeButton.style.cursor = "pointer";
+      this.executeButton.style.display = "none";
+      this.executeButton.style.boxShadow = "0 0 15px rgba(51, 255, 51, 0.7)";
+      this.executeButton.style.textAlign = "center";
 
-    // The base text for the button - will be updated with cursor
-    const baseButtonText = "> CLICK TO EXECUTE PROGRAM";
-    this.executeButton.textContent = baseButtonText + "█"; // Start with block cursor
+      // The base text for the button - will be updated with cursor
+      const baseButtonText = "> CLICK TO EXECUTE PROGRAM";
+      this.executeButton.textContent = baseButtonText + "█"; // Start with block cursor
 
-    // Add hover effect for button
-    // this.executeButton.addEventListener("mouseover", () => {
-    //   this.executeButton.style.backgroundColor = "rgba(51, 255, 51, 0.2)";
-    //   this.executeButton.style.boxShadow = "0 0 25px rgba(51, 255, 51, 0.9)";
-    // });
+      // Add click handler
+      this.executeButton.addEventListener("click", () => {
+        // Animate button press - flash green
+        this.executeButton.style.backgroundColor = "rgba(51, 255, 51, 0.4)";
+        setTimeout(() => {
+          this.executeButton.style.backgroundColor = "#000";
+          setTimeout(() => {
+            // Clear button interval to stop cursor blinking during transition
+            clearInterval(this.cursorBlinkInterval);
 
-    // this.executeButton.addEventListener("mouseout", () => {
-    //   this.executeButton.style.backgroundColor = "#000";
-    //   this.executeButton.style.boxShadow = "0 0 15px rgba(51, 255, 51, 0.7)";
-    // });
+            // Optionally add a sound effect
+            if (this.audioManager) {
+              this.audioManager.playTestTone();
+            }
 
-    // Add click handler
-    this.executeButton.addEventListener("click", () => {
-      this.audioManager.playTestTone();
-      setTimeout(() => {
-        this.hide();
-        this.onComplete();
-      }, 300);
-    });
+            // Fade out the entire loading screen
+            this.container.style.transition = "opacity 1s ease-out";
+            this.container.style.opacity = "0";
 
-    // Append elements
+            // Call the completion callback after animation
+            setTimeout(() => {
+              this.hide();
+              if (this.onComplete) {
+                this.onComplete();
+              }
+            }, 1000);
+          }, 100);
+        }, 150);
+      });
+    }
+
+    // Add to DOM
     this.container.appendChild(this.terminal);
     this.container.appendChild(this.loadingText);
-    this.container.appendChild(this.executeButton);
+    if (!this.isMobileDevice) {
+      this.container.appendChild(this.executeButton);
+    }
     document.body.appendChild(this.container);
 
     // Start blinking ellipsis
@@ -286,60 +329,106 @@ export class LoadingScreen {
     clearInterval(this.ellipsisInterval);
     this.loadingText.style.display = "none";
 
-    // Show execute button
-    this.executeButton.style.display = "block";
+    if (this.isMobileDevice) {
+      // Show error message for mobile devices
+      this.showMobileDeviceError();
+    } else {
+      // Show execute button for desktop devices
+      this.executeButton.style.display = "block";
 
-    // Remove hover effect - commenting out the pulsing glow effect
-    // let glowIntensity = 0.7;
-    // let increasing = true;
-    // const glowInterval = setInterval(() => {
-    //   if (increasing) {
-    //     glowIntensity += 0.05;
-    //     if (glowIntensity >= 1.0) {
-    //       increasing = false;
-    //     }
-    //   } else {
-    //     glowIntensity -= 0.05;
-    //     if (glowIntensity <= 0.7) {
-    //       increasing = true;
-    //     }
-    //   }
+      // Set a static glow instead of a pulsing effect
+      this.executeButton.style.boxShadow = `0 0 15px rgba(51, 255, 51, 0.7)`;
 
-    //   this.executeButton.style.boxShadow = `0 0 15px rgba(51, 255, 51, ${glowIntensity})`;
-    // }, 50);
+      // Add terminal cursor blinking effect to button text
+      const baseButtonText = "> CLICK TO EXECUTE PROGRAM";
+      let cursorVisible = true;
 
-    // Set a static glow instead of a pulsing effect
-    this.executeButton.style.boxShadow = `0 0 15px rgba(51, 255, 51, 0.7)`;
+      this.cursorBlinkInterval = window.setInterval(() => {
+        cursorVisible = !cursorVisible;
+        this.executeButton.textContent =
+          baseButtonText + (cursorVisible ? "█" : " ");
+      }, 530); // Slightly off from 500ms to create a more authentic feel
 
-    // Add terminal cursor blinking effect to button text
-    const baseButtonText = "> CLICK TO EXECUTE PROGRAM";
-    let cursorVisible = true;
+      // Store intervals to clear on hide - removed glowInterval
+      // this.executeButton.dataset.glowInterval = String(glowInterval);
+      this.executeButton.dataset.cursorInterval = String(
+        this.cursorBlinkInterval
+      );
+    }
+  }
 
-    this.cursorBlinkInterval = window.setInterval(() => {
-      cursorVisible = !cursorVisible;
-      this.executeButton.textContent =
-        baseButtonText + (cursorVisible ? "█" : " ");
-    }, 530); // Slightly off from 500ms to create a more authentic feel
+  private showMobileDeviceError(): void {
+    // Create and show the error message
+    this.errorMessageElement = document.createElement("div");
+    this.errorMessageElement.style.position = "absolute";
+    this.errorMessageElement.style.top = "50%";
+    this.errorMessageElement.style.left = "50%";
+    this.errorMessageElement.style.transform = "translate(-50%, -50%)";
+    this.errorMessageElement.style.textAlign = "center";
+    this.errorMessageElement.style.backgroundColor = "#000";
+    this.errorMessageElement.style.border = "2px solid #ff3333"; // Red border for error
+    this.errorMessageElement.style.borderRadius = "5px";
+    this.errorMessageElement.style.padding = "20px";
+    this.errorMessageElement.style.fontFamily =
+      'Courier, "Courier New", monospace';
+    this.errorMessageElement.style.color = "#ff3333"; // Red text for error
+    this.errorMessageElement.style.fontSize = "18px";
+    this.errorMessageElement.style.boxShadow =
+      "0 0 15px rgba(255, 51, 51, 0.7)"; // Red glow
+    this.errorMessageElement.style.width = "80%";
+    this.errorMessageElement.style.maxWidth = "500px";
+    this.errorMessageElement.style.zIndex = "1001";
 
-    // Store intervals to clear on hide - removed glowInterval
-    // this.executeButton.dataset.glowInterval = String(glowInterval);
-    this.executeButton.dataset.cursorInterval = String(
-      this.cursorBlinkInterval
-    );
+    // Error message text
+    const errorText = document.createElement("div");
+    errorText.textContent = "ERROR: FAILED TO EXECUTE PROGRAM";
+    errorText.style.fontWeight = "bold";
+    errorText.style.marginBottom = "15px";
+    errorText.style.fontSize = "20px";
+    this.errorMessageElement.appendChild(errorText);
+
+    // Error details
+    const errorDetails = document.createElement("div");
+    errorDetails.innerHTML =
+      "SYSTEM REQUIREMENTS NOT MET:<br>MOUSE AND KEYBOARD REQUIRED<br><br>PLEASE ACCESS THIS PROGRAM<br>FROM A DESKTOP DEVICE";
+    errorDetails.style.lineHeight = "1.5";
+    this.errorMessageElement.appendChild(errorDetails);
+
+    // Add the error message to the container
+    this.container.appendChild(this.errorMessageElement);
+
+    // Add blinking effect to the error message border
+    let isVisible = true;
+    const blinkInterval = setInterval(() => {
+      isVisible = !isVisible;
+      this.errorMessageElement.style.borderColor = isVisible
+        ? "#ff3333"
+        : "#880000";
+    }, 500);
+
+    // Store the interval to clear on hide
+    this.errorMessageElement.dataset.blinkInterval = String(blinkInterval);
   }
 
   public hide(): void {
     // Clear all intervals
     clearInterval(this.ellipsisInterval);
-    clearInterval(this.cursorBlinkInterval);
 
-    if (this.executeButton.dataset.glowInterval) {
-      clearInterval(parseInt(this.executeButton.dataset.glowInterval));
-    }
-    if (this.executeButton.dataset.cursorInterval) {
+    if (this.executeButton && this.executeButton.dataset.cursorInterval) {
       clearInterval(parseInt(this.executeButton.dataset.cursorInterval));
     }
 
-    document.body.removeChild(this.container);
+    // Clear error message blink interval if it exists
+    if (
+      this.errorMessageElement &&
+      this.errorMessageElement.dataset.blinkInterval
+    ) {
+      clearInterval(parseInt(this.errorMessageElement.dataset.blinkInterval));
+    }
+
+    // Remove from DOM
+    if (this.container && this.container.parentNode) {
+      this.container.parentNode.removeChild(this.container);
+    }
   }
 }

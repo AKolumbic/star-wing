@@ -102,6 +102,48 @@ export class Settings {
         border-radius: 50%;
         transition: left 0.2s;
       }
+      
+      .volume-slider-container {
+        display: flex;
+        flex-direction: column;
+        margin-top: 10px;
+      }
+      
+      .volume-slider {
+        -webkit-appearance: none;
+        width: 100%;
+        height: 20px;
+        background: #111;
+        border: 2px solid #33ff33;
+        border-radius: 10px;
+        margin-top: 10px;
+        overflow: hidden;
+      }
+      
+      .volume-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 20px;
+        height: 20px;
+        background: #33ff33;
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: -100vw 0 0 100vw rgba(51, 255, 51, 0.2);
+      }
+      
+      .volume-slider::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        background: #33ff33;
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: -100vw 0 0 100vw rgba(51, 255, 51, 0.2);
+      }
+      
+      .volume-value {
+        margin-top: 5px;
+        text-align: center;
+        font-size: 12px;
+      }
 
       .settings-back-button {
         cursor: pointer;
@@ -200,6 +242,55 @@ export class Settings {
 
     musicOption.appendChild(musicToggle);
     audioSection.appendChild(musicOption);
+
+    // Volume slider
+    const volumeOption = document.createElement("div");
+    volumeOption.className = "settings-option";
+
+    const volumeLabel = document.createElement("div");
+    volumeLabel.className = "settings-label";
+    volumeLabel.textContent = "Volume";
+    volumeOption.appendChild(volumeLabel);
+
+    // Create slider container
+    const volumeSliderContainer = document.createElement("div");
+    volumeSliderContainer.className = "volume-slider-container";
+
+    // Create slider
+    const volumeSlider = document.createElement("input");
+    volumeSlider.type = "range";
+    volumeSlider.min = "0";
+    volumeSlider.max = "100";
+    volumeSlider.className = "volume-slider";
+
+    // Get the current volume and set the slider value
+    const currentVolume = this.game.getAudioManager().getVolume();
+    volumeSlider.value = (currentVolume * 100).toString();
+
+    // Create volume value display
+    const volumeValue = document.createElement("div");
+    volumeValue.className = "volume-value";
+    volumeValue.textContent = `${Math.round(currentVolume * 100)}%`;
+
+    // Add event listener
+    volumeSlider.addEventListener("input", (event) => {
+      const newVolume =
+        parseInt((event.target as HTMLInputElement).value) / 100;
+      // Update volume
+      this.game.getAudioManager().setVolume(newVolume);
+      // Update volume value display
+      volumeValue.textContent = `${Math.round(newVolume * 100)}%`;
+    });
+
+    // Add slider and value to container
+    volumeSliderContainer.appendChild(volumeSlider);
+    volumeSliderContainer.appendChild(volumeValue);
+
+    // Add to volume option
+    volumeOption.appendChild(volumeSliderContainer);
+
+    // Add to audio section
+    audioSection.appendChild(volumeOption);
 
     settingsContainer.appendChild(audioSection);
 

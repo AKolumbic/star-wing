@@ -1,5 +1,6 @@
 import { Game } from "../core/Game";
 import { Settings } from "./Settings";
+import { HighScores } from "./HighScores";
 
 export class Menu {
   private container: HTMLDivElement;
@@ -8,12 +9,14 @@ export class Menu {
   private menuOptions: string[] = ["START GAME", "SETTINGS", "HIGH SCORES"];
   private game: Game;
   private settings: Settings;
+  private highScores: HighScores;
 
   constructor(game: Game) {
     this.game = game;
     this.container = document.createElement("div");
     this.container.className = "terminal-overlay";
     this.settings = new Settings(game);
+    this.highScores = new HighScores(game);
     this.setupStyles();
     this.setupMenu();
   }
@@ -336,6 +339,8 @@ export class Menu {
           this.hide();
         } else if (option === "SETTINGS") {
           this.showSettings();
+        } else if (option === "HIGH SCORES") {
+          this.showHighScores();
         }
       });
       menuSection.appendChild(menuOption);
@@ -396,6 +401,8 @@ export class Menu {
       this.hide();
     } else if (selectedOption === "SETTINGS") {
       this.showSettings();
+    } else if (selectedOption === "HIGH SCORES") {
+      this.showHighScores();
     }
   }
 
@@ -406,6 +413,17 @@ export class Menu {
 
     // Set up a callback to restore the menu when settings are closed
     this.settings.setOnCloseCallback(() => {
+      this.container.style.display = "flex";
+    });
+  }
+
+  private showHighScores(): void {
+    // Hide the menu container but stay "active" logically
+    this.container.style.display = "none";
+    this.highScores.show();
+
+    // Set up a callback to restore the menu when high scores are closed
+    this.highScores.setOnCloseCallback(() => {
       this.container.style.display = "flex";
     });
   }
@@ -428,5 +446,6 @@ export class Menu {
     document.body.removeChild(this.container);
     document.removeEventListener("keydown", this.handleKeyDown.bind(this));
     this.settings.dispose();
+    this.highScores.dispose();
   }
 }
