@@ -19,9 +19,18 @@ window.addEventListener("DOMContentLoaded", () => {
   canvas.style.height = "100%";
   document.body.appendChild(canvas);
 
-  // Create the game with the canvas ID and store in global variable
-  window.gameInstance = new Game("gameCanvas");
+  // Check if dev mode is enabled via URL parameter (?dev=true)
+  const urlParams = new URLSearchParams(window.location.search);
+  const devMode = urlParams.get("dev") === "true";
 
-  // Game initialization now happens through the loading screen
-  // The init() and start() are called after the user clicks "execute program"
+  if (devMode) {
+    console.log("DEV MODE ENABLED: Skipping intro, muting audio");
+  }
+
+  // Create the game with the canvas ID and store in global variable
+  window.gameInstance = new Game("gameCanvas", devMode);
+
+  // Game initialization happens automatically:
+  // - In normal mode: through the loading screen after user clicks "execute program"
+  // - In dev mode: immediately, bypassing the loading screen
 });

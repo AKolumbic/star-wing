@@ -36,12 +36,19 @@ export class Game {
   /** Flag indicating if the game is running */
   private isRunning: boolean = false;
 
+  /** Flag indicating if the game is running in dev mode */
+  private devMode: boolean = false;
+
   /**
    * Creates a new Game instance and initializes all subsystems.
    * @param canvasId The HTML ID of the canvas element to render the game on
+   * @param devMode Whether to run in development mode (skips intro, mutes audio)
    * @throws Error if the canvas element cannot be found
    */
-  constructor(canvasId: string) {
+  constructor(canvasId: string, devMode: boolean = false) {
+    // Store dev mode setting
+    this.devMode = devMode;
+
     // Get the canvas element by ID
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
 
@@ -66,8 +73,30 @@ export class Game {
     // Create the game loop with all systems
     this.gameLoop = new GameLoop(this.systems);
 
-    // Display the loading screen
-    this.showLoadingScreen();
+    if (this.devMode) {
+      // In dev mode, skip loading screen and initialize directly
+      console.log("DEV MODE: Skipping intro loading screen");
+
+      // Initialize systems and start the game
+      this.init()
+        .then(() => {
+          this.start();
+
+          // Set audio to muted in dev mode
+          // We do this after initialization to ensure the UI can properly reflect this state
+          if (!this.audioSystem.getAudioManager().getMuteState()) {
+            // Force-mute audio but preserve the state in localStorage
+            this.setDevModeMuted(true);
+            console.log(
+              "DEV MODE: Audio muted by default (can be enabled in settings)"
+            );
+          }
+        })
+        .catch(console.error);
+    } else {
+      // In normal mode, show the loading screen
+      this.showLoadingScreen();
+    }
   }
 
   /**
@@ -216,5 +245,36 @@ export class Game {
   hideTerminalBorder(): void {
     console.log("[Game] Hiding terminal border");
     this.uiSystem.hideTerminalBorder();
+  }
+
+  /**
+   * Returns whether the game is running in dev mode.
+   * @returns True if the game is in dev mode
+   */
+  isDevMode(): boolean {
+    return this.devMode;
+  }
+
+  /**
+   * Sets the audio mute state in dev mode without affecting localStorage
+   * This allows for temporary muting in dev mode while preserving user preferences
+   * @param muted Whether audio should be muted
+   * @private
+   */
+  private setDevModeMuted(muted: boolean): void {
+    const audioManager = this.audioSystem.getAudioManager();
+
+    // Save current localStorage mute value
+    const savedMuteState = localStorage.getItem("starWing_muted");
+
+    // Toggle mute state if needed (this will update localStorage)
+    if (audioManager.getMuteState() !== muted) {
+      audioManager.toggleMute();
+    }
+
+    // Restore the original localStorage value to preserve user preference
+    if (savedMuteState !== null) {
+      localStorage.setItem("starWing_muted", savedMuteState);
+    }
   }
 }
