@@ -41,37 +41,65 @@ npm run dev
 npm run build
 ```
 
+## Development Mode
+
+For more efficient development workflow, Star Wing includes a developer mode that:
+
+- Skips the intro loading screen
+- Starts with audio muted by default
+
+To enable dev mode, simply add `?dev=true` to the URL:
+
+```
+http://localhost:5173/?dev=true
+```
+
+This is particularly useful during development to avoid repeatedly clicking through the intro sequence and managing audio levels while testing.
+
 ## Project Structure
 
 ```
 star-wing/
 ├── src/
-│   ├── core/           # Core game systems
-│   │   ├── Game.ts     # Main game class
-│   │   ├── Scene.ts    # Three.js scene management
-│   │   └── Input.ts    # Input handling
-│   ├── entities/       # Game entities
-│   │   ├── Player.ts   # Player ship
-│   │   ├── Enemy.ts    # Enemy ships
-│   │   └── Projectile.ts # Weapons
-│   ├── systems/        # Game systems
-│   │   ├── Combat.ts   # Combat mechanics
-│   │   ├── Upgrade.ts  # Upgrade system
-│   │   └── Wave.ts     # Wave management
-│   ├── ui/            # User interface
-│   │   ├── HUD.ts     # Heads-up display
-│   │   └── Menu.ts    # Game menus
-│   ├── utils/         # Utility functions
-│   └── main.ts        # Entry point
-├── assets/           # Game assets
-│   ├── models/       # 3D models
-│   ├── textures/     # Textures
-│   └── audio/        # Sound effects and music
-├── public/          # Static files
-├── index.html       # HTML entry point
-├── package.json     # Dependencies and scripts
-├── tsconfig.json    # TypeScript configuration
-└── vite.config.ts   # Vite configuration
+│   ├── core/                  # Core game systems
+│   │   ├── Game.ts            # Main game class (includes dev mode)
+│   │   ├── GameLoop.ts        # Main game loop
+│   │   ├── GameSystem.ts      # Interface for all game systems
+│   │   ├── PerformanceMonitor.ts # Performance monitoring utilities
+│   │   ├── Scene.ts           # Three.js scene management
+│   │   ├── Input.ts           # Core input handling
+│   │   ├── backgrounds/       # Modular background system
+│   │   │   ├── Background.ts  # Base background interface
+│   │   │   ├── BackgroundManager.ts # Background state management
+│   │   │   ├── StarfieldBackground.ts # Dynamic star field effect
+│   │   │   └── HyperspaceBackground.ts # Hyperspace travel effect
+│   │   └── systems/           # Game subsystems
+│   │       ├── SceneSystem.ts # Scene management system
+│   │       ├── InputSystem.ts # Input processing system
+│   │       ├── AudioSystem.ts # Audio management system
+│   │       └── UISystem.ts    # UI management system
+│   ├── entities/              # Game entities
+│   │   ├── Player.ts          # Player ship
+│   │   ├── Enemy.ts           # Enemy ships
+│   │   └── Projectile.ts      # Weapons
+│   ├── audio/                 # Audio management
+│   │   └── AudioManager.ts    # Audio playback and synthesis
+│   ├── ui/                    # User interface
+│   │   ├── LoadingScreen.ts   # Intro loading screen
+│   │   ├── Menu.ts            # Game menus
+│   │   └── TerminalBorder.ts  # Terminal-style UI border
+│   ├── utils/                 # Utility functions
+│   │   └── UIUtils.ts         # UI helper utilities
+│   └── main.ts                # Entry point (handles dev mode param)
+├── assets/                    # Game assets
+│   ├── models/                # 3D models
+│   ├── textures/              # Textures
+│   └── audio/                 # Sound effects and music
+├── public/                    # Static files
+├── index.html                 # HTML entry point
+├── package.json               # Dependencies and scripts
+├── tsconfig.json              # TypeScript configuration
+└── vite.config.ts             # Vite configuration
 ```
 
 ## Controls
