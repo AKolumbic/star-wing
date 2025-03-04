@@ -240,6 +240,14 @@ export class Game {
   }
 
   /**
+   * Gets the input system instance.
+   * @returns The game's InputSystem instance
+   */
+  getInputSystem(): InputSystem {
+    return this.inputSystem;
+  }
+
+  /**
    * Shows the terminal border UI element.
    */
   showTerminalBorder(): void {

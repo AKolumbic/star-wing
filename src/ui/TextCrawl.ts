@@ -27,7 +27,7 @@ export class TextCrawl {
         height: 100%;
         z-index: 1000;
         overflow: hidden;
-        background: transparent;
+        background: black;
         perspective: 400px;
         display: flex;
         justify-content: center;
@@ -37,20 +37,22 @@ export class TextCrawl {
       .crawl-content {
         position: absolute;
         top: 100%;
-        color: #ffff00;
+        color: #ffda00;
         font-size: 24px;
         text-align: center;
-        width: 70%;
+        width: 80%;
         max-width: 800px;
         transform-origin: 50% 100%;
-        transform: rotateX(25deg);
-        line-height: 1.5;
+        transform: rotateX(35deg);
+        line-height: 1.8;
+        letter-spacing: 2px;
+        text-shadow: 0 0 10px rgba(255, 218, 0, 0.6);
       }
 
       .crawl-title {
-        font-size: 32px;
-        margin-bottom: 50px;
-        color: #ffff00;
+        font-size: 38px;
+        margin-bottom: 70px;
+        color: #ffda00;
       }
 
       .crawl-paragraph {
@@ -112,6 +114,7 @@ export class TextCrawl {
   show(onComplete?: () => void): void {
     if (this.isVisible) return;
 
+    console.log("TextCrawl: Starting text crawl with callback:", !!onComplete);
     this.onCompleteCallback = onComplete || null;
     this.isVisible = true;
     this.container.style.display = "flex";
@@ -121,23 +124,31 @@ export class TextCrawl {
     this.crawlContainer.offsetHeight; // Trigger reflow
 
     // Add animation with a callback for when it's done
-    const animationDuration = 60; // 60 seconds for the full crawl
+    const animationDuration = 10; // Reduced from 60 to 10 seconds for testing
     this.crawlContainer.style.animation = `scroll ${animationDuration}s linear forwards`;
 
     // Listen for animation end to call the callback
     const onAnimationEnd = () => {
+      console.log(
+        "TextCrawl: Animation ended, calling callback:",
+        !!this.onCompleteCallback
+      );
       this.hide();
       if (this.onCompleteCallback) {
+        console.log("TextCrawl: Executing callback");
         this.onCompleteCallback();
       }
       this.crawlContainer.removeEventListener("animationend", onAnimationEnd);
+      console.log("TextCrawl: Finished cleanup after animation");
     };
 
     this.crawlContainer.addEventListener("animationend", onAnimationEnd);
+    console.log("TextCrawl: Added animationend listener");
 
     // Also add a skip option with keyboard
     const skipKeyHandler = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === " " || e.key === "Enter") {
+        console.log("TextCrawl: Skipping via key:", e.key);
         // Remove the animation and trigger the callback
         this.crawlContainer.style.animation = "none";
         document.removeEventListener("keydown", skipKeyHandler);
@@ -146,6 +157,7 @@ export class TextCrawl {
     };
 
     document.addEventListener("keydown", skipKeyHandler);
+    console.log("TextCrawl: Added keydown listener for skipping");
   }
 
   /**

@@ -2,6 +2,7 @@ import { Game } from "../core/Game";
 import { Settings } from "./Settings";
 import { HighScores } from "./HighScores";
 import { BackgroundType } from "../core/backgrounds/BackgroundManager";
+import { Input } from "../core/Input";
 
 export class Menu {
   private container: HTMLDivElement;
@@ -365,30 +366,41 @@ export class Menu {
 
     // Hide menu and start game sequence
     this.hide();
+    console.log("Menu hidden, starting game sequence");
 
-    // Start the game with a transition to hyperspace
+    // Get required systems
     const scene = this.game.getSceneSystem().getScene();
+    const input = this.game.getInputSystem().getInput();
 
-    // Transition to hyperspace mode
+    // Disable hyperspace
     scene
-      .transitionHyperspace(true, 3.0)
+      .transitionHyperspace(false, 0.1)
       .then(() => {
-        console.log("Starting text crawl...");
-        // Show text crawl first
-        return this.game.getUISystem().showTextCrawl(() => {});
+        console.log("Hyperspace transition complete, starting game directly");
+
+        // Set input on scene
+        scene.setInput(input);
+        console.log("Input set on scene");
+
+        // Initialize ship
+        scene
+          .initPlayerShip()
+          .then(() => {
+            console.log("Ship initialized successfully");
+
+            // Start ship entry animation and game
+            scene.startShipEntry(() => {
+              console.log("Ship entry complete, starting game");
+              this.game.start();
+            });
+            console.log("Ship entry animation started");
+          })
+          .catch((error) => {
+            console.error("Failed to initialize ship:", error);
+          });
       })
-      .then(() => {
-        console.log("Text crawl complete, starting actual game");
-        // Then transition back to normal mode
-        return scene.transitionHyperspace(false, 3.0);
-      })
-      .then(() => {
-        // Start the actual game
-        console.log("Hyperspace transition complete, starting game");
-        this.game.start();
-      })
-      .catch((error: Error) => {
-        console.error("Error during game start sequence:", error);
+      .catch((error) => {
+        console.error("Error during hyperspace transition:", error);
       });
   }
 

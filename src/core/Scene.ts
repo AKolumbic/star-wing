@@ -4,6 +4,8 @@ import {
   BackgroundType,
 } from "./backgrounds/BackgroundManager";
 import { StarfieldBackground } from "./backgrounds/StarfieldBackground";
+import { Ship } from "../entities/Ship";
+import { Input } from "./Input";
 
 /**
  * Scene class responsible for managing the 3D rendering environment.
@@ -38,9 +40,18 @@ export class Scene {
   private lastTime: number = 0;
 
   /** Camera default position */
-  private readonly CAMERA_DEFAULT_POSITION = new THREE.Vector3(0, 0, 500);
+  private readonly CAMERA_DEFAULT_POSITION = new THREE.Vector3(0, 50, 600);
   /** Camera default target position */
-  private readonly CAMERA_DEFAULT_TARGET = new THREE.Vector3(0, 0, 0);
+  private readonly CAMERA_DEFAULT_TARGET = new THREE.Vector3(0, 0, -300);
+
+  /** Player's ship */
+  private playerShip: Ship | null = null;
+
+  /** Input system reference */
+  private input: Input | null = null;
+
+  /** Whether the game is currently active/playable */
+  private gameActive: boolean = false;
 
   /**
    * Creates a new scene with a WebGL renderer.
@@ -55,14 +66,15 @@ export class Scene {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x000000);
 
-    // Create a basic perspective camera
+    // Create a better perspective camera with wider field of view
     this.camera = new THREE.PerspectiveCamera(
-      75, // Field of view
+      85, // Field of view (increased for more dramatic perspective)
       this.width / this.height, // Aspect ratio
-      0.1, // Near plane (increased to avoid near plane clipping issues)
+      0.1, // Near plane
       10000 // Far plane
     );
-    // Position camera slightly back on Z axis
+
+    // Position camera at an angle to better show the ship's details
     this.camera.position.copy(this.CAMERA_DEFAULT_POSITION);
     this.camera.lookAt(this.CAMERA_DEFAULT_TARGET);
 
@@ -138,13 +150,33 @@ export class Scene {
   }
 
   /**
-   * Sets up minimal scene lighting.
+   * Sets up enhanced scene lighting for better ship model rendering.
    * @private
    */
   private setupBasicLighting(): void {
-    // Single ambient light for basic illumination
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+    // Add better ambient light for base illumination
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
     this.scene.add(ambientLight);
+
+    // Main directional light from the front-top
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    mainLight.position.set(0, 200, 400).normalize();
+    this.scene.add(mainLight);
+
+    // Blue rim light from below to highlight ship details
+    const rimLight = new THREE.DirectionalLight(0x0088ff, 0.7);
+    rimLight.position.set(0, -100, 50).normalize();
+    this.scene.add(rimLight);
+
+    // Subtle red fill light from the left side
+    const fillLight = new THREE.DirectionalLight(0xff3333, 0.3);
+    fillLight.position.set(-200, 50, 100).normalize();
+    this.scene.add(fillLight);
+
+    // Optional: Add a point light to simulate engine glow
+    const engineGlow = new THREE.PointLight(0x00ffff, 0.8, 500);
+    engineGlow.position.set(0, 0, -350);
+    this.scene.add(engineGlow);
   }
 
   /**
@@ -173,6 +205,25 @@ export class Scene {
   update(deltaTime: number): void {
     // Update the background manager
     this.backgroundManager.update(deltaTime);
+
+    // Update the player ship if it exists and game is active
+    if (this.playerShip) {
+      // Log ship status occasionally (not every frame to avoid console spam)
+      if (Math.random() < 0.01) {
+        // Log approximately every 100 frames
+        console.log(
+          "Scene: Player ship exists, active:",
+          this.gameActive,
+          "playing entry:",
+          this.playerShip["playingEntryAnimation"]
+        );
+      }
+
+      this.playerShip.update(deltaTime);
+    } else if (Math.random() < 0.01) {
+      // Log occasionally if ship doesn't exist
+      console.log("Scene: No player ship found in update");
+    }
   }
 
   /**
@@ -196,6 +247,12 @@ export class Scene {
 
     // Clean up the background manager
     this.backgroundManager.dispose();
+
+    // Clean up the player ship
+    if (this.playerShip) {
+      this.playerShip.dispose();
+      this.playerShip = null;
+    }
 
     // Clear all objects from scene
     while (this.scene.children.length > 0) {
@@ -290,5 +347,83 @@ export class Scene {
    */
   getCamera(): THREE.PerspectiveCamera {
     return this.camera;
+  }
+
+  /**
+   * Sets the input system for player controls.
+   * @param input The input system
+   */
+  setInput(input: Input): void {
+    this.input = input;
+  }
+
+  /**
+   * Initializes and loads the player ship.
+   * @returns Promise that resolves when the ship is loaded
+   */
+  async initPlayerShip(): Promise<void> {
+    if (!this.input) {
+      throw new Error(
+        "Input system must be set before initializing player ship"
+      );
+    }
+
+    // Create the ship with our scene and input system
+    this.playerShip = new Ship(this.scene, this.input);
+
+    // Load the ship model (async)
+    return this.playerShip.load();
+  }
+
+  /**
+   * Starts the ship entry animation after text crawl.
+   * @param onComplete Optional callback for when entry is complete
+   */
+  startShipEntry(onComplete?: () => void): void {
+    if (!this.playerShip) {
+      console.error("Cannot start ship entry - ship not initialized");
+      return;
+    }
+
+    console.log("🛸 SCENE: Starting ship entry animation");
+
+    // Log ship information
+    console.log("🛸 SCENE: Ship object initialized:", !!this.playerShip);
+
+    // Set game to active state
+    this.gameActive = true;
+    console.log("🛸 SCENE: Game set to active state");
+
+    // Create a wrapped callback to ensure game state is properly set
+    const wrappedCallback = () => {
+      console.log("🛸 SCENE: Ship entry animation complete");
+      if (onComplete) {
+        console.log("🛸 SCENE: Executing provided callback");
+        onComplete();
+      }
+    };
+
+    // Start the entry animation
+    this.playerShip.enterScene(wrappedCallback);
+  }
+
+  /**
+   * Sets whether the game is active (player can control ship).
+   * @param active Whether the game is active
+   */
+  setGameActive(active: boolean): void {
+    this.gameActive = active;
+
+    if (this.playerShip) {
+      this.playerShip.setPlayerControlled(active);
+    }
+  }
+
+  /**
+   * Gets the player ship instance.
+   * @returns The player ship or null if not initialized
+   */
+  getPlayerShip(): Ship | null {
+    return this.playerShip;
   }
 }
