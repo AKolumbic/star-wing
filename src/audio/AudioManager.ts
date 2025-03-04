@@ -329,4 +329,37 @@ export class AudioManager {
     synthOsc.stop(time + 0.5);
     detuneOsc.stop(time + 0.5);
   }
+
+  /**
+   * Method to completely stop and clean up audio resources
+   */
+  public dispose(): void {
+    // Stop any ongoing audio
+    if (this.isPlaying) {
+      this.stopMusic();
+    }
+
+    // Clear any schedulers
+    if (this.schedulerTimer !== null) {
+      clearTimeout(this.schedulerTimer);
+      this.schedulerTimer = null;
+    }
+
+    // Disconnect main gain node if it exists
+    if (this.mainGainNode) {
+      this.mainGainNode.disconnect();
+    }
+
+    // Close audio context if supported by the browser
+    if (this.audioContext && this.audioContext.state !== "closed") {
+      // Some browsers support closing the audio context
+      if (this.audioContext.close) {
+        this.audioContext.close().catch((error) => {
+          console.warn("Error closing AudioContext:", error);
+        });
+      }
+    }
+
+    this.isInitialized = false;
+  }
 }

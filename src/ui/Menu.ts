@@ -45,24 +45,7 @@ export class Menu {
         display: flex;
         justify-content: center;
         align-items: center;
-      }
-
-      /* Terminal Frame */
-      .terminal-frame {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        border: 28px solid #333;
-        box-sizing: border-box;
-        border-radius: 15px;
-        pointer-events: none;
-        background: transparent;
-        z-index: 1003;
-        box-shadow: 
-          inset 0 0 20px rgba(0, 0, 0, 0.8),
-          0 0 10px rgba(0, 0, 0, 0.8);
+        background-color: rgba(0, 0, 0, 0.85);
       }
 
       /* CRT Screen Effect with Viewport */
@@ -73,67 +56,7 @@ export class Menu {
         overflow: hidden;
         background: transparent;
         z-index: 1002;
-        box-shadow: 0 0 30px rgba(0, 0, 0, 0.5) inset;
       }
-
-      /* Scan line effect */
-      .terminal-overlay::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(
-          rgba(18, 16, 16, 0) 50%, 
-          rgba(0, 0, 0, 0.25) 50%
-        );
-        background-size: 100% 4px;
-        z-index: 1005;
-        pointer-events: none;
-        opacity: 0.7;
-      }
-
-      /* Screen glare effect */
-      .terminal-overlay::after {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: radial-gradient(
-          ellipse at center,
-          rgba(255, 255, 255, 0.025) 0%,
-          rgba(0, 0, 0, 0) 99%
-        );
-        z-index: 1004;
-        pointer-events: none;
-      }
-
-      /* Corner screws */
-      .screw {
-        position: absolute;
-        width: 12px;
-        height: 12px;
-        background-color: #222;
-        border-radius: 50%;
-        z-index: 1010;
-        box-shadow: inset 0 0 2px rgba(255, 255, 255, 0.2);
-      }
-      .screw::after {
-        content: "+";
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-size: 8px;
-        color: #666;
-      }
-      .screw-tl { top: 8px; left: 8px; }
-      .screw-tr { top: 8px; right: 8px; }
-      .screw-bl { bottom: 8px; left: 8px; }
-      .screw-br { bottom: 8px; right: 8px; }
 
       .content-container {
         position: relative;
@@ -214,42 +137,6 @@ export class Menu {
         color: #0f0;
       }
 
-      /* Power button */
-      .power-button {
-        position: absolute;
-        top: -20px;
-        right: 50px;
-        width: 40px;
-        height: 20px;
-        background-color: #444;
-        border-radius: 10px 10px 0 0;
-        z-index: 1010;
-      }
-      .power-button::after {
-        content: "POWER";
-        position: absolute;
-        top: 3px;
-        left: 4px;
-        font-size: 5px;
-        color: #aaa;
-      }
-      .power-led {
-        position: absolute;
-        right: 5px;
-        top: 5px;
-        width: 5px;
-        height: 5px;
-        background-color: #0f0;
-        border-radius: 50%;
-        box-shadow: 0 0 5px #0f0;
-        animation: blink 4s infinite;
-      }
-
-      @keyframes blink {
-        0%, 95% { opacity: 1; }
-        96%, 100% { opacity: 0.7; }
-      }
-
       @keyframes pulse {
         0% { opacity: 1; }
         50% { opacity: 0.7; }
@@ -275,27 +162,8 @@ export class Menu {
 
   private setupMenu(): void {
     // Create terminal elements
-    const terminalFrame = document.createElement("div");
-    terminalFrame.className = "terminal-frame";
-
     const terminalViewport = document.createElement("div");
     terminalViewport.className = "terminal-viewport";
-
-    // Add screws to corners
-    const screwPositions = ["tl", "tr", "bl", "br"];
-    screwPositions.forEach((pos) => {
-      const screw = document.createElement("div");
-      screw.className = `screw screw-${pos}`;
-      this.container.appendChild(screw);
-    });
-
-    // Add power button
-    const powerButton = document.createElement("div");
-    powerButton.className = "power-button";
-    const powerLed = document.createElement("div");
-    powerLed.className = "power-led";
-    powerButton.appendChild(powerLed);
-    this.container.appendChild(powerButton);
 
     // Content container
     const contentContainer = document.createElement("div");
@@ -358,7 +226,6 @@ export class Menu {
 
     terminalViewport.appendChild(contentContainer);
     this.container.appendChild(terminalViewport);
-    this.container.appendChild(terminalFrame);
     document.body.appendChild(this.container);
 
     // Setup keyboard navigation

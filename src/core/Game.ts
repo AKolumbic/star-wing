@@ -3,6 +3,7 @@ import { Input } from "./Input";
 import { Menu } from "../ui/Menu";
 import { AudioManager } from "../audio/AudioManager";
 import { LoadingScreen } from "../ui/LoadingScreen";
+import { TerminalBorder } from "../ui/TerminalBorder";
 
 export class Game {
   private scene: Scene;
@@ -16,6 +17,7 @@ export class Game {
   private animationFrameId: number = 0;
   private loadingScreen?: LoadingScreen;
   private canvas: HTMLCanvasElement;
+  private terminalBorder: TerminalBorder;
 
   constructor(canvasId: string) {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -29,8 +31,12 @@ export class Game {
     this.input = new Input();
     this.menu = new Menu(this);
 
-    // Show the loading screen instead of immediately initializing
+    // Initialize the loading screen
     this.showLoadingScreen();
+
+    // Initialize the terminal border last so it appears on top
+    this.terminalBorder = TerminalBorder.getInstance();
+    this.terminalBorder.initialize();
   }
 
   private showLoadingScreen(): void {
@@ -99,10 +105,30 @@ export class Game {
     cancelAnimationFrame(this.animationFrameId);
   }
 
-  dispose(): void {
-    this.menu.dispose();
-    this.scene.dispose();
-    this.input.dispose();
+  public dispose(): void {
+    console.log("Game disposing...");
+    this.stop();
+
+    // Dispose all systems
+    if (this.terminalBorder) {
+      this.terminalBorder.dispose();
+    }
+
+    if (this.scene) {
+      this.scene.dispose();
+    }
+
+    if (this.input) {
+      this.input.dispose();
+    }
+
+    if (this.menu) {
+      this.menu.dispose();
+    }
+
+    if (this.audioManager) {
+      this.audioManager.dispose();
+    }
   }
 
   getAudioManager(): AudioManager {
