@@ -83,6 +83,7 @@ export class Menu {
         overflow: hidden;
         background: transparent;
         z-index: 1002;
+        border: none;
       }
 
       .content-container {
@@ -94,6 +95,16 @@ export class Menu {
         justify-content: center;
         height: 100%;
         width: 100%;
+        border: none;
+      }
+
+      /* Remove any potential dividing lines */
+      .title-section, .menu-section, .development-placeholder {
+        border: none;
+        border-bottom: none;
+        border-top: none;
+        outline: none;
+        box-shadow: none;
       }
 
       .title-section {
@@ -180,13 +191,15 @@ export class Menu {
         50.01%, 100% { transform: translateY(5px); }
       }
 
+      /* Fix for the screen-flicker animation to prevent line artifacts */
       @keyframes screen-flicker {
-        0%, 95% { opacity: 1; }
-        96%, 100% { opacity: 0.8; }
+        0%, 95% { opacity: 1; background: transparent; }
+        96%, 100% { opacity: 0.8; background: transparent; }
       }
 
       .screen-flicker {
         animation: screen-flicker 10s infinite;
+        background: transparent;
       }
     `;
     document.head.appendChild(style);
@@ -242,11 +255,8 @@ export class Menu {
 
       menuOption.addEventListener("click", () => {
         if (option === "START GAME") {
-          console.log("[Menu] START GAME clicked, hiding menu");
-          this.hide();
-          // Also hide the terminal border when starting the game
-          console.log("[Menu] Calling game.hideTerminalBorder()");
-          this.game.hideTerminalBorder();
+          console.log("[Menu] START GAME clicked");
+          this.showDevelopmentPlaceholder();
         } else if (option === "SETTINGS") {
           this.showSettings();
         } else if (option === "HIGH SCORES") {
@@ -326,11 +336,8 @@ export class Menu {
   private activateCurrentOption(): void {
     const selectedOption = this.menuOptions[this.currentSelection];
     if (selectedOption === "START GAME") {
-      console.log("[Menu] START GAME activated via keyboard, hiding menu");
-      this.hide();
-      // Also hide the terminal border when starting the game
-      console.log("[Menu] Calling game.hideTerminalBorder() via keyboard");
-      this.game.hideTerminalBorder();
+      console.log("[Menu] START GAME activated via keyboard");
+      this.showDevelopmentPlaceholder();
     } else if (selectedOption === "SETTINGS") {
       this.showSettings();
     } else if (selectedOption === "HIGH SCORES") {
@@ -358,6 +365,93 @@ export class Menu {
     this.highScores.setOnCloseCallback(() => {
       this.container.style.display = "flex";
     });
+  }
+
+  /**
+   * Shows a placeholder "In Development" message when START GAME is selected
+   */
+  private showDevelopmentPlaceholder(): void {
+    // Hide the regular menu options
+    const menuSection = document.querySelector(".menu-section") as HTMLElement;
+    if (menuSection) {
+      menuSection.style.display = "none";
+    }
+
+    // Get the content container
+    const contentContainer = document.querySelector(
+      ".content-container"
+    ) as HTMLElement;
+    if (!contentContainer) return;
+
+    // Create the placeholder container
+    const placeholderContainer = document.createElement("div");
+    placeholderContainer.className = "development-placeholder";
+    placeholderContainer.style.display = "flex";
+    placeholderContainer.style.flexDirection = "column";
+    placeholderContainer.style.alignItems = "center";
+    placeholderContainer.style.justifyContent = "center";
+    placeholderContainer.style.textAlign = "center";
+    placeholderContainer.style.marginTop = "2rem";
+
+    // Create main message
+    const mainMessage = document.createElement("div");
+    mainMessage.textContent = "IN DEVELOPMENT";
+    mainMessage.style.color = "#ff0";
+    mainMessage.style.fontSize = "2rem";
+    mainMessage.style.fontWeight = "bold";
+    mainMessage.style.marginBottom = "1rem";
+    mainMessage.style.textShadow = "0 0 10px rgba(255, 255, 0, 0.7)";
+    mainMessage.style.animation = "pulse 1.5s infinite alternate";
+
+    // Create sub message
+    const subMessage = document.createElement("div");
+    subMessage.textContent = "COMING SOON";
+    subMessage.style.color = "#0f0";
+    subMessage.style.fontSize = "1.5rem";
+    subMessage.style.marginBottom = "2rem";
+
+    // Create back button
+    const backButton = document.createElement("div");
+    backButton.textContent = "BACK TO MENU";
+    backButton.style.color = "#fff";
+    backButton.style.fontSize = "1.2rem";
+    backButton.style.padding = "10px 20px";
+    backButton.style.border = "2px solid #fff";
+    backButton.style.cursor = "pointer";
+    backButton.style.marginTop = "3rem";
+    backButton.style.transition = "all 0.2s";
+
+    // Add hover effect
+    backButton.addEventListener("mouseover", () => {
+      backButton.style.color = "#0f0";
+      backButton.style.borderColor = "#0f0";
+      backButton.style.textShadow = "0 0 5px rgba(0, 255, 0, 0.7)";
+      backButton.style.boxShadow = "0 0 15px rgba(0, 255, 0, 0.5)";
+    });
+
+    backButton.addEventListener("mouseout", () => {
+      backButton.style.color = "#fff";
+      backButton.style.borderColor = "#fff";
+      backButton.style.textShadow = "none";
+      backButton.style.boxShadow = "none";
+    });
+
+    // Add click handler
+    backButton.addEventListener("click", () => {
+      // Remove the placeholder
+      contentContainer.removeChild(placeholderContainer);
+
+      // Show the menu again
+      if (menuSection) {
+        menuSection.style.display = "flex";
+      }
+    });
+
+    // Append elements
+    placeholderContainer.appendChild(mainMessage);
+    placeholderContainer.appendChild(subMessage);
+    placeholderContainer.appendChild(backButton);
+    contentContainer.appendChild(placeholderContainer);
   }
 
   show(): void {
