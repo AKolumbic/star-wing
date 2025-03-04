@@ -2,11 +2,6 @@
  * TerminalBorder - A singleton component that creates a consistent terminal-style border
  * that appears over all other UI elements in the application.
  */
-import * as THREE from "three";
-import {
-  CSS3DRenderer,
-  CSS3DObject,
-} from "three/examples/jsm/renderers/CSS3DRenderer";
 import { Logger } from "../utils/Logger";
 
 export class TerminalBorder {

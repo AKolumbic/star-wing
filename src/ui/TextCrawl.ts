@@ -33,7 +33,7 @@ export class TextCrawl {
         z-index: 1000;
         overflow: hidden;
         background: rgba(0, 0, 0, 0.2); /* More transparent background to see starfield */
-        perspective: 400px;
+        perspective: 500px; /* Increased perspective for more dramatic effect */
         display: flex;
         justify-content: center;
         font-family: 'PressStart2P', monospace;
@@ -42,31 +42,51 @@ export class TextCrawl {
       .crawl-content {
         position: absolute;
         top: 100%;
-        color: #ffda00;
-        font-size: 24px;
+        color: #FFE81F; /* Star Wars gold */
+        font-size: 28px;
         text-align: center;
         width: 80%;
         max-width: 800px;
         transform-origin: 50% 100%;
-        transform: rotateX(35deg);
-        line-height: 1.8;
+        transform: rotateX(25deg); /* Reduced angle for better readability */
+        line-height: 2;
         letter-spacing: 2px;
-        text-shadow: 0 0 10px rgba(255, 218, 0, 0.6);
+        text-shadow: 0 0 10px rgba(255, 232, 31, 0.7);
+        padding-bottom: 20%;
+      }
+
+      /* Add a subtle fade effect only at the very bottom edge */
+      .crawl-content::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 15%;
+        background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+        pointer-events: none;
       }
 
       .crawl-title {
-        font-size: 38px;
-        margin-bottom: 70px;
-        color: #ffda00;
+        font-size: 50px; /* Larger title */
+        margin-bottom: 100px;
+        color: #FFE81F; /* Star Wars gold */
+        text-transform: uppercase;
+        text-shadow: 0 0 20px rgba(255, 232, 31, 0.9);
       }
 
       .crawl-paragraph {
         margin-bottom: 50px;
+        text-shadow: 0 0 15px rgba(255, 232, 31, 0.8); /* Enhanced text shadow for better readability */
       }
 
       @keyframes scroll {
-        0% { top: 100%; }
-        100% { top: -250%; }
+        0% { 
+          top: 100%; 
+        }
+        100% { 
+          top: -250%;
+        }
       }
     `;
     document.head.appendChild(style);
@@ -139,8 +159,16 @@ export class TextCrawl {
     this.crawlContainer.offsetHeight; // Trigger reflow
 
     // Add animation with a callback for when it's done (as a fallback)
-    const animationDuration = 60; // Shorter duration, but still have a fallback
+    const animationDuration = 60; // Keep the 60 second duration as requested
     this.crawlContainer.style.animation = `scroll ${animationDuration}s linear forwards`;
+
+    // Apply a slight zoom effect to enhance the 3D feeling
+    setTimeout(() => {
+      if (this.crawlContainer && this.isVisible) {
+        this.crawlContainer.style.transition = "transform 60s ease-out";
+        this.crawlContainer.style.transform = "rotateX(25deg) scale(0.8)";
+      }
+    }, 100);
 
     // Set up animation end listener (fallback if position checking fails)
     this.animationEndHandler = (e: AnimationEvent) => {
@@ -316,10 +344,20 @@ export class TextCrawl {
    */
   private executeCallback(): void {
     if (this.onCompleteCallback) {
-      this.logger.info("TextCrawl: Executing callback");
+      this.logger.info(
+        "TextCrawl: Preparing to execute callback with 2-second delay"
+      );
+
+      // Save callback to a local variable to avoid null reference later
       const callback = this.onCompleteCallback;
+      // Clear the callback reference immediately to prevent double execution
       this.onCompleteCallback = null;
-      callback();
+
+      // Add a 2-second delay before executing the callback
+      setTimeout(() => {
+        this.logger.info("TextCrawl: Executing callback after delay");
+        callback(); // Using local variable that we know is non-null
+      }, 2000);
     }
     this.logger.info("TextCrawl: Finished cleanup after animation");
   }
