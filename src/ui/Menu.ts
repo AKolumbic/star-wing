@@ -9,14 +9,44 @@ export class Menu {
   private menuOptions: string[] = ["START GAME", "SETTINGS", "HIGH SCORES"];
   private settings: Settings;
   private highScores: HighScores;
+  private game: Game;
 
   constructor(game: Game) {
+    this.game = game;
     this.container = document.createElement("div");
     this.container.className = "terminal-overlay";
     this.settings = new Settings(game);
     this.highScores = new HighScores(game);
     this.setupStyles();
     this.setupMenu();
+
+    // Add diagnostic key listener to help diagnose the issue
+    document.addEventListener("keydown", (e) => {
+      // Press 'D' key for diagnostics
+      if (e.key === "d" && this.isVisible) {
+        console.log("[DEBUG] Running UI diagnostics...");
+
+        // Log all elements with high z-indexes
+        const highZElements = Array.from(document.querySelectorAll("*")).filter(
+          (el) => {
+            const style = window.getComputedStyle(el);
+            const zIndex = parseInt(style.zIndex);
+            return !isNaN(zIndex) && zIndex > 100;
+          }
+        );
+
+        console.log("[DEBUG] Elements with high z-index:", highZElements);
+
+        // Toggle menu background to see if that's the issue
+        if (this.container.style.backgroundColor) {
+          console.log("[DEBUG] Setting menu background to transparent");
+          this.container.style.backgroundColor = "transparent";
+        } else {
+          console.log("[DEBUG] Restoring menu background");
+          this.container.style.backgroundColor = "rgba(0, 0, 0, 0.85)";
+        }
+      }
+    });
   }
 
   private setupStyles(): void {
@@ -43,7 +73,6 @@ export class Menu {
         display: flex;
         justify-content: center;
         align-items: center;
-        background-color: rgba(0, 0, 0, 0.85);
       }
 
       /* CRT Screen Effect with Viewport */
@@ -213,7 +242,11 @@ export class Menu {
 
       menuOption.addEventListener("click", () => {
         if (option === "START GAME") {
+          console.log("[Menu] START GAME clicked, hiding menu");
           this.hide();
+          // Also hide the terminal border when starting the game
+          console.log("[Menu] Calling game.hideTerminalBorder()");
+          this.game.hideTerminalBorder();
         } else if (option === "SETTINGS") {
           this.showSettings();
         } else if (option === "HIGH SCORES") {
@@ -272,9 +305,12 @@ export class Menu {
 
   private activateCurrentOption(): void {
     const selectedOption = this.menuOptions[this.currentSelection];
-
     if (selectedOption === "START GAME") {
+      console.log("[Menu] START GAME activated via keyboard, hiding menu");
       this.hide();
+      // Also hide the terminal border when starting the game
+      console.log("[Menu] Calling game.hideTerminalBorder() via keyboard");
+      this.game.hideTerminalBorder();
     } else if (selectedOption === "SETTINGS") {
       this.showSettings();
     } else if (selectedOption === "HIGH SCORES") {
@@ -310,6 +346,7 @@ export class Menu {
   }
 
   hide(): void {
+    console.log("[Menu] Hiding menu");
     this.container.style.display = "none";
     this.isVisible = false;
   }

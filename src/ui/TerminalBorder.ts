@@ -28,12 +28,13 @@ export class TerminalBorder {
   public initialize(): void {
     if (this.initialized) return;
 
+    console.log("[TerminalBorder] Initializing...");
     this.setupContainer();
     this.setupStyles();
     this.addToDOM();
     this.initialized = true;
 
-    console.log("Terminal border initialized");
+    console.log("[TerminalBorder] Initialized, container:", this.container);
   }
 
   /**
@@ -222,10 +223,16 @@ export class TerminalBorder {
   public dispose(): void {
     if (!this.initialized) return;
 
+    console.log("[TerminalBorder] Disposing...");
+
     if (this.container && document.body.contains(this.container)) {
+      console.log("[TerminalBorder] Removing container from DOM");
       document.body.removeChild(this.container);
+    } else {
+      console.log("[TerminalBorder] Container not found in DOM");
     }
 
     this.initialized = false;
+    console.log("[TerminalBorder] Disposed");
   }
 }

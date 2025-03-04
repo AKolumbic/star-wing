@@ -193,4 +193,28 @@ export class Game {
   getAudioManager(): AudioManager {
     return this.audioSystem.getAudioManager();
   }
+
+  /**
+   * Gets the UI system instance.
+   * @returns The game's UISystem instance
+   */
+  getUISystem(): UISystem {
+    return this.uiSystem;
+  }
+
+  /**
+   * Shows the terminal border UI element.
+   */
+  showTerminalBorder(): void {
+    console.log("[Game] Showing terminal border");
+    this.uiSystem.showTerminalBorder();
+  }
+
+  /**
+   * Hides the terminal border UI element.
+   */
+  hideTerminalBorder(): void {
+    console.log("[Game] Hiding terminal border");
+    this.uiSystem.hideTerminalBorder();
+  }
 }

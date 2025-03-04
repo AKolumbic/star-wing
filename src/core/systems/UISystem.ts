@@ -92,6 +92,23 @@ export class UISystem implements GameSystem {
    */
   hideMenu(): void {
     this.menu.hide();
+    // We now handle this explicitly from the Menu class when needed
+  }
+
+  /**
+   * Shows the terminal border UI element.
+   */
+  showTerminalBorder(): void {
+    console.log("[UISystem] Showing terminal border");
+    this.terminalBorder.initialize();
+  }
+
+  /**
+   * Hides the terminal border UI element.
+   */
+  hideTerminalBorder(): void {
+    console.log("[UISystem] Hiding terminal border");
+    this.terminalBorder.dispose();
   }
 
   /**
