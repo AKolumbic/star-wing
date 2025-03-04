@@ -30,6 +30,8 @@ export interface StarfieldParams {
   hyperspaceTrailColor?: number;
   /** Transition time to/from hyperspace in seconds */
   hyperspaceTransitionTime?: number;
+  /** Fade-in time for stars in seconds */
+  starFadeInTime?: number;
 }
 
 /**
@@ -48,6 +50,7 @@ const DEFAULT_PARAMS: Required<StarfieldParams> = {
   hyperspaceColor: 0x00ffff, // Cyan core color for hyperspace
   hyperspaceTrailColor: 0x0033aa, // Blue trail for hyperspace
   hyperspaceTransitionTime: 1.0, // Time in seconds to transition to/from hyperspace
+  starFadeInTime: 0.7, // Time in seconds for stars to fade in
 };
 
 /**
@@ -67,6 +70,9 @@ export class StarfieldBackground implements Background {
 
   /** Individual streak lengths for hyperspace mode */
   private streakLengths: Float32Array | null = null;
+
+  /** Star opacity values for fade-in effect */
+  private starOpacities: Float32Array | null = null;
 
   /** Material for the starfield - cached for animation updates */
   private starMaterial: THREE.ShaderMaterial | null = null;
@@ -108,15 +114,18 @@ export class StarfieldBackground implements Background {
    * @returns Promise that resolves when initialization is complete
    */
   async init(): Promise<void> {
+    this.logger.info("Initializing StarfieldBackground");
+
     // Create buffer geometry for stars
     const starGeometry = new THREE.BufferGeometry();
 
-    // Allocate arrays for positions, speeds, and streak lengths
+    // Allocate arrays for positions, speeds, streak lengths, and opacities
     this.starPositions = new Float32Array(this.params.starCount * 3);
     this.starSpeeds = new Float32Array(this.params.starCount);
     this.streakLengths = new Float32Array(this.params.starCount);
+    this.starOpacities = new Float32Array(this.params.starCount);
 
-    // Initialize random star positions, speeds, and streak lengths
+    // Initialize random star positions, speeds, streak lengths, and opacities
     for (let i = 0; i < this.params.starCount; i++) {
       const idx = i * 3;
       const halfSize = this.params.fieldSize / 2;
@@ -135,12 +144,21 @@ export class StarfieldBackground implements Background {
 
       // Random streak length for hyperspace mode
       this.streakLengths[i] = 0.5 + Math.random() * 0.5; // Normalized value 0.5-1.0
+
+      // Full opacity for initial stars
+      this.starOpacities[i] = 1.0;
     }
 
     // Add position attribute to geometry
     starGeometry.setAttribute(
       "position",
       new THREE.BufferAttribute(this.starPositions, 3)
+    );
+
+    // Add opacity attribute to geometry
+    starGeometry.setAttribute(
+      "opacity",
+      new THREE.BufferAttribute(this.starOpacities, 1)
     );
 
     // Create star material with custom shader for depth-based opacity and streaking
@@ -162,13 +180,16 @@ export class StarfieldBackground implements Background {
         uniform float hyperspaceMode;
         
         attribute float streakFactor;
+        attribute float opacity;
         
         varying vec3 vPosition;
         varying float vHyperspaceEffect;
+        varying float vOpacity;
         
         void main() {
           vPosition = position;
           vHyperspaceEffect = hyperspaceMode;
+          vOpacity = opacity;
           
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
           
@@ -193,6 +214,7 @@ export class StarfieldBackground implements Background {
         
         varying vec3 vPosition;
         varying float vHyperspaceEffect;
+        varying float vOpacity;
         
         void main() {
           // Create a circular point shape with soft edge
@@ -208,6 +230,9 @@ export class StarfieldBackground implements Background {
           // Add depth-based fading
           float depthFactor = smoothstep(-1000.0, 0.0, vPosition.z);
           opacity *= 0.4 + (0.6 * depthFactor);
+          
+          // Apply the star's individual opacity (for fade-in effect)
+          opacity *= vOpacity;
           
           // Apply a subtle twinkle effect in normal mode
           float twinkle = 0.8 + 0.2 * sin(time * 0.01 + vPosition.x * 0.1 + vPosition.y * 0.1);
@@ -247,6 +272,12 @@ export class StarfieldBackground implements Background {
     // Create stars mesh
     this.stars = new THREE.Points(starGeometry, this.starMaterial);
 
+    if (this.stars) {
+      this.logger.info(`Created starfield with ${this.params.starCount} stars`);
+    } else {
+      this.logger.error("Failed to create starfield Points object");
+    }
+
     this.initialized = true;
     return Promise.resolve();
   }
@@ -261,7 +292,12 @@ export class StarfieldBackground implements Background {
       return;
     }
 
-    scene.add(this.stars);
+    try {
+      scene.add(this.stars);
+      this.logger.info("Starfield added to scene successfully");
+    } catch (error) {
+      this.logger.error("Error adding starfield to scene:", error);
+    }
   }
 
   /**
@@ -318,7 +354,12 @@ export class StarfieldBackground implements Background {
    * @param deltaTime Time in seconds since the last update
    */
   update(deltaTime: number): void {
-    if (!this.stars || !this.starPositions || !this.starSpeeds) {
+    if (
+      !this.stars ||
+      !this.starPositions ||
+      !this.starSpeeds ||
+      !this.starOpacities
+    ) {
       return;
     }
 
@@ -349,83 +390,70 @@ export class StarfieldBackground implements Background {
       }
     }
 
-    // Access star position data and material
-    const positions = this.stars.geometry.attributes.position
-      .array as Float32Array;
+    // Update star positions based on speed
+    const positions = this.starPositions;
+    const speeds = this.starSpeeds;
+    const opacities = this.starOpacities;
+    const direction = this.params.direction;
+    const fieldSize = this.params.fieldSize;
+    const halfSize = fieldSize / 2;
+    const fadeInStep = deltaTime / this.params.starFadeInTime;
 
-    // Update time uniform for shader animations
-    if (this.starMaterial) {
-      this.starMaterial.uniforms.time.value += deltaTime;
-    }
-
-    // Get normalized direction vector (default is positive Z)
-    const direction = this.params.direction.clone().normalize();
-
-    // Calculate effective speed based on hyperspace transition
+    // Calculate speed multiplier based on hyperspace mode
     const speedMultiplier =
       1.0 +
-      (this.params.hyperspaceSpeedMultiplier - 1.0) * this.hyperspaceTransition;
+      this.hyperspaceTransition * (this.params.hyperspaceSpeedMultiplier - 1.0);
 
-    // Update star positions with varying speeds
+    // Update each star position and opacity
     for (let i = 0; i < this.params.starCount; i++) {
       const idx = i * 3;
 
-      // Calculate effective speed for this star with hyperspace adjustment
-      const effectiveSpeed = this.starSpeeds[i] * speedMultiplier;
+      // Update opacity for stars that are fading in
+      if (opacities[i] < 1.0) {
+        opacities[i] = Math.min(opacities[i] + fadeInStep, 1.0);
+      }
 
-      // Move star in the specified direction
-      positions[idx] += direction.x * deltaTime * effectiveSpeed;
-      positions[idx + 1] += direction.y * deltaTime * effectiveSpeed;
-      positions[idx + 2] += direction.z * deltaTime * effectiveSpeed;
+      // Move star in the direction of travel
+      positions[idx] += direction.x * speeds[i] * deltaTime * speedMultiplier;
+      positions[idx + 1] +=
+        direction.y * speeds[i] * deltaTime * speedMultiplier;
+      positions[idx + 2] +=
+        direction.z * speeds[i] * deltaTime * speedMultiplier;
 
-      // Check if the star has moved outside the field in any direction
-      const halfSize = this.params.fieldSize / 2;
-      const x = positions[idx];
-      const y = positions[idx + 1];
-      const z = positions[idx + 2];
-
-      let resetStar = false;
-
-      // Check if star is outside the field in the main direction of movement
-      if (direction.x > 0 && x > halfSize) resetStar = true;
-      if (direction.x < 0 && x < -halfSize) resetStar = true;
-      if (direction.y > 0 && y > halfSize) resetStar = true;
-      if (direction.y < 0 && y < -halfSize) resetStar = true;
-      if (direction.z > 0 && z > halfSize) resetStar = true;
-      if (direction.z < 0 && z < -halfSize) resetStar = true;
-
-      // Reset star to opposite side if it went out of bounds
-      if (resetStar) {
-        // Reset position opposite to the direction of movement
-        positions[idx] = (Math.random() - 0.5) * this.params.fieldSize; // Random X
-        if (Math.abs(direction.x) > 0.5) {
-          positions[idx] = direction.x > 0 ? -halfSize : halfSize;
-        }
-
-        positions[idx + 1] = (Math.random() - 0.5) * this.params.fieldSize; // Random Y
-        if (Math.abs(direction.y) > 0.5) {
-          positions[idx + 1] = direction.y > 0 ? -halfSize : halfSize;
-        }
-
-        positions[idx + 2] = (Math.random() - 0.5) * this.params.fieldSize; // Random Z
-        if (Math.abs(direction.z) > 0.5) {
-          positions[idx + 2] = direction.z > 0 ? -halfSize : halfSize;
-        }
-
-        // Assign a new random speed
-        this.starSpeeds[i] =
-          this.params.minSpeed +
-          Math.random() * (this.params.maxSpeed - this.params.minSpeed);
-
-        // Assign a new random streak length
-        if (this.streakLengths) {
-          this.streakLengths[i] = 0.5 + Math.random() * 0.5;
-        }
+      // If star goes out of bounds, reset it to the opposite side
+      if (positions[idx + 2] < -halfSize) {
+        // Reset to far side
+        positions[idx + 2] = halfSize;
+        // Randomize x,y position
+        positions[idx] = (Math.random() - 0.5) * fieldSize;
+        positions[idx + 1] = (Math.random() - 0.5) * fieldSize;
+        // Reset opacity to 0 for fade-in effect
+        opacities[i] = 0.0;
+      } else if (positions[idx + 2] > halfSize) {
+        // Reset to near side
+        positions[idx + 2] = -halfSize;
+        // Randomize x,y position
+        positions[idx] = (Math.random() - 0.5) * fieldSize;
+        positions[idx + 1] = (Math.random() - 0.5) * fieldSize;
+        // Reset opacity to 0 for fade-in effect
+        opacities[i] = 0.0;
       }
     }
 
-    // Flag attributes as needing an update
-    this.stars.geometry.attributes.position.needsUpdate = true;
+    // Update the position buffer
+    if (this.stars.geometry.attributes.position) {
+      this.stars.geometry.attributes.position.needsUpdate = true;
+    }
+
+    // Update the opacity buffer
+    if (this.stars.geometry.attributes.opacity) {
+      this.stars.geometry.attributes.opacity.needsUpdate = true;
+    }
+
+    // Update time uniform for twinkling effect
+    if (this.starMaterial) {
+      this.starMaterial.uniforms.time.value += deltaTime;
+    }
   }
 
   /**
@@ -444,6 +472,7 @@ export class StarfieldBackground implements Background {
     this.starPositions = null;
     this.starSpeeds = null;
     this.streakLengths = null;
+    this.starOpacities = null;
     this.initialized = false;
   }
 

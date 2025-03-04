@@ -87,14 +87,48 @@ export class BackgroundManager {
     type: BackgroundType,
     initParams?: Record<string, any>
   ): Promise<void> {
+    this.logger.info(`Setting background to ${type}`);
+
     if (this.backgroundRegistry.has(type)) {
+      // Remove current background from scene if it exists
       if (this.currentBackground) {
+        this.logger.info(
+          `Disposing of current background: ${this.currentBackgroundType}`
+        );
+        this.currentBackground.removeFromScene(this.scene);
         await this.currentBackground.dispose();
       }
 
-      this.currentBackground = this.backgroundRegistry.get(type);
+      // Get the new background instance - we know it exists because we checked with has()
+      const newBackground = this.backgroundRegistry.get(type) as Background;
+
+      this.logger.info(`Initializing new background: ${type}`);
+
+      // Update current background references
+      this.currentBackground = newBackground;
       this.currentBackgroundType = type;
-      return this.currentBackground.init();
+
+      // Set any initialization parameters
+      if (initParams) {
+        this.logger.info(
+          `Applying initialization parameters to ${type} background`
+        );
+        Object.entries(initParams).forEach(([key, value]) => {
+          newBackground.setParameter(key, value);
+        });
+      }
+
+      // Initialize the background
+      try {
+        await newBackground.init();
+        this.logger.info(`Adding ${type} background to scene`);
+        newBackground.addToScene(this.scene);
+        this.logger.info(`Background ${type} successfully set`);
+        return Promise.resolve();
+      } catch (error) {
+        this.logger.error(`Error initializing ${type} background:`, error);
+        return Promise.reject(error);
+      }
     } else {
       this.logger.warn(`Background type '${type}' not registered`);
       return Promise.resolve();
@@ -121,7 +155,7 @@ export class BackgroundManager {
     }
 
     // Set up the transition
-    const toBackground = this.backgroundRegistry.get(toType);
+    const toBackground = this.backgroundRegistry.get(toType) as Background;
 
     // Dispose of previous and set up the new one
     if (this.currentBackground) {

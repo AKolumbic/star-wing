@@ -144,11 +144,22 @@ export class Scene {
    * @returns Promise that resolves when initialization is complete
    */
   async init(): Promise<void> {
+    this.logger.info("Scene: Initializing");
+
+    // Setup backgrounds
+    this.setupBackgrounds();
+
     // Setup basic lighting
     this.setupBasicLighting();
 
     // Set the default background (starfield)
-    await this.backgroundManager.setBackground(BackgroundType.STARFIELD);
+    try {
+      this.logger.info("Scene: Setting initial starfield background");
+      await this.backgroundManager.setBackground(BackgroundType.STARFIELD);
+      this.logger.info("Scene: Starfield background initialized successfully");
+    } catch (error) {
+      this.logger.error("Scene: Error setting starfield background", error);
+    }
 
     return Promise.resolve();
   }
@@ -158,11 +169,30 @@ export class Scene {
    * @private
    */
   private setupBackgrounds(): void {
+    this.logger.info("Scene: Setting up background manager");
+
+    // Create the starfield background with improved parameters
+    const starfieldBackground = new StarfieldBackground({
+      starCount: 1500, // Default star count (1500)
+      fieldSize: 3000, // Slightly larger field size for more depth
+      starColor: 0xffffff, // Default star color
+      baseStarSize: 2.5, // Default star size
+      minSpeed: 50, // Default minimum speed
+      maxSpeed: 200, // Default maximum speed
+      hyperspaceSpeedMultiplier: 8.0, // More dramatic hyperspace effect
+      hyperspaceStreakMultiplier: 8.0, // Default streaks in hyperspace
+      hyperspaceColor: 0x00ffff, // Default cyan core for hyperspace
+      hyperspaceTrailColor: 0x0033aa, // Default blue trails for hyperspace
+      hyperspaceTransitionTime: 0.8, // Slightly faster transition to hyperspace
+    });
+
     // Register the starfield background
     this.backgroundManager.registerBackground(
       BackgroundType.STARFIELD,
-      new StarfieldBackground()
+      starfieldBackground
     );
+
+    this.logger.info("Scene: Background manager setup complete");
   }
 
   /**
