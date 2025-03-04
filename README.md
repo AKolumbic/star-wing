@@ -68,6 +68,11 @@ star-wing/
 │   │   ├── PerformanceMonitor.ts # Performance monitoring utilities
 │   │   ├── Scene.ts           # Three.js scene management
 │   │   ├── Input.ts           # Core input handling
+│   │   ├── backgrounds/       # Modular background system
+│   │   │   ├── Background.ts  # Base background interface
+│   │   │   ├── BackgroundManager.ts # Background state management
+│   │   │   ├── StarfieldBackground.ts # Dynamic star field effect
+│   │   │   └── HyperspaceBackground.ts # Hyperspace travel effect
 │   │   └── systems/           # Game subsystems
 │   │       ├── SceneSystem.ts # Scene management system
 │   │       ├── InputSystem.ts # Input processing system

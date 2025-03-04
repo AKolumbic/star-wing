@@ -67,7 +67,8 @@ Specialized adapters that implement the GameSystem interface:
 
 - Wraps the Scene class for 3D rendering
 - Manages Three.js integration
-- Handles the starfield background and visual effects
+- Coordinates the modular background system
+- Handles visual effects and scene composition
 
 #### InputSystem
 
@@ -130,3 +131,39 @@ Robust error handling is implemented throughout the core systems:
 - **Browser DOM API**: For input handling (Input.ts)
 - **Web Audio API**: Through AudioManager for sound (referenced in AudioSystem)
 - **UI Components**: Through Menu, LoadingScreen, etc. (referenced in UISystem)
+
+## Background System
+
+The background system provides a modular and extensible framework for managing dynamic scene backgrounds:
+
+### BackgroundManager
+
+Central manager that handles background state and transitions:
+
+- Manages multiple background types
+- Handles smooth transitions between backgrounds
+- Provides a unified update interface
+- Supports dynamic background switching
+
+### Background Types
+
+1. **StarfieldBackground**
+
+   - Dynamic star field simulation
+   - Configurable star density and speed
+   - Parallax scrolling effect
+   - Optimized particle management
+
+2. **HyperspaceBackground**
+   - Hyperspace travel effect
+   - Dynamic light streaks
+   - Configurable speed and intensity
+   - Smooth transition handling
+
+### Design Features
+
+- Modular architecture for easy addition of new background types
+- Interface-based design for consistent implementation
+- Performance-optimized rendering
+- Seamless integration with Three.js scene graph
+- Independent update cycles for each background type
