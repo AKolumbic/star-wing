@@ -392,6 +392,10 @@ export class Menu {
             scene.startShipEntry(() => {
               console.log("Ship entry complete, starting game");
               this.game.start();
+
+              // Show the game HUD
+              console.log("Showing game HUD");
+              this.game.getUISystem().showGameHUD();
             });
             console.log("Ship entry animation started");
           })

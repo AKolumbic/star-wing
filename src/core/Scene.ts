@@ -53,6 +53,18 @@ export class Scene {
   /** Whether the game is currently active/playable */
   private gameActive: boolean = false;
 
+  /** Current player score */
+  private score: number = 0;
+
+  /** Current zone (level) */
+  private currentZone: number = 1;
+
+  /** Current wave within the zone */
+  private currentWave: number = 1;
+
+  /** Total waves in the current zone */
+  private totalWaves: number = 8;
+
   /**
    * Creates a new scene with a WebGL renderer.
    * @param canvas Optional canvas element to render on. If not provided, one will be created.
@@ -420,10 +432,82 @@ export class Scene {
   }
 
   /**
-   * Gets the player ship instance.
-   * @returns The player ship or null if not initialized
+   * Gets the player's ship.
+   * @returns The player's ship
    */
   getPlayerShip(): Ship | null {
     return this.playerShip;
+  }
+
+  /**
+   * Gets the current score.
+   * @returns Current score
+   */
+  getScore(): number {
+    return this.score;
+  }
+
+  /**
+   * Sets the current score.
+   * @param value New score value
+   */
+  setScore(value: number): void {
+    this.score = value;
+  }
+
+  /**
+   * Adds to the current score.
+   * @param points Points to add to the score
+   */
+  addScore(points: number): void {
+    this.score += points;
+  }
+
+  /**
+   * Gets the current zone (level).
+   * @returns Current zone number
+   */
+  getCurrentZone(): number {
+    return this.currentZone;
+  }
+
+  /**
+   * Sets the current zone (level).
+   * @param zone Zone number
+   */
+  setCurrentZone(zone: number): void {
+    this.currentZone = zone;
+  }
+
+  /**
+   * Gets the current wave within the zone.
+   * @returns Current wave number
+   */
+  getCurrentWave(): number {
+    return this.currentWave;
+  }
+
+  /**
+   * Sets the current wave within the zone.
+   * @param wave Wave number
+   */
+  setCurrentWave(wave: number): void {
+    this.currentWave = wave;
+  }
+
+  /**
+   * Gets the total waves in the current zone.
+   * @returns Total waves in the zone
+   */
+  getTotalWaves(): number {
+    return this.totalWaves;
+  }
+
+  /**
+   * Sets the total waves in the current zone.
+   * @param total Total number of waves
+   */
+  setTotalWaves(total: number): void {
+    this.totalWaves = total;
   }
 }

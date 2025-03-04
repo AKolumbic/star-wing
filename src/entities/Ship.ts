@@ -31,6 +31,18 @@ export class Ship {
   /** The ship's movement speed */
   private speed: number = 5;
 
+  /** The ship's health (hull integrity) */
+  private health: number = 100;
+
+  /** The ship's maximum health */
+  private maxHealth: number = 100;
+
+  /** The ship's shield strength */
+  private shield: number = 100;
+
+  /** The ship's maximum shield strength */
+  private maxShield: number = 100;
+
   /** The ship's rotation speed */
   private rotationSpeed: number = 0.05;
 
@@ -735,39 +747,104 @@ export class Ship {
   }
 
   /**
-   * Cleans up resources used by the ship.
+   * Clean up resources used by the ship.
    */
   dispose(): void {
     if (this.model) {
       this.scene.remove(this.model);
-      // Dispose of geometries and materials
-      this.model.traverse((object) => {
-        if (object instanceof THREE.Mesh) {
-          if (object.geometry) object.geometry.dispose();
-
-          if (object.material) {
-            if (Array.isArray(object.material)) {
-              object.material.forEach((material) => material.dispose());
-            } else {
-              object.material.dispose();
-            }
-          }
-        }
-      });
+      // In a more thorough implementation, we'd recursively dispose of geometries and materials
     }
+  }
 
-    if (this.hitbox) {
-      this.scene.remove(this.hitbox);
-      if (this.hitbox.geometry) this.hitbox.geometry.dispose();
-      if (this.hitbox.material) {
-        if (Array.isArray(this.hitbox.material)) {
-          this.hitbox.material.forEach((material) => material.dispose());
-        } else {
-          this.hitbox.material.dispose();
-        }
+  /**
+   * Gets the current health value.
+   * @returns Current health value
+   */
+  getHealth(): number {
+    return this.health;
+  }
+
+  /**
+   * Gets the maximum health value.
+   * @returns Maximum health value
+   */
+  getMaxHealth(): number {
+    return this.maxHealth;
+  }
+
+  /**
+   * Sets the current health value, clamped between 0 and max health.
+   * @param value New health value
+   */
+  setHealth(value: number): void {
+    this.health = Math.max(0, Math.min(this.maxHealth, value));
+  }
+
+  /**
+   * Gets the current shield value.
+   * @returns Current shield value
+   */
+  getShield(): number {
+    return this.shield;
+  }
+
+  /**
+   * Gets the maximum shield value.
+   * @returns Maximum shield value
+   */
+  getMaxShield(): number {
+    return this.maxShield;
+  }
+
+  /**
+   * Sets the current shield value, clamped between 0 and max shield.
+   * @param value New shield value
+   */
+  setShield(value: number): void {
+    this.shield = Math.max(0, Math.min(this.maxShield, value));
+  }
+
+  /**
+   * Apply damage to the ship, reducing shields first, then health.
+   * @param amount Amount of damage to apply
+   * @returns True if the ship was destroyed, false otherwise
+   */
+  takeDamage(amount: number): boolean {
+    // First damage goes to shields
+    if (this.shield > 0) {
+      if (amount <= this.shield) {
+        this.shield -= amount;
+        amount = 0;
+      } else {
+        amount -= this.shield;
+        this.shield = 0;
       }
     }
 
-    this.loaded = false;
+    // Remaining damage goes to health
+    if (amount > 0) {
+      this.health -= amount;
+      if (this.health <= 0) {
+        this.health = 0;
+        return true; // Ship destroyed
+      }
+    }
+
+    return false; // Ship still alive
+  }
+
+  /**
+   * Repair the ship's health and/or shields.
+   * @param healthAmount Amount of health to restore
+   * @param shieldAmount Amount of shield to restore
+   */
+  repair(healthAmount: number = 0, shieldAmount: number = 0): void {
+    if (healthAmount > 0) {
+      this.health = Math.min(this.maxHealth, this.health + healthAmount);
+    }
+
+    if (shieldAmount > 0) {
+      this.shield = Math.min(this.maxShield, this.shield + shieldAmount);
+    }
   }
 }

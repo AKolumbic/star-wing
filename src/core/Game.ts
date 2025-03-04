@@ -170,19 +170,20 @@ export class Game {
   }
 
   /**
-   * Stops the game loop.
-   * This pauses all game systems but does not dispose of resources.
+   * Stops the game loop and marks the game as not running.
    */
   stop(): void {
-    console.log("Game stopping...");
-
     if (!this.isRunning) {
       console.warn("Game is already stopped");
       return;
     }
 
-    this.isRunning = false;
+    console.log("Stopping game");
     this.gameLoop.stop();
+    this.isRunning = false;
+
+    // Hide the HUD when game stops
+    this.uiSystem.hideGameHUD();
   }
 
   /**
