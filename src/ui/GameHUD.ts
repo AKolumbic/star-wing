@@ -120,12 +120,15 @@ export class GameHUD {
         font-family: 'PressStart2P', monospace;
         color: #fff;
         text-shadow: 0 0 5px #0ff, 0 0 10px #0af;
+        /* Add padding to account for terminal border */
+        box-sizing: border-box;
+        padding: 35px;
       }
       
       /* Health and shield bars */
       .hud-bar-container {
         position: absolute;
-        left: 20px;
+        left: 40px; /* Increased from 20px to account for terminal border */
         height: 15px;
         width: 200px;
         background-color: rgba(0, 0, 0, 0.5);
@@ -135,11 +138,11 @@ export class GameHUD {
       }
       
       .health-bar-container {
-        bottom: 50px;
+        bottom: 70px; /* Increased from 50px to account for terminal border */
       }
       
       .shield-bar-container {
-        bottom: 75px;
+        bottom: 95px; /* Increased from 75px to account for terminal border */
       }
       
       .hud-bar {
@@ -161,23 +164,32 @@ export class GameHUD {
       /* Weapon status */
       .weapon-status-container {
         position: absolute;
-        right: 20px;
-        bottom: 20px;
+        right: 40px; /* Increased from 20px to account for terminal border */
+        bottom: 40px; /* Increased from 20px to account for terminal border */
         display: flex;
         flex-direction: column;
         align-items: flex-end;
+        gap: 10px; /* Add spacing between weapon items */
       }
       
       .weapon-item {
         background-color: rgba(0, 0, 0, 0.5);
         border: 2px solid #fff;
         border-radius: 5px;
-        margin-bottom: 5px;
-        padding: 5px;
+        padding: 8px 12px;
         display: flex;
         align-items: center;
-        justify-content: center;
+        justify-content: space-between;
         box-shadow: 0 0 5px #0ff;
+        min-width: 160px;
+      }
+      
+      .weapon-label {
+        font-size: 10px;
+        color: #0ff;
+        letter-spacing: 1px;
+        font-weight: bold;
+        text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
       }
       
       .weapon-icon {
@@ -186,27 +198,35 @@ export class GameHUD {
         border: 1px solid #0ff;
         margin-right: 5px;
         background-color: rgba(0, 150, 255, 0.3);
+        /* Center the text */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: bold;
       }
       
       .weapon-cooldown {
-        width: 50px;
-        height: 10px;
+        width: 70px;
+        height: 12px;
         background-color: rgba(0, 0, 0, 0.7);
         border: 1px solid #fff;
         position: relative;
+        margin-left: 10px;
       }
       
       .cooldown-bar {
         height: 100%;
         background-color: #0ff;
         width: 100%;
+        box-shadow: 0 0 5px #0ff;
       }
       
       /* Radar */
       .radar-container {
         position: absolute;
-        right: 20px;
-        top: 20px;
+        right: 40px; /* Increased from 20px to account for terminal border */
+        top: 40px; /* Increased from 20px to account for terminal border */
         width: 150px;
         height: 150px;
         background-color: rgba(0, 0, 0, 0.5);
@@ -219,8 +239,8 @@ export class GameHUD {
       /* Info container */
       .info-container {
         position: absolute;
-        top: 20px;
-        left: 20px;
+        top: 40px; /* Increased from 20px to account for terminal border */
+        left: 40px; /* Increased from 20px to account for terminal border */
         background-color: rgba(0, 0, 0, 0.5);
         border: 2px solid #fff;
         padding: 5px 10px;
@@ -331,7 +351,8 @@ export class GameHUD {
   }
 
   /**
-   * Update weapon status display
+   * Update weapon status display (cooldowns)
+   * @private
    */
   private updateWeaponStatus(): void {
     // Clear existing weapon displays
@@ -341,9 +362,10 @@ export class GameHUD {
     const primaryWeapon = document.createElement("div");
     primaryWeapon.className = "weapon-item";
 
-    const primaryIcon = document.createElement("div");
-    primaryIcon.className = "weapon-icon";
-    primaryIcon.textContent = "P";
+    // Primary weapon label
+    const primaryLabel = document.createElement("div");
+    primaryLabel.className = "weapon-label";
+    primaryLabel.textContent = "PRIMARY";
 
     const primaryCooldown = document.createElement("div");
     primaryCooldown.className = "weapon-cooldown";
@@ -353,16 +375,17 @@ export class GameHUD {
     primaryCooldownBar.style.transform = `scaleX(${1 - this.weaponCooldown})`;
 
     primaryCooldown.appendChild(primaryCooldownBar);
-    primaryWeapon.appendChild(primaryIcon);
+    primaryWeapon.appendChild(primaryLabel);
     primaryWeapon.appendChild(primaryCooldown);
 
     // Create special weapon display
     const specialWeapon = document.createElement("div");
     specialWeapon.className = "weapon-item";
 
-    const specialIcon = document.createElement("div");
-    specialIcon.className = "weapon-icon";
-    specialIcon.textContent = "S";
+    // Special weapon label
+    const specialLabel = document.createElement("div");
+    specialLabel.className = "weapon-label";
+    specialLabel.textContent = "SPECIAL";
 
     const specialCooldown = document.createElement("div");
     specialCooldown.className = "weapon-cooldown";
@@ -372,7 +395,7 @@ export class GameHUD {
     specialCooldownBar.style.transform = `scaleX(${1 - this.specialCooldown})`;
 
     specialCooldown.appendChild(specialCooldownBar);
-    specialWeapon.appendChild(specialIcon);
+    specialWeapon.appendChild(specialLabel);
     specialWeapon.appendChild(specialCooldown);
 
     // Add to container

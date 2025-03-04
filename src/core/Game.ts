@@ -113,6 +113,14 @@ export class Game {
               // Show the game HUD
               this.logger.info("DEV MODE: Showing game HUD");
               this.uiSystem.showGameHUD();
+
+              // Enable hyperspace mode in dev environment for testing
+              setTimeout(() => {
+                this.logger.info(
+                  "DEV MODE: Activating hyperspace mode for enhanced visuals"
+                );
+                scene.transitionHyperspace(true, 1.0);
+              }, 1000); // Short delay to ensure everything is loaded
             })
             .catch((error) => {
               this.logger.error("DEV MODE: Failed to initialize ship:", error);
