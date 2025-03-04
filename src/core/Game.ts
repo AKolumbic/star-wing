@@ -1,6 +1,5 @@
 import { GameSystem } from "./GameSystem";
 import { GameLoop } from "./GameLoop";
-import { PerformanceMonitor } from "./PerformanceMonitor";
 import { SceneSystem } from "./systems/SceneSystem";
 import { InputSystem } from "./systems/InputSystem";
 import { AudioSystem } from "./systems/AudioSystem";
@@ -33,9 +32,6 @@ export class Game {
 
   /** Game loop that manages the update/render cycle */
   private gameLoop: GameLoop;
-
-  /** Performance monitor for tracking FPS and frame timing */
-  private perfMonitor: PerformanceMonitor;
 
   /** Flag indicating if the game is running */
   private isRunning: boolean = false;
@@ -70,9 +66,6 @@ export class Game {
     // Create the game loop with all systems
     this.gameLoop = new GameLoop(this.systems);
 
-    // Create performance monitor
-    this.perfMonitor = new PerformanceMonitor();
-
     // Display the loading screen
     this.showLoadingScreen();
   }
@@ -85,6 +78,9 @@ export class Game {
   private showLoadingScreen(): void {
     // Initialize the audio manager silently
     this.audioSystem.init().catch(console.error);
+
+    // Initialize the terminal border UI before showing the loading screen
+    this.uiSystem.init().catch(console.error);
 
     // Create and show the loading screen
     this.uiSystem.showLoadingScreen(() => {
@@ -196,13 +192,5 @@ export class Game {
    */
   getAudioManager(): AudioManager {
     return this.audioSystem.getAudioManager();
-  }
-
-  /**
-   * Gets the current performance metrics.
-   * @returns Object containing FPS and frame time information
-   */
-  getPerfMetrics(): { fps: number; frameTime: number } {
-    return this.gameLoop.getPerformanceMetrics();
   }
 }

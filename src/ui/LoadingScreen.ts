@@ -250,12 +250,6 @@ export class LoadingScreen {
     */
   }
 
-  private updateEllipsis(): void {
-    // No-op: we're not showing the loading text anymore
-    this.ellipsisState = (this.ellipsisState + 1) % 4;
-    // No need to update the text content since the element is hidden
-  }
-
   private startBuildProcess(): void {
     let lineIndex = 0;
     // Get terminal content div
