@@ -226,11 +226,6 @@ export class LoadingScreen {
             // Clear button interval to stop cursor blinking during transition
             clearInterval(this.cursorBlinkInterval);
 
-            // Optionally add a sound effect
-            if (this.audioManager) {
-              this.audioManager.playTestTone();
-            }
-
             // Fade out the entire loading screen
             this.container.style.transition = "opacity 1s ease-out";
             this.container.style.opacity = "0";

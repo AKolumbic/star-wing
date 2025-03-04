@@ -69,13 +69,6 @@ export class Game {
     this.lastFrameTime = currentTime;
     this.frameCount++;
 
-    // Log every 60 frames (roughly once per second)
-    if (this.frameCount % 60 === 0) {
-      console.log(
-        `Frame ${this.frameCount}, Delta: ${this.deltaTime.toFixed(3)}s`
-      );
-    }
-
     // Update game state
     this.update(this.deltaTime);
 
@@ -92,10 +85,7 @@ export class Game {
 
     // Only update game systems if menu is not visible
     if (!this.menu.isMenuVisible()) {
-      console.log("Menu hidden, updating game state");
       this.input.update();
-    } else {
-      console.log("Menu visible, skipping game state update");
     }
   }
 

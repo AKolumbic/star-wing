@@ -104,10 +104,6 @@ export class AudioManager {
       const now = this.audioContext.currentTime;
       oscillator.start(now);
       oscillator.stop(now + 0.3); // Shorter duration - just 0.3 seconds
-
-      console.log(
-        "AudioManager: Playing test tone (440Hz) for 0.3 seconds at reduced volume"
-      );
     } catch (error) {
       console.error("AudioManager: Error playing test tone:", error);
     }
@@ -119,15 +115,11 @@ export class AudioManager {
     console.log("AudioManager: Initializing");
 
     try {
-      console.log("AudioManager: Initializing");
       if (!this.audioContext) {
         // Fix typing for webkitAudioContext
         const AudioContextClass =
           window.AudioContext || (window as any).webkitAudioContext;
         this.audioContext = new AudioContextClass();
-        console.log(
-          `AudioManager: Audio context created, state: ${this.audioContext.state}`
-        );
 
         // Create main gain node (master volume) with much lower volume
         this.mainGainNode = this.audioContext.createGain();
@@ -152,16 +144,13 @@ export class AudioManager {
     }
 
     if (this.isPlaying) {
-      console.log("AudioManager: Already playing");
       return;
     }
 
-    console.log("AudioManager: Starting audio playback");
     try {
       this.isPlaying = true;
       this.nextNoteTime = this.audioContext.currentTime;
       this.scheduleBeats();
-      console.log("AudioManager: Audio playback started successfully");
     } catch (err) {
       console.error("AudioManager: Error starting audio playback:", err);
     }
@@ -210,13 +199,6 @@ export class AudioManager {
   }
 
   private scheduleBeats(): void {
-    // Log debugging info
-    console.log(
-      `AudioManager: Scheduling beats, currentTime: ${this.audioContext.currentTime.toFixed(
-        2
-      )}s`
-    );
-
     // Schedule several beats ahead
     while (this.nextNoteTime < this.audioContext.currentTime + 0.2) {
       // Play bass
@@ -258,11 +240,6 @@ export class AudioManager {
 
     // Start the oscillator
     bassOsc.start(time);
-    console.log(
-      `AudioManager: Bass note played at ${time.toFixed(2)}s, freq: ${
-        this.dFrequency
-      }Hz`
-    );
 
     // Simple envelope with reduced volume
     bassGain.gain.setValueAtTime(0, time);
@@ -289,11 +266,6 @@ export class AudioManager {
 
     // Start oscillator
     arpeggioOsc.start(time);
-    console.log(
-      `AudioManager: Arpeggio note played at ${time.toFixed(
-        2
-      )}s, freq: ${frequency}Hz`
-    );
 
     // Simple envelope with reduced volume
     arpeggioGain.gain.setValueAtTime(0, time);
