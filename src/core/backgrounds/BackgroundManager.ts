@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { Background } from "./Background";
+import { StarfieldBackground } from "./StarfieldBackground";
 
 /**
  * Background type identifiers for the different background modes.
@@ -7,7 +8,6 @@ import { Background } from "./Background";
 export enum BackgroundType {
   NONE = "none",
   STARFIELD = "starfield",
-  HYPERSPACE = "hyperspace",
   GAME = "game",
 }
 
@@ -41,6 +41,19 @@ export class BackgroundManager {
     elapsed: 0,
     from: null,
     to: null,
+  };
+
+  /** Hyperspace mode transition parameters */
+  private hyperspaceTransition: {
+    inProgress: boolean;
+    duration: number;
+    elapsed: number;
+    targetState: boolean;
+  } = {
+    inProgress: false,
+    duration: 0,
+    elapsed: 0,
+    targetState: false,
   };
 
   /**
@@ -103,6 +116,15 @@ export class BackgroundManager {
 
     // Add the background to the scene
     background.addToScene(this.scene);
+
+    // Reset hyperspace mode when switching backgrounds
+    this.hyperspaceTransition.inProgress = false;
+    this.hyperspaceTransition.targetState = false;
+
+    // If the background is a starfield, ensure hyperspace mode is off
+    if (background instanceof StarfieldBackground) {
+      background.setHyperspaceMode(false);
+    }
   }
 
   /**
@@ -149,6 +171,63 @@ export class BackgroundManager {
     // Once transition is done, this will be the current background
     this.currentBackgroundType = toType;
     this.currentBackground = toBackground;
+
+    // Reset hyperspace mode when switching backgrounds
+    this.hyperspaceTransition.inProgress = false;
+    this.hyperspaceTransition.targetState = false;
+
+    // If the background is a starfield, ensure hyperspace mode is off
+    if (toBackground instanceof StarfieldBackground) {
+      toBackground.setHyperspaceMode(false);
+    }
+  }
+
+  /**
+   * Start a transition to hyperspace mode using the starfield background.
+   * @param enable Whether to enable or disable hyperspace mode
+   * @param duration The duration of the transition in seconds
+   * @returns True if the transition was started successfully, false otherwise
+   */
+  transitionHyperspace(enable: boolean, duration: number = 1.0): boolean {
+    // Only works with starfield background
+    if (
+      this.currentBackgroundType !== BackgroundType.STARFIELD ||
+      !this.currentBackground
+    ) {
+      console.warn("Hyperspace mode only works with the starfield background");
+      return false;
+    }
+
+    // Cast to StarfieldBackground
+    const starfield = this.currentBackground as StarfieldBackground;
+
+    // Configure the transition parameters
+    this.hyperspaceTransition = {
+      inProgress: true,
+      duration,
+      elapsed: 0,
+      targetState: enable,
+    };
+
+    // Tell the starfield to start transitioning
+    starfield.setHyperspaceMode(enable);
+
+    return true;
+  }
+
+  /**
+   * Check if currently in hyperspace mode.
+   * @returns True if in hyperspace mode, false otherwise
+   */
+  isHyperspaceActive(): boolean {
+    if (
+      this.currentBackgroundType !== BackgroundType.STARFIELD ||
+      !this.currentBackground
+    ) {
+      return false;
+    }
+
+    return (this.currentBackground as StarfieldBackground).getHyperspaceMode();
   }
 
   /**
@@ -164,6 +243,11 @@ export class BackgroundManager {
     // Handle transitions if in progress
     if (this.transitionParams.inProgress) {
       this.updateTransition(deltaTime);
+    }
+
+    // Handle hyperspace transition if in progress
+    if (this.hyperspaceTransition.inProgress) {
+      this.updateHyperspaceTransition(deltaTime);
     }
 
     // Update the current background
@@ -201,6 +285,35 @@ export class BackgroundManager {
 
     // Transition logic could be extended here with opacity adjustments, etc.
     // For now, we simply keep both backgrounds in the scene until the transition completes
+  }
+
+  /**
+   * Update an active hyperspace transition.
+   * @param deltaTime Time in seconds since the last update
+   * @private
+   */
+  private updateHyperspaceTransition(deltaTime: number): void {
+    if (!(this.currentBackground instanceof StarfieldBackground)) {
+      this.hyperspaceTransition.inProgress = false;
+      return;
+    }
+
+    // Update elapsed time
+    this.hyperspaceTransition.elapsed += deltaTime;
+
+    // Calculate transition progress (0 to 1)
+    const progress = Math.min(
+      this.hyperspaceTransition.elapsed / this.hyperspaceTransition.duration,
+      1
+    );
+
+    // If transition is complete
+    if (progress >= 1) {
+      this.hyperspaceTransition.inProgress = false;
+      this.hyperspaceTransition.elapsed = 0;
+    }
+
+    // The actual transition is handled by the StarfieldBackground itself
   }
 
   /**

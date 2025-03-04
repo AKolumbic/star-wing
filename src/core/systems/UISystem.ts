@@ -2,6 +2,7 @@ import { GameSystem } from "../GameSystem";
 import { Menu } from "../../ui/Menu";
 import { LoadingScreen } from "../../ui/LoadingScreen";
 import { TerminalBorder } from "../../ui/TerminalBorder";
+import { TextCrawl } from "../../ui/TextCrawl";
 
 /**
  * System that manages all UI components including menus, overlays, and HUD.
@@ -17,6 +18,9 @@ export class UISystem implements GameSystem {
   /** Terminal-style border UI element */
   private terminalBorder: TerminalBorder;
 
+  /** Text crawl intro component */
+  private textCrawl: TextCrawl;
+
   /** Reference to the main game for accessing game state */
   private game: any; // Using 'any' to avoid circular dependency
 
@@ -28,6 +32,7 @@ export class UISystem implements GameSystem {
     this.game = game;
     this.menu = new Menu(this.game);
     this.terminalBorder = TerminalBorder.getInstance();
+    this.textCrawl = new TextCrawl(this.game);
 
     // The loading screen is created later when needed
   }
@@ -70,6 +75,10 @@ export class UISystem implements GameSystem {
     ) {
       this.terminalBorder.dispose();
     }
+
+    if (this.textCrawl && typeof this.textCrawl.dispose === "function") {
+      this.textCrawl.dispose();
+    }
   }
 
   /**
@@ -93,6 +102,21 @@ export class UISystem implements GameSystem {
   hideMenu(): void {
     this.menu.hide();
     // We now handle this explicitly from the Menu class when needed
+  }
+
+  /**
+   * Shows the text crawl intro sequence.
+   * @param onComplete Function to call when the text crawl completes
+   */
+  showTextCrawl(onComplete: () => void): void {
+    this.textCrawl.show(onComplete);
+  }
+
+  /**
+   * Hides the text crawl.
+   */
+  hideTextCrawl(): void {
+    this.textCrawl.hide();
   }
 
   /**

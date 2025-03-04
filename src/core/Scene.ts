@@ -4,7 +4,6 @@ import {
   BackgroundType,
 } from "./backgrounds/BackgroundManager";
 import { StarfieldBackground } from "./backgrounds/StarfieldBackground";
-import { HyperspaceBackground } from "./backgrounds/HyperspaceBackground";
 
 /**
  * Scene class responsible for managing the 3D rendering environment.
@@ -29,6 +28,20 @@ export class Scene {
   /** Background manager for handling different background modes */
   private backgroundManager: BackgroundManager;
 
+  /** Current animation frame request ID */
+  private animationFrameId: number | null = null;
+
+  /** Game canvas element */
+  private canvas: HTMLCanvasElement;
+
+  /** Last timestamp for animation frame */
+  private lastTime: number = 0;
+
+  /** Camera default position */
+  private readonly CAMERA_DEFAULT_POSITION = new THREE.Vector3(0, 0, 500);
+  /** Camera default target position */
+  private readonly CAMERA_DEFAULT_TARGET = new THREE.Vector3(0, 0, 0);
+
   /**
    * Creates a new scene with a WebGL renderer.
    * @param canvas Optional canvas element to render on. If not provided, one will be created.
@@ -46,23 +59,27 @@ export class Scene {
     this.camera = new THREE.PerspectiveCamera(
       75, // Field of view
       this.width / this.height, // Aspect ratio
-      1, // Near plane (increased to avoid near plane clipping issues)
-      1000 // Far plane
+      0.1, // Near plane (increased to avoid near plane clipping issues)
+      10000 // Far plane
     );
     // Position camera slightly back on Z axis
-    this.camera.position.z = 10;
+    this.camera.position.copy(this.CAMERA_DEFAULT_POSITION);
+    this.camera.lookAt(this.CAMERA_DEFAULT_TARGET);
 
     // Create WebGL renderer with careful attention to settings
     this.renderer = new THREE.WebGLRenderer({
       canvas: canvas || undefined,
       antialias: true,
-      alpha: false, // No alpha channel needed for solid background
+      alpha: true,
       powerPreference: "high-performance",
       precision: "highp",
       preserveDrawingBuffer: false,
       premultipliedAlpha: true,
       logarithmicDepthBuffer: false,
     });
+
+    // Initialize canvas property
+    this.canvas = canvas || this.renderer.domElement;
 
     // Set pixel ratio explicitly to 1 to avoid high-DPI rendering issues
     this.renderer.setPixelRatio(1);
@@ -88,6 +105,9 @@ export class Scene {
 
     // Handle window resize
     window.addEventListener("resize", this.onWindowResize.bind(this));
+
+    this.setupBasicLighting();
+    this.setupBackgrounds();
   }
 
   /**
@@ -99,9 +119,6 @@ export class Scene {
     // Setup basic lighting
     this.setupBasicLighting();
 
-    // Register background types
-    this.registerBackgrounds();
-
     // Set the default background (starfield)
     await this.backgroundManager.setBackground(BackgroundType.STARFIELD);
 
@@ -109,20 +126,14 @@ export class Scene {
   }
 
   /**
-   * Register all available background types with the background manager.
+   * Sets up the background manager and registers available backgrounds.
    * @private
    */
-  private registerBackgrounds(): void {
+  private setupBackgrounds(): void {
     // Register the starfield background
     this.backgroundManager.registerBackground(
       BackgroundType.STARFIELD,
       new StarfieldBackground()
-    );
-
-    // Register the hyperspace background
-    this.backgroundManager.registerBackground(
-      BackgroundType.HYPERSPACE,
-      new HyperspaceBackground()
     );
   }
 
@@ -239,6 +250,22 @@ export class Scene {
     params?: Record<string, any>
   ): Promise<void> {
     return this.backgroundManager.transitionTo(type, duration, params);
+  }
+
+  /**
+   * Transitions to or from hyperspace mode.
+   * @param enable Whether to enable hyperspace mode
+   * @param duration Duration of the transition in seconds
+   * @returns Promise that resolves when the transition is complete
+   */
+  transitionHyperspace(enable: boolean, duration: number = 1.0): Promise<void> {
+    // Initiate the hyperspace transition
+    this.backgroundManager.transitionHyperspace(enable, duration);
+
+    // Return a promise that resolves after the transition duration
+    return new Promise<void>((resolve) => {
+      setTimeout(() => resolve(), duration * 1000);
+    });
   }
 
   /**

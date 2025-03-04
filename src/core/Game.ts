@@ -232,6 +232,14 @@ export class Game {
   }
 
   /**
+   * Gets the scene system instance.
+   * @returns The game's SceneSystem instance
+   */
+  getSceneSystem(): SceneSystem {
+    return this.sceneSystem;
+  }
+
+  /**
    * Shows the terminal border UI element.
    */
   showTerminalBorder(): void {

@@ -1,6 +1,7 @@
 import { Game } from "../core/Game";
 import { Settings } from "./Settings";
 import { HighScores } from "./HighScores";
+import { BackgroundType } from "../core/backgrounds/BackgroundManager";
 
 export class Menu {
   private container: HTMLDivElement;
@@ -256,7 +257,7 @@ export class Menu {
       menuOption.addEventListener("click", () => {
         if (option === "START GAME") {
           console.log("[Menu] START GAME clicked");
-          this.showDevelopmentPlaceholder();
+          this.startGame();
         } else if (option === "SETTINGS") {
           this.showSettings();
         } else if (option === "HIGH SCORES") {
@@ -334,15 +335,103 @@ export class Menu {
   }
 
   private activateCurrentOption(): void {
-    const selectedOption = this.menuOptions[this.currentSelection];
-    if (selectedOption === "START GAME") {
-      console.log("[Menu] START GAME activated via keyboard");
-      this.showDevelopmentPlaceholder();
-    } else if (selectedOption === "SETTINGS") {
-      this.showSettings();
-    } else if (selectedOption === "HIGH SCORES") {
-      this.showHighScores();
+    console.log(
+      `Activating menu option: ${this.menuOptions[this.currentSelection]}`
+    );
+    switch (this.currentSelection) {
+      case 0: // START GAME
+        this.startGame();
+        break;
+      case 1: // SETTINGS
+        this.showSettings();
+        break;
+      case 2: // HIGH SCORES
+        this.showHighScores();
+        break;
+      default:
+        console.warn("Unknown menu option selected");
     }
+  }
+
+  /**
+   * Starts the game by transitioning to hyperspace and showing the text crawl.
+   */
+  private startGame(): void {
+    console.log("Starting game...");
+    if (!this.isVisible) {
+      console.log("Menu is not visible, cannot start game");
+      return;
+    }
+
+    // Hide menu and start game sequence
+    this.hide();
+
+    // Start the game with a transition to hyperspace
+    const scene = this.game.getSceneSystem().getScene();
+
+    // Transition to hyperspace mode
+    scene
+      .transitionHyperspace(true, 3.0)
+      .then(() => {
+        console.log("Starting text crawl...");
+        // Show text crawl first
+        return this.game.getUISystem().showTextCrawl(() => {});
+      })
+      .then(() => {
+        console.log("Text crawl complete, starting actual game");
+        // Then transition back to normal mode
+        return scene.transitionHyperspace(false, 3.0);
+      })
+      .then(() => {
+        // Start the actual game
+        console.log("Hyperspace transition complete, starting game");
+        this.game.start();
+      })
+      .catch((error: Error) => {
+        console.error("Error during game start sequence:", error);
+      });
+  }
+
+  /**
+   * Shows a placeholder for gameplay in the vertical slice demo.
+   */
+  private showGameplayPlaceholder(): void {
+    // Create a placeholder message indicating this is just a demo
+    const placeholder = document.createElement("div");
+    placeholder.style.position = "fixed";
+    placeholder.style.top = "50%";
+    placeholder.style.left = "50%";
+    placeholder.style.transform = "translate(-50%, -50%)";
+    placeholder.style.color = "#33ff33";
+    placeholder.style.fontFamily = "'PressStart2P', monospace";
+    placeholder.style.fontSize = "24px";
+    placeholder.style.textAlign = "center";
+    placeholder.style.zIndex = "1000";
+    placeholder.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+    placeholder.style.padding = "20px";
+    placeholder.style.borderRadius = "10px";
+    placeholder.style.boxShadow = "0 0 20px rgba(51, 255, 51, 0.5)";
+
+    placeholder.innerHTML = `
+      <div style="margin-bottom: 20px;">VERTICAL SLICE DEMO</div>
+      <div style="font-size: 16px; margin-bottom: 30px;">
+        This is where the gameplay would begin.<br>
+        Press ESC to return to the main menu.
+      </div>
+    `;
+
+    document.body.appendChild(placeholder);
+
+    // Add event listener to return to menu when ESC is pressed
+    const escHandler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        document.body.removeChild(placeholder);
+        document.removeEventListener("keydown", escHandler);
+        this.show();
+      }
+    };
+
+    document.addEventListener("keydown", escHandler);
   }
 
   private showSettings(): void {
