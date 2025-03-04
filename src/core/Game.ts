@@ -1,137 +1,208 @@
-import { Scene } from "./Scene";
-import { Input } from "./Input";
-import { Menu } from "../ui/Menu";
+import { GameSystem } from "./GameSystem";
+import { GameLoop } from "./GameLoop";
+import { PerformanceMonitor } from "./PerformanceMonitor";
+import { SceneSystem } from "./systems/SceneSystem";
+import { InputSystem } from "./systems/InputSystem";
+import { AudioSystem } from "./systems/AudioSystem";
+import { UISystem } from "./systems/UISystem";
+import { UIUtils } from "../utils/UIUtils";
 import { AudioManager } from "../audio/AudioManager";
-import { LoadingScreen } from "../ui/LoadingScreen";
-import { TerminalBorder } from "../ui/TerminalBorder";
 
+/**
+ * Main Game class that serves as the core controller for the Star Wing game.
+ * Manages the game loop, coordinates subsystems, and handles initialization and cleanup.
+ */
 export class Game {
-  private scene: Scene;
-  private input: Input;
-  private menu: Menu;
-  private lastFrameTime: number = 0;
-  private deltaTime: number = 0;
-  private isRunning: boolean = false;
-  private frameCount: number = 0;
-  private audioManager: AudioManager;
-  private animationFrameId: number = 0;
-  private loadingScreen?: LoadingScreen;
+  /** Canvas element where the game is rendered */
   private canvas: HTMLCanvasElement;
-  private terminalBorder: TerminalBorder;
 
+  /** Collection of game systems managed by this game instance */
+  private systems: GameSystem[] = [];
+
+  /** Scene system for 3D rendering */
+  private sceneSystem: SceneSystem;
+
+  /** Input system for user interaction */
+  private inputSystem: InputSystem;
+
+  /** Audio system for sound and music */
+  private audioSystem: AudioSystem;
+
+  /** UI system for menus and interface elements */
+  private uiSystem: UISystem;
+
+  /** Game loop that manages the update/render cycle */
+  private gameLoop: GameLoop;
+
+  /** Performance monitor for tracking FPS and frame timing */
+  private perfMonitor: PerformanceMonitor;
+
+  /** Flag indicating if the game is running */
+  private isRunning: boolean = false;
+
+  /**
+   * Creates a new Game instance and initializes all subsystems.
+   * @param canvasId The HTML ID of the canvas element to render the game on
+   * @throws Error if the canvas element cannot be found
+   */
   constructor(canvasId: string) {
+    // Get the canvas element by ID
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
 
     if (!this.canvas) {
       throw new Error(`Canvas with id ${canvasId} not found`);
     }
 
-    this.audioManager = new AudioManager();
-    this.scene = new Scene(this.canvas);
-    this.input = new Input();
-    this.menu = new Menu(this);
+    // Create all systems
+    this.sceneSystem = new SceneSystem(this.canvas);
+    this.inputSystem = new InputSystem();
+    this.audioSystem = new AudioSystem();
+    this.uiSystem = new UISystem(this);
 
-    // Initialize the loading screen
+    // Add systems to the collection
+    this.systems.push(
+      this.sceneSystem,
+      this.inputSystem,
+      this.audioSystem,
+      this.uiSystem
+    );
+
+    // Create the game loop with all systems
+    this.gameLoop = new GameLoop(this.systems);
+
+    // Create performance monitor
+    this.perfMonitor = new PerformanceMonitor();
+
+    // Display the loading screen
     this.showLoadingScreen();
-
-    // Initialize the terminal border last so it appears on top
-    this.terminalBorder = TerminalBorder.getInstance();
-    this.terminalBorder.initialize();
   }
 
+  /**
+   * Creates and displays the loading screen.
+   * The loading screen will call init() and start() when the user chooses to begin.
+   * @private
+   */
   private showLoadingScreen(): void {
     // Initialize the audio manager silently
-    this.audioManager.initialize();
+    this.audioSystem.init().catch(console.error);
 
     // Create and show the loading screen
-    this.loadingScreen = new LoadingScreen(() => {
+    this.uiSystem.showLoadingScreen(() => {
       // This is called when the user clicks "execute program"
       this.init().then(() => {
         this.start();
       });
-    }, this.audioManager);
+    });
   }
 
+  /**
+   * Initializes all game systems asynchronously.
+   * This is called after the loading screen when the user chooses to start.
+   * @returns A promise that resolves when initialization is complete
+   */
   async init(): Promise<void> {
-    // Initialize game systems
-    await this.scene.init();
-    this.input.init();
-    this.audioManager.initialize();
-    this.audioManager.playMenuThump(); // Start the menu music
-  }
+    console.log("Game initializing...");
 
-  start(): void {
-    console.log("Game starting...");
-    this.isRunning = true;
-    this.lastFrameTime = performance.now();
-    this.gameLoop();
-  }
+    try {
+      // Initialize all systems in parallel
+      await Promise.all(this.systems.map((system) => system.init()));
 
-  private gameLoop = (): void => {
-    if (!this.isRunning) return;
+      // Start background music
+      this.audioSystem.playMenuThump();
 
-    const currentTime = performance.now();
-    this.deltaTime = (currentTime - this.lastFrameTime) / 1000; // Convert to seconds
-    this.lastFrameTime = currentTime;
-    this.frameCount++;
+      console.log("Game initialization complete");
+    } catch (error: unknown) {
+      console.error("Error during game initialization:", error);
 
-    // Update game state
-    this.update(this.deltaTime);
+      // Show user-friendly error message
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
 
-    // Render frame
-    this.render();
+      UIUtils.showErrorMessage(
+        "System Initialization Error",
+        `Unable to launch STAR WING: ${errorMessage}. Please reload the page.`
+      );
 
-    // Request next frame
-    this.animationFrameId = requestAnimationFrame(this.gameLoop.bind(this));
-  };
-
-  private update(deltaTime: number): void {
-    // Always update the scene for background effects
-    this.scene.update(deltaTime);
-
-    // Only update game systems if menu is not visible
-    if (!this.menu.isMenuVisible()) {
-      this.input.update();
+      // Re-throw to allow caller to handle
+      throw error;
     }
   }
 
-  private render(): void {
-    this.scene.render();
+  /**
+   * Starts the game loop.
+   * This begins the update-render cycle and activates all game systems.
+   */
+  start(): void {
+    console.log("Game starting...");
+
+    if (this.isRunning) {
+      console.warn("Game is already running");
+      return;
+    }
+
+    this.isRunning = true;
+    this.gameLoop.start();
   }
 
+  /**
+   * Stops the game loop.
+   * This pauses all game systems but does not dispose of resources.
+   */
   stop(): void {
     console.log("Game stopping...");
+
+    if (!this.isRunning) {
+      console.warn("Game is already stopped");
+      return;
+    }
+
     this.isRunning = false;
-    cancelAnimationFrame(this.animationFrameId);
+    this.gameLoop.stop();
   }
 
+  /**
+   * Completely disposes of all game resources.
+   * Call this when the game is being unloaded or destroyed.
+   */
   public dispose(): void {
     console.log("Game disposing...");
     this.stop();
 
     // Dispose all systems
-    if (this.terminalBorder) {
-      this.terminalBorder.dispose();
+    for (const system of this.systems) {
+      try {
+        system.dispose();
+      } catch (error) {
+        console.error(`Error disposing system:`, error);
+      }
     }
 
-    if (this.scene) {
-      this.scene.dispose();
-    }
-
-    if (this.input) {
-      this.input.dispose();
-    }
-
-    if (this.menu) {
-      this.menu.dispose();
-    }
-
-    if (this.audioManager) {
-      this.audioManager.dispose();
-    }
+    // Clear references
+    this.systems = [];
   }
 
+  /**
+   * Gets the audio system instance.
+   * @returns The game's AudioSystem instance
+   */
+  getAudioSystem(): AudioSystem {
+    return this.audioSystem;
+  }
+
+  /**
+   * Gets the audio manager instance directly.
+   * @returns The game's AudioManager instance
+   * @deprecated Use getAudioSystem().getAudioManager() instead
+   */
   getAudioManager(): AudioManager {
-    return this.audioManager;
+    return this.audioSystem.getAudioManager();
+  }
+
+  /**
+   * Gets the current performance metrics.
+   * @returns Object containing FPS and frame time information
+   */
+  getPerfMetrics(): { fps: number; frameTime: number } {
+    return this.gameLoop.getPerformanceMetrics();
   }
 }

@@ -8,8 +8,8 @@ export class HighScores {
 
   // Placeholder high scores data
   private highScoresData = [
-    { rank: 1, name: "AST", score: 12500 },
-    { rank: 2, name: "DRH", score: 10750 },
+    { rank: 1, name: "DRS", score: 12500 },
+    { rank: 2, name: "AJK", score: 10750 },
     { rank: 3, name: "RGN", score: 9200 },
     { rank: 4, name: "CPU", score: 8150 },
     { rank: 5, name: "SYS", score: 7300 },
@@ -17,7 +17,7 @@ export class HighScores {
     { rank: 7, name: "BIT", score: 5400 },
     { rank: 8, name: "NEO", score: 4350 },
     { rank: 9, name: "XOR", score: 3200 },
-    { rank: 10, name: "ZRO", score: 2050 },
+    { rank: 10, name: "SCA", score: 2050 },
   ];
 
   constructor(game: Game) {

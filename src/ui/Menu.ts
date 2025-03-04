@@ -7,12 +7,10 @@ export class Menu {
   private isVisible: boolean = true;
   private currentSelection: number = 0;
   private menuOptions: string[] = ["START GAME", "SETTINGS", "HIGH SCORES"];
-  private game: Game;
   private settings: Settings;
   private highScores: HighScores;
 
   constructor(game: Game) {
-    this.game = game;
     this.container = document.createElement("div");
     this.container.className = "terminal-overlay";
     this.settings = new Settings(game);
@@ -137,6 +135,11 @@ export class Menu {
         color: #0f0;
       }
 
+      .menu-option:hover {
+        color: #0f0;
+        text-shadow: 0 0 5px rgba(0, 255, 0, 0.7);
+      }
+
       @keyframes pulse {
         0% { opacity: 1; }
         50% { opacity: 0.7; }
@@ -202,6 +205,12 @@ export class Menu {
         menuOption.classList.add("selected");
       }
       menuOption.dataset.index = index.toString();
+
+      // Add mouseover event to highlight the option
+      menuOption.addEventListener("mouseover", () => {
+        this.selectOption(index);
+      });
+
       menuOption.addEventListener("click", () => {
         if (option === "START GAME") {
           this.hide();

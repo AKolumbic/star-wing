@@ -85,10 +85,7 @@ export class LoadingScreen {
   // Build final message array with random selections
   private buildLines: string[] = this.generateBuildLines();
 
-  constructor(
-    private onComplete: () => void,
-    private audioManager: AudioManager
-  ) {
+  constructor(private onComplete: () => void) {
     // Check for mobile device first
     this.detectMobileDevice();
     this.createElements();
@@ -181,16 +178,10 @@ export class LoadingScreen {
     // Store reference to terminal content in the terminal element
     this.terminal.dataset.content = "true";
 
-    // Loading text below terminal
+    // Loading text below terminal - REMOVED
+    // Keeping the property but not creating or displaying the element
     this.loadingText = document.createElement("div");
-    this.loadingText.style.position = "absolute";
-    this.loadingText.style.left = "50%";
-    this.loadingText.style.transform = "translateX(-50%)";
-    this.loadingText.style.top = "calc(50% + 160px)"; // Position below the terminal
-    this.loadingText.style.fontFamily = 'Courier, "Courier New", monospace';
-    this.loadingText.style.color = "#33ff33";
-    this.loadingText.style.fontSize = "18px";
-    this.loadingText.textContent = "Loading...";
+    this.loadingText.style.display = "none"; // Hide it completely
 
     // Only create execute button if not on mobile device
     if (!this.isMobileDevice) {
@@ -244,25 +235,25 @@ export class LoadingScreen {
 
     // Add to DOM
     this.container.appendChild(this.terminal);
-    this.container.appendChild(this.loadingText);
     if (!this.isMobileDevice) {
       this.container.appendChild(this.executeButton);
     }
     document.body.appendChild(this.container);
 
-    // Start blinking ellipsis
+    // Start blinking ellipsis - REMOVED
+    // We don't need this interval anymore since the loading text is hidden
+    /* 
     this.ellipsisInterval = window.setInterval(
       () => this.updateEllipsis(),
       500
     );
+    */
   }
 
   private updateEllipsis(): void {
+    // No-op: we're not showing the loading text anymore
     this.ellipsisState = (this.ellipsisState + 1) % 4;
-    const ellipsis = ".".repeat(this.ellipsisState);
-    this.loadingText.textContent = `Loading${ellipsis}${" ".repeat(
-      3 - this.ellipsisState
-    )}`;
+    // No need to update the text content since the element is hidden
   }
 
   private startBuildProcess(): void {
@@ -425,5 +416,9 @@ export class LoadingScreen {
     if (this.container && this.container.parentNode) {
       this.container.parentNode.removeChild(this.container);
     }
+  }
+
+  public dispose(): void {
+    this.hide();
   }
 }
