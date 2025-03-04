@@ -259,7 +259,27 @@ export class Menu {
     // Copyright section
     const copyright = document.createElement("div");
     copyright.className = "copyright";
-    copyright.textContent = "© 2025 DROSSHOLE";
+
+    // Create link instead of just text
+    const copyrightLink = document.createElement("a");
+    copyrightLink.href = "https://www.drosshole.com";
+    copyrightLink.textContent = "© 2025 DROSSHOLE";
+    copyrightLink.style.color = "#fff"; // Keep same color as before
+    copyrightLink.style.textDecoration = "none"; // No underline by default
+    copyrightLink.style.transition = "color 0.2s, text-shadow 0.2s"; // Smooth transition for hover effect
+
+    // Add hover effect
+    copyrightLink.addEventListener("mouseover", () => {
+      copyrightLink.style.color = "#0f0"; // Green on hover
+      copyrightLink.style.textShadow = "0 0 5px rgba(0, 255, 0, 0.7)"; // Glow effect
+    });
+
+    copyrightLink.addEventListener("mouseout", () => {
+      copyrightLink.style.color = "#fff"; // Back to white
+      copyrightLink.style.textShadow = "none"; // Remove glow
+    });
+
+    copyright.appendChild(copyrightLink);
 
     // Append all elements
     contentContainer.appendChild(titleSection);
