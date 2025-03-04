@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Star Wing Debug</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: #000;
+        color: white;
+        font-family: Arial, sans-serif;
+      }
+
+      #canvas-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+      }
+
+      canvas {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        border: 0;
+      }
+
+      #debug-controls {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 100;
+        background-color: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+        border-radius: 5px;
+        pointer-events: auto;
+      }
+
+      button {
+        padding: 5px 8px;
+        margin: 2px;
+        background-color: #333;
+        color: white;
+        border: 1px solid #666;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background-color: #555;
+      }
+
+      button.active {
+        background-color: #0066cc;
+      }
+
+      .config-description {
+        font-size: 12px;
+        color: #aaa;
+        margin-top: 5px;
+      }
+
+      #log-container {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+        height: 100px;
+        background-color: rgba(0, 0, 0, 0.7);
+        overflow-y: auto;
+        padding: 5px;
+        font-family: monospace;
+        font-size: 12px;
+        z-index: 100;
+        border-radius: 5px;
+        pointer-events: auto;
+      }
+
+      .log-entry {
+        margin: 2px 0;
+      }
+
+      .debug-info {
+        position: absolute;
+        top: 150px;
+        left: 10px;
+        background-color: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+        z-index: 100;
+        font-size: 12px;
+        border-radius: 5px;
+        pointer-events: auto;
+      }
+
+      .canvas-outline {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border: 1px solid red;
+        pointer-events: none;
+        z-index: 2;
+      }
+
+      .guide-lines {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        pointer-events: none;
+        z-index: 3;
+      }
+
+      .horizontal-guide {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background-color: rgba(0, 255, 255, 0.5);
+      }
+
+      .vertical-guide {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        background-color: rgba(0, 255, 255, 0.5);
+      }
+
+      .debug-checkbox {
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="canvas-container">
+      <!-- The game canvas will be inserted here -->
+      <div class="canvas-outline"></div>
+      <div class="guide-lines" id="guide-lines"></div>
+    </div>
+
+    <div id="debug-controls">
+      <h3>Starfield Debug</h3>
+      <div id="config-buttons">
+        <button data-config="0" class="active">No Stars</button>
+        <button data-config="1">Simple Stars</button>
+        <button data-config="2">Normal Blending</button>
+        <button data-config="3">No Transparency</button>
+        <button data-config="4">Limited Bounds</button>
+        <button data-config="5">Manual Clear</button>
+        <button data-config="6">Center Test</button>
+        <button data-config="default">Default Stars</button>
+      </div>
+      <div class="config-description" id="current-config">
+        Currently showing: No Stars - Black background only
+      </div>
+
+      <div class="debug-checkbox">
+        <label>
+          <input type="checkbox" id="show-guides" /> Show Guide Lines
+        </label>
+      </div>
+
+      <div class="debug-checkbox">
+        <label>
+          <input type="checkbox" id="show-outline" checked /> Show Canvas
+          Outline
+        </label>
+      </div>
+    </div>
+
+    <div class="debug-info">
+      <div id="mouse-pos">Mouse: X: 0, Y: 0</div>
+      <div id="canvas-info">Canvas: Width: 0, Height: 0</div>
+      <div id="viewport-info">Viewport: Width: 0, Height: 0</div>
+    </div>
+
+    <div id="log-container"></div>
+
+    <script type="module">
+      // Import required modules
+      import { Game } from "./src/Game.ts";
+
+      // Override console.log to capture in our debug log
+      const originalConsoleLog = console.log;
+      const logContainer = document.getElementById("log-container");
+
+      console.log = function (...args) {
+        // Call original console.log
+        originalConsoleLog.apply(console, args);
+
+        // Add to our log container
+        const logEntry = document.createElement("div");
+        logEntry.classList.add("log-entry");
+        logEntry.textContent = args
+          .map((arg) => {
+            if (typeof arg === "object") {
+              try {
+                return JSON.stringify(arg);
+              } catch (e) {
+                return String(arg);
+              }
+            }
+            return String(arg);
+          })
+          .join(" ");
+
+        logContainer.appendChild(logEntry);
+        logContainer.scrollTop = logContainer.scrollHeight;
+
+        // Keep only last 100 logs
+        while (logContainer.children.length > 100) {
+          logContainer.removeChild(logContainer.firstChild);
+        }
+      };
+
+      // Track mouse position
+      const mousePos = document.getElementById("mouse-pos");
+      document.addEventListener("mousemove", (e) => {
+        mousePos.textContent = `Mouse: X: ${e.clientX}, Y: ${e.clientY}`;
+      });
+
+      // Update canvas and viewport info
+      const canvasInfo = document.getElementById("canvas-info");
+      const viewportInfo = document.getElementById("viewport-info");
+
+      function updateSizeInfo() {
+        const canvas = document.querySelector("canvas");
+        if (canvas) {
+          canvasInfo.textContent = `Canvas: Width: ${canvas.width}, Height: ${canvas.height}`;
+          viewportInfo.textContent = `Viewport: Width: ${window.innerWidth}, Height: ${window.innerHeight}`;
+        }
+      }
+
+      window.addEventListener("resize", updateSizeInfo);
+
+      // Handle config button clicks
+      const configDescriptions = {
+        0: "No Stars - Black background only",
+        1: "Simple Stars - Basic material, no shader",
+        2: "Normal Blending - Shader with normal blending",
+        3: "No Transparency - Opaque stars",
+        4: "Limited Bounds - Stars away from edges",
+        5: "Manual Clear - Explicit renderer clearing",
+        6: "Center Test - Test pattern for center",
+        default: "Default Stars - Normal starfield configuration",
+      };
+
+      const configButtons = document.querySelectorAll("#config-buttons button");
+      const currentConfig = document.getElementById("current-config");
+
+      let activeGame = null;
+
+      // Handle guide lines
+      const guideLines = document.getElementById("guide-lines");
+      const showGuidesCheckbox = document.getElementById("show-guides");
+      const showOutlineCheckbox = document.getElementById("show-outline");
+      const canvasOutline = document.querySelector(".canvas-outline");
+
+      // Create guide lines
+      function createGuideLines() {
+        // Clear existing guides
+        guideLines.innerHTML = "";
+
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        // Create guides every 100 pixels
+        for (let x = 100; x < width; x += 100) {
+          const verticalGuide = document.createElement("div");
+          verticalGuide.className = "vertical-guide";
+          verticalGuide.style.left = `${x}px`;
+          guideLines.appendChild(verticalGuide);
+        }
+
+        for (let y = 100; y < height; y += 100) {
+          const horizontalGuide = document.createElement("div");
+          horizontalGuide.className = "horizontal-guide";
+          horizontalGuide.style.top = `${y}px`;
+          guideLines.appendChild(horizontalGuide);
+        }
+
+        // Create center crosshair
+        const centerX = document.createElement("div");
+        centerX.className = "vertical-guide";
+        centerX.style.left = `${width / 2}px`;
+        centerX.style.backgroundColor = "rgba(255, 0, 0, 0.7)";
+        guideLines.appendChild(centerX);
+
+        const centerY = document.createElement("div");
+        centerY.className = "horizontal-guide";
+        centerY.style.top = `${height / 2}px`;
+        centerY.style.backgroundColor = "rgba(255, 0, 0, 0.7)";
+        guideLines.appendChild(centerY);
+      }
+
+      // Toggle guide lines visibility
+      showGuidesCheckbox.addEventListener("change", () => {
+        if (showGuidesCheckbox.checked) {
+          createGuideLines();
+          guideLines.style.display = "block";
+        } else {
+          guideLines.style.display = "none";
+        }
+      });
+
+      // Toggle canvas outline
+      showOutlineCheckbox.addEventListener("change", () => {
+        canvasOutline.style.display = showOutlineCheckbox.checked
+          ? "block"
+          : "none";
+      });
+
+      // Update guide lines on window resize
+      window.addEventListener("resize", () => {
+        if (showGuidesCheckbox.checked) {
+          createGuideLines();
+        }
+      });
+
+      // Initialize guide lines
+      guideLines.style.display = "none"; // Hide initially
+
+      async function loadConfiguration(config) {
+        console.log(`Loading configuration: ${config}`);
+
+        // Clear previous game if it exists
+        if (activeGame) {
+          console.log("Disposing previous game instance");
+          activeGame.dispose();
+          activeGame = null;
+
+          // Remove any existing canvas
+          const existingCanvas = document.querySelector("canvas");
+          if (existingCanvas) {
+            existingCanvas.remove();
+          }
+        }
+
+        // Inject CSS to hide UI elements
+        let uiHideStyle = document.getElementById("ui-hide-style");
+        if (!uiHideStyle) {
+          uiHideStyle = document.createElement("style");
+          uiHideStyle.id = "ui-hide-style";
+          uiHideStyle.textContent = `
+            /* Hide UI elements except those needed for game initialization */
+            .menu, .menu-container {
+              display: none !important;
+            }
+            
+            /* Allow the loading screen and terminal to be visible */
+            #loading, #terminal-border {
+              display: flex !important;
+            }
+          `;
+          document.head.appendChild(uiHideStyle);
+        }
+
+        // Set up URL parameters
+        const gameOptions = {
+          devMode: true,
+          // Don't hide UI elements completely to allow proper loading
+          hideUI: false,
+        };
+
+        if (config !== "default") {
+          // For debug configurations, set debug=true and config=X
+          window.history.replaceState({}, "", `?debug=true&config=${config}`);
+        } else {
+          // For default, just set dev mode
+          window.history.replaceState({}, "", "?devMode=true");
+        }
+
+        // Initialize new game
+        activeGame = new Game(gameOptions);
+        await activeGame.start();
+
+        // Force hide UI elements after the game starts
+        setTimeout(() => {
+          // Only hide menu elements but leave terminal and loading elements visible
+          document.querySelectorAll(".menu, .menu-container").forEach((el) => {
+            if (el instanceof HTMLElement) {
+              el.style.display = "none";
+            }
+          });
+
+          console.log("Selectively hidden UI elements via CSS");
+        }, 1000);
+
+        console.log("Game instance started");
+
+        // Update current config text
+        currentConfig.textContent = `Currently showing: ${configDescriptions[config]}`;
+
+        // Update size info after canvas is created
+        setTimeout(updateSizeInfo, 100);
+      }
+
+      // Set up button listeners
+      configButtons.forEach((button) => {
+        button.addEventListener("click", async () => {
+          // Update active button
+          configButtons.forEach((b) => b.classList.remove("active"));
+          button.classList.add("active");
+
+          // Load the selected configuration
+          await loadConfiguration(button.dataset.config);
+        });
+      });
+
+      // Load initial configuration
+      loadConfiguration("0");
+
+      // Add a button to take a screenshot of the area around the mouse
+      const debugControls = document.getElementById("debug-controls");
+      const screenshotButton = document.createElement("button");
+      screenshotButton.textContent = "Take Screenshot";
+      screenshotButton.style.marginTop = "10px";
+      screenshotButton.style.display = "block";
+      screenshotButton.addEventListener("click", takeScreenshot);
+      debugControls.appendChild(screenshotButton);
+
+      // Function to take a screenshot of the area around the mouse
+      function takeScreenshot() {
+        // Create a canvas to capture the screenshot
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        // Get the current mouse position
+        const mouseX = parseInt(
+          mousePos.textContent.split("X: ")[1].split(",")[0]
+        );
+        const mouseY = parseInt(mousePos.textContent.split("Y: ")[1]);
+
+        // Set the size of the screenshot (100x100 pixels around the mouse)
+        const size = 100;
+        canvas.width = size;
+        canvas.height = size;
+
+        // Calculate the top-left corner of the screenshot
+        const x = Math.max(0, mouseX - size / 2);
+        const y = Math.max(0, mouseY - size / 2);
+
+        // Draw the screenshot
+        ctx.drawImage(
+          document.querySelector("canvas"),
+          x,
+          y,
+          size,
+          size,
+          0,
+          0,
+          size,
+          size
+        );
+
+        // Convert the canvas to a data URL and open it in a new tab
+        const dataURL = canvas.toDataURL("image/png");
+        window.open(dataURL, "_blank");
+
+        console.log(`Screenshot taken at mouse position: ${mouseX}, ${mouseY}`);
+      }
+
+      // Add another control to show a pixel magnifier at the mouse position
+      const pixelMagnifier = document.createElement("div");
+      pixelMagnifier.id = "pixel-magnifier";
+      pixelMagnifier.style.cssText = `
+        position: absolute;
+        width: 150px;
+        height: 150px;
+        border: 2px solid white;
+        background-color: rgba(0, 0, 0, 0.7);
+        display: none;
+        z-index: 1000;
+        pointer-events: none;
+        overflow: hidden;
+      `;
+      document.body.appendChild(pixelMagnifier);
+
+      const magnifierCheckbox = document.createElement("div");
+      magnifierCheckbox.className = "debug-checkbox";
+      magnifierCheckbox.innerHTML = `
+        <label>
+          <input type="checkbox" id="show-magnifier"> Show Pixel Magnifier
+        </label>
+      `;
+      debugControls.appendChild(magnifierCheckbox);
+
+      document
+        .getElementById("show-magnifier")
+        .addEventListener("change", (e) => {
+          pixelMagnifier.style.display = e.target.checked ? "block" : "none";
+        });
+
+      // Update magnifier on mouse move
+      document.addEventListener("mousemove", (e) => {
+        if (pixelMagnifier.style.display === "block") {
+          const zoom = 10; // 10x magnification
+          const size = 15; // 15x15 pixels area
+
+          // Position the magnifier near but not under the mouse
+          pixelMagnifier.style.left = e.clientX + 20 + "px";
+          pixelMagnifier.style.top = e.clientY + 20 + "px";
+
+          // Clear previous content
+          pixelMagnifier.innerHTML = "";
+
+          // Create magnified pixels
+          for (let y = -Math.floor(size / 2); y <= Math.floor(size / 2); y++) {
+            for (
+              let x = -Math.floor(size / 2);
+              x <= Math.floor(size / 2);
+              x++
+            ) {
+              const pixel = document.createElement("div");
+              pixel.style.cssText = `
+                position: absolute;
+                left: ${(x + Math.floor(size / 2)) * zoom}px;
+                top: ${(y + Math.floor(size / 2)) * zoom}px;
+                width: ${zoom}px;
+                height: ${zoom}px;
+                background-color: rgba(255, 255, 255, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.3);
+              `;
+
+              // Highlight the center pixel
+              if (x === 0 && y === 0) {
+                pixel.style.border = "1px solid red";
+              }
+
+              pixelMagnifier.appendChild(pixel);
+            }
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
