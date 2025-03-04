@@ -61,7 +61,7 @@ export class Game {
     }
 
     // Create all systems
-    this.sceneSystem = new SceneSystem(this.canvas);
+    this.sceneSystem = new SceneSystem(this.canvas, this.devMode);
     this.inputSystem = new InputSystem();
     this.audioSystem = new AudioSystem();
     this.uiSystem = new UISystem(this);

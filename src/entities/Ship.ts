@@ -14,11 +14,17 @@ export class Ship {
   /** The mesh representing the ship's hitbox */
   private hitbox: THREE.Mesh | null = null;
 
+  /** Visible boundary box for debugging flight limits */
+  private boundaryBox: THREE.LineSegments | null = null;
+
   /** Whether the ship has been loaded */
   private loaded: boolean = false;
 
   /** Whether the ship is currently controlled by the player */
   private playerControlled: boolean = false;
+
+  /** Whether development mode is enabled */
+  private devMode: boolean = false;
 
   /** The ship's current position */
   private position: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
@@ -31,6 +37,12 @@ export class Ship {
 
   /** The ship's movement speed */
   private speed: number = 5;
+
+  /** Maximum horizontal distance from center (full width = 2800) */
+  private horizontalLimit: number = 1400;
+
+  /** Maximum vertical distance from center (full height = 1400) */
+  private verticalLimit: number = 700;
 
   /** The ship's health (hull integrity) */
   private health: number = 100;
@@ -79,12 +91,14 @@ export class Ship {
 
   /**
    * Creates a new Ship instance.
-   * @param scene The Three.js scene to add the ship to
-   * @param input The input system for player controls
+   * @param scene The THREE.Scene to add the ship to
+   * @param input The Input instance for handling controls
+   * @param devMode Whether development mode is enabled
    */
-  constructor(scene: THREE.Scene, input: Input) {
+  constructor(scene: THREE.Scene, input: Input, devMode: boolean = false) {
     this.scene = scene;
     this.input = input;
+    this.devMode = devMode;
 
     // Set initial position off-screen
     this.position.copy(this.ENTRY_START_POSITION);
@@ -282,8 +296,106 @@ export class Ship {
     // Store engine meshes for animation
     this.engineGlowMeshes = [mainEngine, leftEngine, rightEngine];
 
+    // After loading the ship model, create the boundary visualization
+    this.createBoundaryVisualization();
+
     this.loaded = true;
     return Promise.resolve();
+  }
+
+  /**
+   * Creates a visible wireframe box showing the ship's navigable boundaries.
+   * This is for debugging purposes only.
+   */
+  private createBoundaryVisualization(): void {
+    // Only create the boundary visualization in dev mode
+    if (!this.devMode) return;
+
+    // Create a wireframe box geometry that covers the entire boundary
+    const boxWidth = this.horizontalLimit * 2; // Total width (left to right)
+    const boxHeight = this.verticalLimit * 2; // Total height (top to bottom)
+    const boxDepth = Math.max(300, Math.min(boxWidth, boxHeight) * 0.2); // Depth scales with larger boundaries
+
+    const boxGeometry = new THREE.BoxGeometry(boxWidth, boxHeight, boxDepth);
+
+    // Create wireframe material - bright green to be visible
+    const material = new THREE.LineBasicMaterial({
+      color: 0x00ff00, // Bright green
+      linewidth: 2, // Thicker lines
+      opacity: 0.6, // Partially transparent
+      transparent: true,
+    });
+
+    // Convert box geometry to line segments (wireframe)
+    const wireframe = new THREE.WireframeGeometry(boxGeometry);
+    this.boundaryBox = new THREE.LineSegments(wireframe, material);
+
+    // Position the box to match the ship's movement area
+    // The ship moves at Z = -300, so center the box there
+    this.boundaryBox.position.set(0, 0, -300);
+
+    // Add to scene
+    this.scene.add(this.boundaryBox);
+
+    this.logger.info(
+      "Created 3D boundary visualization with limits: " +
+        `${this.horizontalLimit}x${this.verticalLimit} (area: ${
+          this.horizontalLimit * 2
+        }x${this.verticalLimit * 2})`
+    );
+  }
+
+  /**
+   * Updates the boundary visualization to match current limits.
+   * Call this if you change the horizontalLimit or verticalLimit.
+   */
+  public updateBoundaryVisualization(): void {
+    // Skip if not in dev mode
+    if (!this.devMode) return;
+
+    // Remove existing boundary
+    this.removeBoundaryVisualization();
+
+    // Create a new one with updated dimensions
+    this.createBoundaryVisualization();
+
+    this.logger.info(
+      `Updated boundary visualization: horizontal=${this.horizontalLimit}, vertical=${this.verticalLimit}`
+    );
+  }
+
+  /**
+   * Sets new boundary limits and updates the visualization.
+   * @param horizontal New horizontal limit
+   * @param vertical New vertical limit
+   */
+  public setBoundaryLimits(horizontal: number, vertical: number): void {
+    this.horizontalLimit = horizontal;
+    this.verticalLimit = vertical;
+
+    // Update the visual representation
+    this.updateBoundaryVisualization();
+
+    this.logger.info(
+      `Set new boundary limits: horizontal=${horizontal}, vertical=${vertical}`
+    );
+  }
+
+  /**
+   * Removes the boundary visualization from the scene.
+   */
+  private removeBoundaryVisualization(): void {
+    if (this.boundaryBox) {
+      this.scene.remove(this.boundaryBox);
+      // Clean up geometry and material
+      if (this.boundaryBox.geometry) {
+        this.boundaryBox.geometry.dispose();
+      }
+      if (this.boundaryBox.material) {
+        (this.boundaryBox.material as THREE.Material).dispose();
+      }
+      this.boundaryBox = null;
+    }
   }
 
   /**
@@ -638,9 +750,6 @@ export class Ship {
       this.rotation.z = Math.sin(idleTime * 1.5) * 0.05;
     }
 
-    // Add screen wrapping for true arcade feel (optional)
-    this.wrapScreen();
-
     // Shooting (placeholder)
     if (this.input.isKeyPressed(" ")) {
       // Shoot functionality will be added later
@@ -649,29 +758,6 @@ export class Ship {
       setTimeout(() => {
         this.position.z -= 1;
       }, 50);
-    }
-  }
-
-  /**
-   * Arcade-style screen wrapping
-   * When ship goes off one edge, it appears on the opposite edge
-   */
-  private wrapScreen(): void {
-    const maxX = 800;
-    const maxY = 400;
-
-    // Wrap X coordinates (left/right edges)
-    if (this.position.x < -maxX) {
-      this.position.x = maxX;
-    } else if (this.position.x > maxX) {
-      this.position.x = -maxX;
-    }
-
-    // Wrap Y coordinates (top/bottom edges)
-    if (this.position.y < -maxY) {
-      this.position.y = maxY;
-    } else if (this.position.y > maxY) {
-      this.position.y = -maxY;
     }
   }
 
@@ -703,45 +789,46 @@ export class Ship {
    * Constrains the ship's position to remain within the visible screen area.
    */
   private constrainToBounds(): void {
-    // Simple screen boundary limits
-    const horizontalLimit = 200;
-    const verticalLimit = 150;
-
-    if (this.position.x < -horizontalLimit) {
-      this.position.x = -horizontalLimit;
+    if (this.position.x < -this.horizontalLimit) {
+      this.position.x = -this.horizontalLimit;
       this.velocity.x = 0;
     }
-    if (this.position.x > horizontalLimit) {
-      this.position.x = horizontalLimit;
+    if (this.position.x > this.horizontalLimit) {
+      this.position.x = this.horizontalLimit;
       this.velocity.x = 0;
     }
-    if (this.position.y < -verticalLimit) {
-      this.position.y = -verticalLimit;
+    if (this.position.y < -this.verticalLimit) {
+      this.position.y = -this.verticalLimit;
       this.velocity.y = 0;
     }
-    if (this.position.y > verticalLimit) {
-      this.position.y = verticalLimit;
+    if (this.position.y > this.verticalLimit) {
+      this.position.y = this.verticalLimit;
       this.velocity.y = 0;
     }
   }
 
   /**
-   * Sets whether the ship is player-controlled.
+   * Sets whether the ship is under player control.
    * @param controlled Whether the ship is controlled by the player
+   * @param skipCallback Optional flag to skip executing the onEntryCompleteCallback
    */
-  setPlayerControlled(controlled: boolean): void {
+  setPlayerControlled(
+    controlled: boolean,
+    skipCallback: boolean = false
+  ): void {
     this.playerControlled = controlled;
 
     if (controlled) {
       this.logger.info("🚀 SHIP: Player control enabled");
 
-      // If this was called directly and we had a completion callback
-      if (this.onEntryCompleteCallback) {
+      // Only execute the callback if not explicitly skipped
+      // This prevents recursion when called from Scene.setGameActive
+      if (this.onEntryCompleteCallback && !skipCallback) {
         this.logger.info("🚀 SHIP: Executing entry complete callback");
         this.onEntryCompleteCallback();
         this.onEntryCompleteCallback = null;
       } else {
-        this.logger.info("🚀 SHIP: No completion callback was provided");
+        this.logger.info("🚀 SHIP: No completion callback was executed");
       }
     }
   }
@@ -766,10 +853,34 @@ export class Ship {
    * Clean up resources used by the ship.
    */
   dispose(): void {
+    // Remove from scene
     if (this.model) {
       this.scene.remove(this.model);
-      // In a more thorough implementation, we'd recursively dispose of geometries and materials
     }
+
+    if (this.hitbox) {
+      this.scene.remove(this.hitbox);
+    }
+
+    // Remove boundary visualization
+    this.removeBoundaryVisualization();
+
+    // Dispose of any THREE.js resources
+    if (this.hitbox) {
+      if (this.hitbox.geometry) {
+        this.hitbox.geometry.dispose();
+      }
+      if (this.hitbox.material) {
+        (this.hitbox.material as THREE.Material).dispose();
+      }
+    }
+
+    this.model = null;
+    this.hitbox = null;
+    this.engineGlowMeshes = [];
+    this.loaded = false;
+
+    this.logger.info("Ship disposed");
   }
 
   /**
@@ -862,5 +973,21 @@ export class Ship {
     if (shieldAmount > 0) {
       this.shield = Math.min(this.maxShield, this.shield + shieldAmount);
     }
+  }
+
+  /**
+   * Gets the horizontal boundary limit.
+   * @returns The current horizontal limit
+   */
+  getHorizontalLimit(): number {
+    return this.horizontalLimit;
+  }
+
+  /**
+   * Gets the vertical boundary limit.
+   * @returns The current vertical limit
+   */
+  getVerticalLimit(): number {
+    return this.verticalLimit;
   }
 }

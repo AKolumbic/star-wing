@@ -378,50 +378,54 @@ export class Menu {
       return;
     }
 
-    this.logger.info("Starting game...");
+    this.logger.info("Starting game sequence...");
     this.hide();
-    this.logger.info("Menu hidden, starting game sequence");
+    this.logger.info("Menu hidden");
 
     // Get required systems
     const scene = this.game.getSceneSystem().getScene();
     const input = this.game.getInputSystem().getInput();
     const uiSystem = this.game.getUISystem();
 
-    // Start hyperspace transition
-    scene
-      .transitionHyperspace(true, 2.0)
-      .then(() => {
-        this.logger.info(
-          "Hyperspace transition complete, starting game directly"
-        );
+    // Initialize required systems before showing text crawl
+    scene.setInput(input);
+    this.logger.info("Input set on scene");
 
-        // Set input on the scene
-        scene.setInput(input);
-        this.logger.info("Input set on scene");
+    // Show text crawl as first step in sequence
+    this.logger.info("Showing text crawl");
+    uiSystem.showTextCrawl(() => {
+      // After text crawl completes, immediately start hyperspace
+      this.logger.info("Text crawl complete, starting hyperspace transition");
 
-        // Initialize the ship
-        scene
-          .initPlayerShip()
-          .then(() => {
-            this.logger.info("Ship initialized successfully");
+      // Transition to hyperspace
+      scene
+        .transitionHyperspace(true, 2.0)
+        .then(() => {
+          this.logger.info("Hyperspace transition complete");
 
-            // Start ship entry animation
-            scene.startShipEntry(() => {
-              this.logger.info("Ship entry complete, starting game");
+          // Initialize ship after hyperspace
+          return scene.initPlayerShip();
+        })
+        .then(() => {
+          this.logger.info("Ship initialized successfully");
 
-              // Show the game HUD
-              uiSystem.showGameHUD();
-              this.logger.info("Showing game HUD");
-            });
-            this.logger.info("Ship entry animation started");
-          })
-          .catch((error: Error) => {
-            this.logger.error("Failed to initialize ship:", error);
+          // Show game HUD before starting ship entry
+          uiSystem.showGameHUD();
+          this.logger.info("Game HUD displayed");
+
+          // Start ship entry animation with no callback
+          // The ship will enable player control via its internal mechanism
+          scene.startShipEntry(() => {
+            // This is only called after ship entry and player control is already enabled
+            this.logger.info("Ship entry complete and player control enabled");
           });
-      })
-      .catch((error: Error) => {
-        this.logger.error("Error during hyperspace transition:", error);
-      });
+
+          this.logger.info("Ship entry animation started");
+        })
+        .catch((error: Error) => {
+          this.logger.error("Error in game startup sequence:", error);
+        });
+    });
   }
 
   /**

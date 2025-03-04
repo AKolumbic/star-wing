@@ -7,6 +7,7 @@ import { StarfieldBackground } from "./backgrounds/StarfieldBackground";
 import { Ship } from "../entities/Ship";
 import { Input } from "./Input";
 import { Logger } from "../utils/Logger";
+import { UIUtils } from "../utils/UIUtils";
 
 /**
  * Scene class responsible for managing the 3D rendering environment.
@@ -69,11 +70,18 @@ export class Scene {
   /** Logger instance */
   private logger = Logger.getInstance();
 
+  /** Debug controls container */
+  private debugControlsContainer: HTMLElement | null = null;
+
+  /** Whether dev mode is enabled */
+  private devMode: boolean = false;
+
   /**
    * Creates a new scene with a WebGL renderer.
    * @param canvas Optional canvas element to render on. If not provided, one will be created.
+   * @param devMode Whether to enable dev mode
    */
-  constructor(canvas?: HTMLCanvasElement) {
+  constructor(canvas?: HTMLCanvasElement, devMode: boolean = false) {
     // Store viewport dimensions
     this.width = window.innerWidth;
     this.height = window.innerHeight;
@@ -134,6 +142,9 @@ export class Scene {
     // Handle window resize
     window.addEventListener("resize", this.onWindowResize.bind(this));
 
+    // Store dev mode flag
+    this.devMode = devMode;
+
     this.setupBasicLighting();
     this.setupBackgrounds();
   }
@@ -160,6 +171,11 @@ export class Scene {
     } catch (error) {
       this.logger.error("Scene: Error setting starfield background", error);
     }
+
+    // Rest of initialization
+    this.setupEventListeners();
+
+    this.logger.info("Scene initialized successfully");
 
     return Promise.resolve();
   }
@@ -328,6 +344,9 @@ export class Scene {
     if (rendererElement && rendererElement.parentElement) {
       rendererElement.parentElement.removeChild(rendererElement);
     }
+
+    // Remove debug controls if they exist
+    this.removeDebugControls();
   }
 
   /**
@@ -415,11 +434,18 @@ export class Scene {
       );
     }
 
-    // Create the ship with our scene and input system
-    this.playerShip = new Ship(this.scene, this.input);
+    // Create the ship with our scene and input system, passing devMode flag
+    this.playerShip = new Ship(this.scene, this.input, this.devMode);
 
     // Load the ship model (async)
-    return this.playerShip.load();
+    await this.playerShip.load();
+
+    // If in dev mode, add boundary controls after ship is created
+    if (this.devMode && this.playerShip) {
+      this.setupDebugControls();
+    }
+
+    return Promise.resolve();
   }
 
   /**
@@ -482,7 +508,8 @@ export class Scene {
     this.gameActive = active;
 
     if (this.playerShip) {
-      this.playerShip.setPlayerControlled(active);
+      // Pass skipCallback as true to avoid recursive callbacks
+      this.playerShip.setPlayerControlled(active, true);
     }
   }
 
@@ -564,5 +591,53 @@ export class Scene {
    */
   setTotalWaves(total: number): void {
     this.totalWaves = total;
+  }
+
+  /**
+   * Sets up debug controls when in dev mode.
+   * @private
+   */
+  private setupDebugControls(): void {
+    if (!this.playerShip) return;
+
+    // Remove any existing controls
+    if (this.debugControlsContainer) {
+      document.body.removeChild(this.debugControlsContainer);
+      this.debugControlsContainer = null;
+    }
+
+    // Create new controls
+    this.debugControlsContainer = UIUtils.createShipBoundaryControls(
+      this.playerShip
+    );
+    document.body.appendChild(this.debugControlsContainer);
+
+    this.logger.info("Debug boundary controls added to scene");
+  }
+
+  /**
+   * Removes debug controls from the DOM.
+   * @private
+   */
+  private removeDebugControls(): void {
+    if (
+      this.debugControlsContainer &&
+      document.body.contains(this.debugControlsContainer)
+    ) {
+      document.body.removeChild(this.debugControlsContainer);
+      this.debugControlsContainer = null;
+      this.logger.info("Debug boundary controls removed");
+    }
+  }
+
+  /**
+   * Sets up event listeners for the scene.
+   * @private
+   */
+  private setupEventListeners(): void {
+    // Handle window resize
+    window.addEventListener("resize", this.onWindowResize.bind(this));
+
+    this.logger.info("Scene: Event listeners set up");
   }
 }

@@ -12,9 +12,10 @@ export class SceneSystem implements GameSystem {
   /**
    * Creates a new SceneSystem.
    * @param canvas The canvas element to render on
+   * @param devMode Whether to enable development mode features
    */
-  constructor(canvas: HTMLCanvasElement) {
-    this.scene = new Scene(canvas);
+  constructor(canvas: HTMLCanvasElement, devMode: boolean = false) {
+    this.scene = new Scene(canvas, devMode);
   }
 
   /**
