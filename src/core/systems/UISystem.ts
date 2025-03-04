@@ -4,6 +4,7 @@ import { LoadingScreen } from "../../ui/LoadingScreen";
 import { TerminalBorder } from "../../ui/TerminalBorder";
 import { TextCrawl } from "../../ui/TextCrawl";
 import { GameHUD } from "../../ui/GameHUD";
+import { Logger } from "../../utils/Logger";
 
 /**
  * System that manages all UI components including menus, overlays, and HUD.
@@ -27,6 +28,9 @@ export class UISystem implements GameSystem {
 
   /** Reference to the main game for accessing game state */
   private game: any; // Using 'any' to avoid circular dependency
+
+  /** Logger instance */
+  private logger = Logger.getInstance();
 
   /**
    * Creates a new UISystem.
@@ -137,7 +141,7 @@ export class UISystem implements GameSystem {
    * Shows the terminal border UI element.
    */
   showTerminalBorder(): void {
-    console.log("[UISystem] Showing terminal border");
+    this.logger.info("[UISystem] Showing terminal border");
     this.terminalBorder.initialize();
   }
 
@@ -145,7 +149,7 @@ export class UISystem implements GameSystem {
    * Hides the terminal border UI element.
    */
   hideTerminalBorder(): void {
-    console.log("[UISystem] Hiding terminal border");
+    this.logger.info("[UISystem] Hiding terminal border");
     this.terminalBorder.dispose();
   }
 
@@ -153,7 +157,7 @@ export class UISystem implements GameSystem {
    * Shows the in-game HUD.
    */
   showGameHUD(): void {
-    console.log("[UISystem] Showing game HUD");
+    this.logger.info("[UISystem] Showing game HUD");
     this.gameHUD.show();
   }
 
@@ -161,7 +165,7 @@ export class UISystem implements GameSystem {
    * Hides the in-game HUD.
    */
   hideGameHUD(): void {
-    console.log("[UISystem] Hiding game HUD");
+    this.logger.info("[UISystem] Hiding game HUD");
     this.gameHUD.hide();
   }
 

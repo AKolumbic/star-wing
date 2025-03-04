@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { Background } from "./Background";
+import { Logger } from "../../utils/Logger";
 
 /**
  * Parameters that can be customized for the hyperspace background.
@@ -56,6 +57,9 @@ export class HyperspaceBackground implements Background {
 
   /** Animation time */
   private time: number = 0;
+
+  /** Logger instance */
+  private logger = Logger.getInstance();
 
   /**
    * Create a new hyperspace background.
@@ -167,12 +171,17 @@ export class HyperspaceBackground implements Background {
   }
 
   /**
-   * Add this background to the scene.
-   * @param scene The THREE.Scene to add this background to
+   * Adds the hyperspace background to the scene.
+   * @param scene The scene to add the hyperspace background to
    */
   addToScene(scene: THREE.Scene): void {
-    if (!this.initialized || !this.streaks) {
-      console.warn("Cannot add uninitialized hyperspace to scene");
+    if (!this.initialized) {
+      this.logger.warn("Cannot add uninitialized hyperspace to scene");
+      return;
+    }
+
+    if (!this.streaks) {
+      this.logger.warn("Cannot add uninitialized streaks to scene");
       return;
     }
 

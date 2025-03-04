@@ -1,4 +1,8 @@
 import { Game } from "./core/Game";
+import { Logger } from "./utils/Logger";
+
+// Initialize the logger
+const logger = Logger.getInstance();
 
 // Create a global reference to the game instance
 declare global {
@@ -19,18 +23,23 @@ window.addEventListener("DOMContentLoaded", () => {
   canvas.style.height = "100%";
   document.body.appendChild(canvas);
 
-  // Check if dev mode is enabled via URL parameter (?dev=true)
+  // Check for dev mode flag in URL
   const urlParams = new URLSearchParams(window.location.search);
-  const devMode = urlParams.get("dev") === "true";
+  const devMode = urlParams.has("dev");
 
+  // Log dev mode status
   if (devMode) {
-    console.log("DEV MODE ENABLED: Skipping intro, muting audio");
+    logger.info("DEV MODE ENABLED: Skipping intro, muting audio");
   }
 
   // Create the game with the canvas ID and store in global variable
   window.gameInstance = new Game("gameCanvas", devMode);
 
-  // Game initialization happens automatically:
-  // - In normal mode: through the loading screen after user clicks "execute program"
-  // - In dev mode: immediately, bypassing the loading screen
+  // Initialize the game
+  window.gameInstance.init().catch((error) => {
+    logger.error("Failed to initialize game:", error);
+  });
+
+  // Export game instance for debugging
+  (window as any).game = window.gameInstance;
 });

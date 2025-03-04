@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { Background } from "./Background";
+import { Logger } from "../../utils/Logger";
 
 /**
  * Parameters that can be customized for the starfield background.
@@ -84,6 +85,9 @@ export class StarfieldBackground implements Background {
 
   /** Direction of transition (1 = entering hyperspace, -1 = exiting) */
   private transitionDirection: number = 0;
+
+  /** Logger instance */
+  private logger = Logger.getInstance();
 
   /**
    * Create a new starfield background.
@@ -253,7 +257,7 @@ export class StarfieldBackground implements Background {
    */
   addToScene(scene: THREE.Scene): void {
     if (!this.initialized || !this.stars) {
-      console.warn("Cannot add uninitialized starfield to scene");
+      this.logger.warn("Cannot add uninitialized starfield to scene");
       return;
     }
 

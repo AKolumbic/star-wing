@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { Input } from "../core/Input";
+import { Logger } from "../utils/Logger";
 
 /**
  * Represents the player's ship in the game.
@@ -72,6 +73,9 @@ export class Ship {
 
   /** Array of engine glow mesh objects for animation */
   private engineGlowMeshes: THREE.Mesh[] = [];
+
+  /** Logger instance */
+  private logger = Logger.getInstance();
 
   /**
    * Creates a new Ship instance.
@@ -283,42 +287,37 @@ export class Ship {
   }
 
   /**
-   * Start the entry animation, bringing the ship into the scene with retro style.
-   * @param onComplete Callback to call when the entry animation completes
+   * Starts the ship's entry animation sequence.
+   * @param onComplete Optional callback to execute when animation completes
    */
   enterScene(onComplete?: () => void): void {
     if (this.playingEntryAnimation) {
-      console.warn("Ship is already playing entry animation");
+      this.logger.warn("Ship is already playing entry animation");
       return;
     }
 
-    console.log("🚀 SHIP: Beginning entry animation");
+    this.logger.info("🚀 SHIP: Beginning entry animation");
 
-    // Set initial position off the right side of the screen
-    this.position.copy(new THREE.Vector3(700, 0, -400));
-    this.updateModelPosition();
+    // Store the callback to execute when animation completes
+    this.onEntryCompleteCallback = onComplete ?? null;
 
-    // Set initial rotation - flat but slightly tilted
-    this.rotation.set(0, 0, -0.2);
-    this.updateModelRotation();
-
-    // Store animation parameters
-    this.playingEntryAnimation = true;
+    // Set animation start time
     this.entryStartTime = performance.now();
 
-    // Safely assign the callback
-    if (onComplete) {
-      this.onEntryCompleteCallback = onComplete;
-    } else {
-      this.onEntryCompleteCallback = null;
-    }
+    // Set entry animation to playing
+    this.playingEntryAnimation = true;
 
-    console.log("🚀 SHIP: Entry animation set up complete");
+    // Start from the defined entry start position
+    this.position.copy(this.ENTRY_START_POSITION);
+
+    // Player doesn't have control during the entry animation
+    this.playerControlled = false;
+
+    this.logger.info("🚀 SHIP: Entry animation set up complete");
   }
 
   /**
-   * Updates the ship for the current frame.
-   * Handles player input and ship movement.
+   * Updates the ship position, rotation, and applies physics.
    * @param deltaTime Time elapsed since the last frame in seconds
    */
   update(deltaTime: number): void {
@@ -351,6 +350,15 @@ export class Ship {
     if (this.hitbox) {
       this.hitbox.position.copy(this.position);
     }
+
+    // Debug ship position occasionally
+    if (this.playerControlled && Math.random() < 0.01) {
+      this.logger.debug(
+        `SHIP POSITION: x=${this.position.x.toFixed(
+          2
+        )}, y=${this.position.y.toFixed(2)}, z=${this.position.z.toFixed(2)}`
+      );
+    }
   }
 
   /**
@@ -367,7 +375,7 @@ export class Ship {
       Math.floor(progress * 10) >
       Math.floor(((elapsed - deltaTime) / this.ENTRY_DURATION) * 10)
     ) {
-      console.log(
+      this.logger.debug(
         `🚀 SHIP: Animation progress: ${Math.floor(
           progress * 100
         )}%, position:`,
@@ -462,7 +470,7 @@ export class Ship {
 
     // Check if animation is complete
     if (progress >= 1.0) {
-      console.log(
+      this.logger.info(
         "🚀 SHIP: Entry animation complete, position:",
         this.position
       );
@@ -485,15 +493,15 @@ export class Ship {
 
       // Enable player control
       this.setPlayerControlled(true);
-      console.log("🚀 SHIP: Player control enabled");
+      this.logger.info("🚀 SHIP: Player control enabled");
 
       // Call completion callback if set
       if (this.onEntryCompleteCallback) {
-        console.log("🚀 SHIP: Executing entry complete callback");
+        this.logger.info("🚀 SHIP: Executing entry complete callback");
         this.onEntryCompleteCallback();
         this.onEntryCompleteCallback = null;
       } else {
-        console.log("🚀 SHIP: No completion callback was provided");
+        this.logger.info("🚀 SHIP: No completion callback was provided");
       }
     }
   }
@@ -718,15 +726,23 @@ export class Ship {
   }
 
   /**
-   * Sets whether the ship is controlled by the player.
-   * @param controlled Whether player controls the ship
+   * Sets whether the ship is player-controlled.
+   * @param controlled Whether the ship is controlled by the player
    */
   setPlayerControlled(controlled: boolean): void {
     this.playerControlled = controlled;
 
-    // Reset velocity when control changes
-    if (!controlled) {
-      this.velocity.set(0, 0, 0);
+    if (controlled) {
+      this.logger.info("🚀 SHIP: Player control enabled");
+
+      // If this was called directly and we had a completion callback
+      if (this.onEntryCompleteCallback) {
+        this.logger.info("🚀 SHIP: Executing entry complete callback");
+        this.onEntryCompleteCallback();
+        this.onEntryCompleteCallback = null;
+      } else {
+        this.logger.info("🚀 SHIP: No completion callback was provided");
+      }
     }
   }
 

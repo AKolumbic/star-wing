@@ -3,6 +3,7 @@ import { Settings } from "./Settings";
 import { HighScores } from "./HighScores";
 import { BackgroundType } from "../core/backgrounds/BackgroundManager";
 import { Input } from "../core/Input";
+import { Logger } from "../utils/Logger";
 
 export class Menu {
   private container: HTMLDivElement;
@@ -12,6 +13,9 @@ export class Menu {
   private settings: Settings;
   private highScores: HighScores;
   private game: Game;
+
+  /** Logger instance */
+  private logger = Logger.getInstance();
 
   constructor(game: Game) {
     this.game = game;
@@ -26,27 +30,7 @@ export class Menu {
     document.addEventListener("keydown", (e) => {
       // Press 'D' key for diagnostics
       if (e.key === "d" && this.isVisible) {
-        console.log("[DEBUG] Running UI diagnostics...");
-
-        // Log all elements with high z-indexes
-        const highZElements = Array.from(document.querySelectorAll("*")).filter(
-          (el) => {
-            const style = window.getComputedStyle(el);
-            const zIndex = parseInt(style.zIndex);
-            return !isNaN(zIndex) && zIndex > 100;
-          }
-        );
-
-        console.log("[DEBUG] Elements with high z-index:", highZElements);
-
-        // Toggle menu background to see if that's the issue
-        if (this.container.style.backgroundColor) {
-          console.log("[DEBUG] Setting menu background to transparent");
-          this.container.style.backgroundColor = "transparent";
-        } else {
-          console.log("[DEBUG] Restoring menu background");
-          this.container.style.backgroundColor = "rgba(0, 0, 0, 0.85)";
-        }
+        this.runDiagnostics();
       }
     });
   }
@@ -257,7 +241,7 @@ export class Menu {
 
       menuOption.addEventListener("click", () => {
         if (option === "START GAME") {
-          console.log("[Menu] START GAME clicked");
+          this.logger.info("[Menu] START GAME clicked");
           this.startGame();
         } else if (option === "SETTINGS") {
           this.showSettings();
@@ -336,7 +320,7 @@ export class Menu {
   }
 
   private activateCurrentOption(): void {
-    console.log(
+    this.logger.info(
       `Activating menu option: ${this.menuOptions[this.currentSelection]}`
     );
     switch (this.currentSelection) {
@@ -350,61 +334,93 @@ export class Menu {
         this.showHighScores();
         break;
       default:
-        console.warn("Unknown menu option selected");
+        this.logger.warn("Unknown menu option selected");
     }
   }
 
   /**
-   * Starts the game by transitioning to hyperspace and showing the text crawl.
+   * Run UI diagnostics to check for potential issues
+   */
+  private runDiagnostics(): void {
+    this.logger.debug("[DEBUG] Running UI diagnostics...");
+
+    // Check for elements with high z-index that might overlap
+    const allElements = document.querySelectorAll("*");
+    const highZElements: Element[] = [];
+
+    allElements.forEach((el) => {
+      const zIndex = window.getComputedStyle(el).zIndex;
+      if (zIndex !== "auto" && parseInt(zIndex) > 900) {
+        highZElements.push(el);
+      }
+    });
+
+    if (highZElements.length > 0) {
+      this.logger.debug("[DEBUG] Elements with high z-index:", highZElements);
+    }
+
+    // Test background transparency
+    this.logger.debug("[DEBUG] Setting menu background to transparent");
+    const originalBg = this.container.style.backgroundColor;
+    this.container.style.backgroundColor = "transparent";
+    setTimeout(() => {
+      this.container.style.backgroundColor = originalBg;
+      this.logger.debug("[DEBUG] Restoring menu background");
+    }, 500);
+  }
+
+  /**
+   * Start the game
    */
   private startGame(): void {
-    console.log("Starting game...");
     if (!this.isVisible) {
-      console.log("Menu is not visible, cannot start game");
+      this.logger.info("Menu is not visible, cannot start game");
       return;
     }
 
-    // Hide menu and start game sequence
+    this.logger.info("Starting game...");
     this.hide();
-    console.log("Menu hidden, starting game sequence");
+    this.logger.info("Menu hidden, starting game sequence");
 
     // Get required systems
     const scene = this.game.getSceneSystem().getScene();
     const input = this.game.getInputSystem().getInput();
+    const uiSystem = this.game.getUISystem();
 
-    // Disable hyperspace
+    // Start hyperspace transition
     scene
-      .transitionHyperspace(false, 0.1)
+      .transitionHyperspace(true, 2.0)
       .then(() => {
-        console.log("Hyperspace transition complete, starting game directly");
+        this.logger.info(
+          "Hyperspace transition complete, starting game directly"
+        );
 
-        // Set input on scene
+        // Set input on the scene
         scene.setInput(input);
-        console.log("Input set on scene");
+        this.logger.info("Input set on scene");
 
-        // Initialize ship
+        // Initialize the ship
         scene
           .initPlayerShip()
           .then(() => {
-            console.log("Ship initialized successfully");
+            this.logger.info("Ship initialized successfully");
 
-            // Start ship entry animation and game
+            // Start ship entry animation
             scene.startShipEntry(() => {
-              console.log("Ship entry complete, starting game");
-              this.game.start();
+              this.logger.info("Ship entry complete, starting game");
 
               // Show the game HUD
-              console.log("Showing game HUD");
-              this.game.getUISystem().showGameHUD();
+              uiSystem.showGameHUD();
+              this.logger.info("Showing game HUD");
             });
-            console.log("Ship entry animation started");
+            this.logger.info("Ship entry animation started");
           })
-          .catch((error) => {
-            console.error("Failed to initialize ship:", error);
+          .catch((error: Error) => {
+            this.logger.error("Failed to initialize ship:", error);
           });
       })
-      .catch((error) => {
-        console.error("Error during hyperspace transition:", error);
+      .catch((error: Error) => {
+        this.logger.error("Error during hyperspace transition:", error);
       });
   }
 
@@ -565,9 +581,11 @@ export class Menu {
   }
 
   hide(): void {
-    console.log("[Menu] Hiding menu");
-    this.container.style.display = "none";
+    if (!this.isVisible) return;
+
     this.isVisible = false;
+    this.container.style.display = "none";
+    this.logger.info("[Menu] Hiding menu");
   }
 
   isMenuVisible(): boolean {

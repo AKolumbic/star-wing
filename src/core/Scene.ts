@@ -6,6 +6,7 @@ import {
 import { StarfieldBackground } from "./backgrounds/StarfieldBackground";
 import { Ship } from "../entities/Ship";
 import { Input } from "./Input";
+import { Logger } from "../utils/Logger";
 
 /**
  * Scene class responsible for managing the 3D rendering environment.
@@ -64,6 +65,9 @@ export class Scene {
 
   /** Total waves in the current zone */
   private totalWaves: number = 8;
+
+  /** Logger instance */
+  private logger = Logger.getInstance();
 
   /**
    * Creates a new scene with a WebGL renderer.
@@ -215,27 +219,28 @@ export class Scene {
    * @param deltaTime Time elapsed since the last frame in seconds
    */
   update(deltaTime: number): void {
-    // Update the background manager
-    this.backgroundManager.update(deltaTime);
+    // Handle game updates when active
+    if (this.gameActive && this.playerShip) {
+      // Update the player ship with delta time
+      this.playerShip.update(deltaTime);
 
-    // Update the player ship if it exists and game is active
-    if (this.playerShip) {
-      // Log ship status occasionally (not every frame to avoid console spam)
-      if (Math.random() < 0.01) {
-        // Log approximately every 100 frames
-        console.log(
-          "Scene: Player ship exists, active:",
-          this.gameActive,
-          "playing entry:",
-          this.playerShip["playingEntryAnimation"]
+      // Update the score based on time (1 point per second)
+      if (Math.random() < 0.05) {
+        // Approximately once every ~20 frames
+        this.logger.debug(
+          `Game active, ship at position: ${this.playerShip
+            .getPosition()
+            .x.toFixed(2)}, ${this.playerShip
+            .getPosition()
+            .y.toFixed(2)}, ${this.playerShip.getPosition().z.toFixed(2)}`
         );
       }
-
-      this.playerShip.update(deltaTime);
-    } else if (Math.random() < 0.01) {
-      // Log occasionally if ship doesn't exist
-      console.log("Scene: No player ship found in update");
+    } else if (this.gameActive && !this.playerShip) {
+      this.logger.warn("Scene: No player ship found in update");
     }
+
+    // Update background
+    this.backgroundManager.update(deltaTime);
   }
 
   /**
@@ -393,30 +398,50 @@ export class Scene {
    */
   startShipEntry(onComplete?: () => void): void {
     if (!this.playerShip) {
-      console.error("Cannot start ship entry - ship not initialized");
+      this.logger.error("Cannot start ship entry - ship not initialized");
       return;
     }
 
-    console.log("🛸 SCENE: Starting ship entry animation");
+    this.logger.info("🛸 SCENE: Starting ship entry animation");
 
     // Log ship information
-    console.log("🛸 SCENE: Ship object initialized:", !!this.playerShip);
+    this.logger.info("🛸 SCENE: Ship object initialized:", !!this.playerShip);
 
     // Set game to active state
     this.gameActive = true;
-    console.log("🛸 SCENE: Game set to active state");
+    this.logger.info("🛸 SCENE: Game set to active state");
 
     // Create a wrapped callback to ensure game state is properly set
     const wrappedCallback = () => {
-      console.log("🛸 SCENE: Ship entry animation complete");
+      this.logger.info("🛸 SCENE: Ship entry animation complete");
       if (onComplete) {
-        console.log("🛸 SCENE: Executing provided callback");
+        this.logger.info("🛸 SCENE: Executing provided callback");
         onComplete();
       }
     };
 
     // Start the entry animation
     this.playerShip.enterScene(wrappedCallback);
+  }
+
+  /**
+   * Skips the ship entry animation and positions the ship immediately.
+   * Used in development mode to bypass animation and get straight to gameplay.
+   */
+  skipShipEntry(): void {
+    if (!this.playerShip) {
+      this.logger.error("Cannot skip ship entry - ship not initialized");
+      return;
+    }
+
+    this.logger.info("🛸 SCENE: Skipping ship entry animation (dev mode)");
+
+    // Immediately position the ship at the end position
+    this.playerShip.setPlayerControlled(true);
+
+    // Set game to active state
+    this.gameActive = true;
+    this.logger.info("🛸 SCENE: Game set to active state (dev mode)");
   }
 
   /**

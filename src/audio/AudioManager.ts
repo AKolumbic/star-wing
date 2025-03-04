@@ -2,6 +2,8 @@
  * AudioManager is responsible for all sound generation and audio playback in the game.
  * It uses the Web Audio API to create a procedural synth soundtrack and handles all audio settings.
  */
+import { Logger } from "../utils/Logger";
+
 export class AudioManager {
   /** Main audio context for all sound generation */
   private audioContext: AudioContext;
@@ -21,6 +23,9 @@ export class AudioManager {
   private audioBufferCache: Map<string, AudioBuffer> = new Map();
   /** Node cache to store and reuse AudioNodes */
   private nodeCache: Map<string, AudioNode> = new Map();
+
+  /** Logger instance */
+  private logger = Logger.getInstance();
 
   /** Base note frequencies for procedural music generation */
   // D minor scale frequencies
@@ -106,7 +111,9 @@ export class AudioManager {
 
     this.mainGainNode.connect(this.audioContext.destination);
 
-    console.log("AudioManager: Constructor completed, audio context created");
+    this.logger.info(
+      "AudioManager: Constructor completed, audio context created"
+    );
   }
 
   /**
@@ -115,12 +122,14 @@ export class AudioManager {
    */
   playTestTone(): void {
     if (!this.audioContext) {
-      console.error("AudioManager: Cannot play test tone - no audio context");
+      this.logger.error(
+        "AudioManager: Cannot play test tone - no audio context"
+      );
       return;
     }
 
     if (this.audioContext.state === "suspended") {
-      console.log("AudioManager: Resuming audio context");
+      this.logger.info("AudioManager: Resuming audio context");
       this.audioContext.resume();
     }
 
@@ -139,7 +148,7 @@ export class AudioManager {
       oscillator.start(now);
       oscillator.stop(now + 0.3); // Shorter duration - just 0.3 seconds
     } catch (error) {
-      console.error("AudioManager: Error playing test tone:", error);
+      this.logger.error("AudioManager: Error playing test tone:", error);
     }
   }
 
@@ -151,7 +160,7 @@ export class AudioManager {
   public initialize(): void {
     if (this.isInitialized) return;
 
-    console.log("AudioManager: Initializing");
+    this.logger.info("AudioManager: Initializing");
 
     try {
       if (!this.audioContext) {
@@ -166,7 +175,7 @@ export class AudioManager {
         this.mainGainNode.connect(this.audioContext.destination);
 
         if (this.audioContext.state === "suspended") {
-          console.log(
+          this.logger.info(
             "AudioManager: Audio context is suspended, will resume on user interaction"
           );
         }
@@ -178,7 +187,10 @@ export class AudioManager {
 
       this.isInitialized = true;
     } catch (error) {
-      console.error("AudioManager: Error initializing audio context:", error);
+      this.logger.error(
+        "AudioManager: Error initializing audio context:",
+        error
+      );
     }
   }
 
@@ -216,14 +228,14 @@ export class AudioManager {
    */
   public playMenuThump(): void {
     if (!this.isInitialized) {
-      console.log("AudioManager: Not initialized, initializing now");
+      this.logger.info("AudioManager: Not initialized, initializing now");
       this.initialize();
     }
 
     // Resume audio context if suspended
     if (this.audioContext.state === "suspended") {
       this.audioContext.resume().catch((err) => {
-        console.error("AudioManager: Error resuming AudioContext:", err);
+        this.logger.error("AudioManager: Error resuming AudioContext:", err);
       });
     }
 
@@ -236,7 +248,7 @@ export class AudioManager {
       this.nextNoteTime = this.audioContext.currentTime;
       this.scheduleBeats();
     } catch (err) {
-      console.error("AudioManager: Error starting audio playback:", err);
+      this.logger.error("AudioManager: Error starting audio playback:", err);
     }
   }
 
@@ -492,48 +504,43 @@ export class AudioManager {
   }
 
   /**
-   * Loads an audio file and stores it in the buffer cache.
+   * Loads an audio sample from a URL and caches it for later use.
    * @param url The URL of the audio file to load
-   * @param id A unique identifier for this audio sample
-   * @returns A promise that resolves when the audio is loaded
+   * @param id A unique identifier to reference this sample later
+   * @returns A promise that resolves when the sample is loaded
    */
   public async loadAudioSample(url: string, id: string): Promise<void> {
-    // Don't reload if already in cache
-    if (this.audioBufferCache.has(id)) {
-      return;
-    }
-
     try {
       const response = await fetch(url);
       const arrayBuffer = await response.arrayBuffer();
       const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-
-      // Store in cache for future use
       this.audioBufferCache.set(id, audioBuffer);
     } catch (error) {
-      console.error(`AudioManager: Error loading audio sample ${id}:`, error);
-      throw error;
+      this.logger.error(
+        `AudioManager: Error loading audio sample ${id}:`,
+        error
+      );
     }
   }
 
   /**
    * Plays a previously loaded audio sample.
-   * @param id The identifier of the audio sample to play
-   * @param volume Volume level between 0 and 1
+   * @param id The identifier of the sample to play
+   * @param volume Volume level for playback (0.0 to 1.0)
    * @param loop Whether the sample should loop
-   * @returns The AudioBufferSourceNode or null if sample not found
+   * @returns The AudioBufferSourceNode playing the sample, or null if the sample wasn't found
    */
   public playAudioSample(
     id: string,
     volume: number = 0.5,
     loop: boolean = false
   ): AudioBufferSourceNode | null {
-    if (!this.audioBufferCache.has(id)) {
-      console.warn(`AudioManager: Audio sample ${id} not found in cache`);
+    const buffer = this.audioBufferCache.get(id);
+    if (!buffer) {
+      this.logger.warn(`AudioManager: Audio sample ${id} not found in cache`);
       return null;
     }
 
-    const buffer = this.audioBufferCache.get(id)!;
     const source = this.audioContext.createBufferSource();
     source.buffer = buffer;
     source.loop = loop;
@@ -549,47 +556,28 @@ export class AudioManager {
   }
 
   /**
-   * Completely stops and cleans up all audio resources.
-   * Should be called when the game is being unloaded or destroyed.
+   * Disposes of the audio manager, stopping all playback and releasing resources.
    */
   public dispose(): void {
-    // Stop any ongoing audio
-    if (this.isPlaying) {
-      this.stopMusic();
-    }
+    // Stop music if playing
+    this.stopMusic();
 
-    // Clear any schedulers
-    if (this.schedulerTimer !== null) {
-      clearTimeout(this.schedulerTimer);
-      this.schedulerTimer = null;
-    }
-
-    // Disconnect main gain node if it exists
+    // Disconnect all nodes
     if (this.mainGainNode) {
       this.mainGainNode.disconnect();
     }
 
-    // Clear all cached nodes
-    this.nodeCache.forEach((node) => {
-      if (node.disconnect) {
-        node.disconnect();
-      }
-    });
-    this.nodeCache.clear();
-
-    // Clear buffer cache
-    this.audioBufferCache.clear();
-
-    // Close audio context if supported by the browser
+    // Close the audio context
     if (this.audioContext && this.audioContext.state !== "closed") {
-      // Some browsers support closing the audio context
-      if (this.audioContext.close) {
-        this.audioContext.close().catch((error) => {
-          console.warn("Error closing AudioContext:", error);
-        });
+      try {
+        this.audioContext.close();
+      } catch (error) {
+        this.logger.warn("Error closing AudioContext:", error);
       }
     }
 
-    this.isInitialized = false;
+    // Clear caches
+    this.audioBufferCache.clear();
+    this.nodeCache.clear();
   }
 }

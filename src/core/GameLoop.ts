@@ -1,5 +1,6 @@
 import { GameSystem } from "./GameSystem";
 import { PerformanceMonitor } from "./PerformanceMonitor";
+import { Logger } from "../utils/Logger";
 
 /**
  * Manages the game's main update and render loop.
@@ -29,6 +30,9 @@ export class GameLoop {
 
   /** Post-render callback function, called after all systems are updated */
   private postUpdateCallback?: (deltaTime: number) => void;
+
+  /** Logger instance */
+  private logger = Logger.getInstance();
 
   /**
    * Creates a new GameLoop instance.
@@ -64,11 +68,11 @@ export class GameLoop {
    */
   start(): void {
     if (this.isRunning) {
-      console.warn("Game loop is already running");
+      this.logger.warn("Game loop is already running");
       return;
     }
 
-    console.log("Game loop starting...");
+    this.logger.info("Game loop starting...");
     this.isRunning = true;
     this.lastFrameTime = performance.now();
     this.performanceMonitor.reset();
@@ -123,11 +127,11 @@ export class GameLoop {
    */
   stop(): void {
     if (!this.isRunning) {
-      console.warn("Game loop is already stopped");
+      this.logger.warn("Game loop is already stopped");
       return;
     }
 
-    console.log("Game loop stopping...");
+    this.logger.info("Game loop stopping...");
     this.isRunning = false;
 
     if (this.animationFrameId) {

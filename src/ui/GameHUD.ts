@@ -387,60 +387,52 @@ export class GameHUD {
   private updateRadar(scene: Scene): void {
     if (!this.radarContext) return;
 
+    // Store radarContext in a local variable after the null check
+    const ctx = this.radarContext;
+
     // Clear radar
-    this.radarContext.clearRect(
-      0,
-      0,
-      this.radarCanvas.width,
-      this.radarCanvas.height
-    );
+    ctx.clearRect(0, 0, this.radarCanvas.width, this.radarCanvas.height);
 
     // Draw radar background
-    this.radarContext.fillStyle = "rgba(0, 30, 60, 0.7)";
-    this.radarContext.beginPath();
-    this.radarContext.arc(
+    ctx.fillStyle = "rgba(0, 30, 60, 0.7)";
+    ctx.beginPath();
+    ctx.arc(
       this.radarCanvas.width / 2,
       this.radarCanvas.height / 2,
       this.radarCanvas.width / 2 - 2,
       0,
       Math.PI * 2
     );
-    this.radarContext.fill();
+    ctx.fill();
 
     // Draw radar rings
-    this.radarContext.strokeStyle = "rgba(0, 255, 255, 0.5)";
-    this.radarContext.lineWidth = 1;
+    ctx.strokeStyle = "rgba(0, 255, 255, 0.5)";
+    ctx.lineWidth = 1;
 
     // Draw 3 concentric circles
     for (let i = 1; i <= 3; i++) {
       const radius = (this.radarCanvas.width / 2 - 2) * (i / 3);
-      this.radarContext.beginPath();
-      this.radarContext.arc(
+      ctx.beginPath();
+      ctx.arc(
         this.radarCanvas.width / 2,
         this.radarCanvas.height / 2,
         radius,
         0,
         Math.PI * 2
       );
-      this.radarContext.stroke();
+      ctx.stroke();
     }
 
     // Draw radar cross
-    this.radarContext.beginPath();
-    this.radarContext.moveTo(this.radarCanvas.width / 2, 2);
-    this.radarContext.lineTo(
-      this.radarCanvas.width / 2,
-      this.radarCanvas.height - 2
-    );
-    this.radarContext.stroke();
+    ctx.beginPath();
+    ctx.moveTo(this.radarCanvas.width / 2, 2);
+    ctx.lineTo(this.radarCanvas.width / 2, this.radarCanvas.height - 2);
+    ctx.stroke();
 
-    this.radarContext.beginPath();
-    this.radarContext.moveTo(2, this.radarCanvas.height / 2);
-    this.radarContext.lineTo(
-      this.radarCanvas.width - 2,
-      this.radarCanvas.height / 2
-    );
-    this.radarContext.stroke();
+    ctx.beginPath();
+    ctx.moveTo(2, this.radarCanvas.height / 2);
+    ctx.lineTo(this.radarCanvas.width - 2, this.radarCanvas.height / 2);
+    ctx.stroke();
 
     // Get player position
     const playerShip = scene.getPlayerShip();
@@ -450,19 +442,19 @@ export class GameHUD {
     if (!playerPosition) return;
 
     // Draw player blip in the center
-    this.radarContext.fillStyle = "#0ff";
-    this.radarContext.beginPath();
-    this.radarContext.arc(
+    ctx.fillStyle = "#0ff";
+    ctx.beginPath();
+    ctx.arc(
       this.radarCanvas.width / 2,
       this.radarCanvas.height / 2,
       3,
       0,
       Math.PI * 2
     );
-    this.radarContext.fill();
+    ctx.fill();
 
     // Draw enemy blips
-    this.radarContext.fillStyle = "#f55";
+    ctx.fillStyle = "#f55";
 
     // In a full implementation, we would iterate through actual enemies
     // For example: scene.getEnemies().forEach(enemy => {...})
@@ -514,9 +506,9 @@ export class GameHUD {
           (relY / radarRange) * (this.radarCanvas.height / 2);
 
         // Draw the blip
-        this.radarContext.beginPath();
-        this.radarContext.arc(radarX, radarY, 2, 0, Math.PI * 2);
-        this.radarContext.fill();
+        ctx.beginPath();
+        ctx.arc(radarX, radarY, 2, 0, Math.PI * 2);
+        ctx.fill();
       }
     });
 
@@ -524,13 +516,10 @@ export class GameHUD {
     const now = Date.now();
     const angle = ((now % 2000) / 2000) * Math.PI * 2;
 
-    this.radarContext.fillStyle = "rgba(0, 255, 255, 0.2)";
-    this.radarContext.beginPath();
-    this.radarContext.moveTo(
-      this.radarCanvas.width / 2,
-      this.radarCanvas.height / 2
-    );
-    this.radarContext.arc(
+    ctx.fillStyle = "rgba(0, 255, 255, 0.2)";
+    ctx.beginPath();
+    ctx.moveTo(this.radarCanvas.width / 2, this.radarCanvas.height / 2);
+    ctx.arc(
       this.radarCanvas.width / 2,
       this.radarCanvas.height / 2,
       this.radarCanvas.width / 2 - 2,
@@ -538,8 +527,8 @@ export class GameHUD {
       angle,
       false
     );
-    this.radarContext.closePath();
-    this.radarContext.fill();
+    ctx.closePath();
+    ctx.fill();
   }
 
   /**

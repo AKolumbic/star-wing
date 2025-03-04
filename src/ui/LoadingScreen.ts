@@ -1,4 +1,5 @@
 import { AudioManager } from "../audio/AudioManager";
+import { Logger } from "../utils/Logger";
 
 export class LoadingScreen {
   private container!: HTMLDivElement;
@@ -10,6 +11,7 @@ export class LoadingScreen {
   private ellipsisInterval!: number;
   private cursorBlinkInterval!: number;
   private isMobileDevice: boolean = false;
+  private logger = Logger.getInstance();
 
   // Fixed initial build messages
   private initialBuildMessages: string[] = [
@@ -110,7 +112,7 @@ export class LoadingScreen {
 
     this.isMobileDevice = isMobile || isTablet || (touchScreen && smallScreen);
 
-    console.log(
+    this.logger.info(
       "Device detection: ",
       this.isMobileDevice ? "Mobile device detected" : "Desktop device detected"
     );

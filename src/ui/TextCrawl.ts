@@ -1,4 +1,5 @@
 import { Game } from "../core/Game";
+import { Logger } from "../utils/Logger";
 
 export class TextCrawl {
   private container: HTMLDivElement;
@@ -6,6 +7,9 @@ export class TextCrawl {
   private isVisible: boolean = false;
   private game: Game;
   private onCompleteCallback: (() => void) | null = null;
+  private animationEndHandler: ((e: AnimationEvent) => void) | null = null;
+  private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
+  private logger = Logger.getInstance();
 
   constructor(game: Game) {
     this.game = game;
@@ -114,7 +118,10 @@ export class TextCrawl {
   show(onComplete?: () => void): void {
     if (this.isVisible) return;
 
-    console.log("TextCrawl: Starting text crawl with callback:", !!onComplete);
+    this.logger.info(
+      "TextCrawl: Starting text crawl with callback:",
+      !!onComplete
+    );
     this.onCompleteCallback = onComplete || null;
     this.isVisible = true;
     this.container.style.display = "flex";
@@ -127,37 +134,33 @@ export class TextCrawl {
     const animationDuration = 10; // Reduced from 60 to 10 seconds for testing
     this.crawlContainer.style.animation = `scroll ${animationDuration}s linear forwards`;
 
-    // Listen for animation end to call the callback
-    const onAnimationEnd = () => {
-      console.log(
-        "TextCrawl: Animation ended, calling callback:",
-        !!this.onCompleteCallback
-      );
-      this.hide();
-      if (this.onCompleteCallback) {
-        console.log("TextCrawl: Executing callback");
-        this.onCompleteCallback();
+    // Set up animation end listener
+    this.animationEndHandler = (e: AnimationEvent) => {
+      if (e.animationName === "scroll") {
+        this.logger.info(
+          "TextCrawl: Animation ended naturally, cleaning up and executing callback"
+        );
+        this.hide();
+        this.executeCallback();
       }
-      this.crawlContainer.removeEventListener("animationend", onAnimationEnd);
-      console.log("TextCrawl: Finished cleanup after animation");
     };
 
-    this.crawlContainer.addEventListener("animationend", onAnimationEnd);
-    console.log("TextCrawl: Added animationend listener");
+    this.crawlContainer.addEventListener(
+      "animationend",
+      this.animationEndHandler
+    );
+    this.logger.info("TextCrawl: Added animationend listener");
 
-    // Also add a skip option with keyboard
-    const skipKeyHandler = (e: KeyboardEvent) => {
+    // Set up key listener for skipping
+    this.keydownHandler = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === " " || e.key === "Enter") {
-        console.log("TextCrawl: Skipping via key:", e.key);
-        // Remove the animation and trigger the callback
-        this.crawlContainer.style.animation = "none";
-        document.removeEventListener("keydown", skipKeyHandler);
-        onAnimationEnd();
+        this.logger.info("TextCrawl: Skipping via key:", e.key);
+        this.skip();
       }
     };
 
-    document.addEventListener("keydown", skipKeyHandler);
-    console.log("TextCrawl: Added keydown listener for skipping");
+    document.addEventListener("keydown", this.keydownHandler);
+    this.logger.info("TextCrawl: Added keydown listener for skipping");
   }
 
   /**
@@ -184,5 +187,33 @@ export class TextCrawl {
    */
   isTextCrawlVisible(): boolean {
     return this.isVisible;
+  }
+
+  /**
+   * Execute the completion callback if it exists
+   */
+  private executeCallback(): void {
+    if (this.onCompleteCallback) {
+      this.logger.info("TextCrawl: Executing callback");
+      this.onCompleteCallback();
+      this.onCompleteCallback = null;
+    }
+    this.logger.info("TextCrawl: Finished cleanup after animation");
+  }
+
+  /**
+   * Skip the text crawl animation
+   */
+  private skip(): void {
+    // Remove the animation and trigger the callback
+    this.crawlContainer.style.animation = "none";
+
+    if (this.keydownHandler) {
+      document.removeEventListener("keydown", this.keydownHandler);
+      this.keydownHandler = null;
+    }
+
+    this.hide();
+    this.executeCallback();
   }
 }
