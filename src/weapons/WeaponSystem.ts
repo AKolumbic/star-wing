@@ -6,6 +6,9 @@ import { MissileLauncher } from "./types/MissileLauncher";
 import { GravityBeam } from "./types/GravityBeam";
 import { GameSystem } from "../core/GameSystem";
 import { UISystem } from "../core/systems/UISystem";
+import { Game } from "../core/Game";
+import { AudioManager } from "../audio/AudioManager";
+import { Logger } from "../utils/Logger";
 
 /**
  * WeaponSystem manages all weapons for the player's ship.
@@ -26,6 +29,9 @@ export class WeaponSystem implements GameSystem {
   // References
   private scene: THREE.Scene;
   private uiSystem: UISystem | null = null;
+  private game: Game | null = null;
+  private audioManager: AudioManager | null = null;
+  private logger = Logger.getInstance();
 
   /**
    * Creates a new WeaponSystem
@@ -54,6 +60,16 @@ export class WeaponSystem implements GameSystem {
    */
   setUISystem(uiSystem: UISystem): void {
     this.uiSystem = uiSystem;
+  }
+
+  /**
+   * Sets the game instance
+   * @param game The game instance
+   */
+  setGame(game: Game): void {
+    this.game = game;
+    this.audioManager = game.getAudioManager();
+    this.logger.info("WeaponSystem: Connected to Game and AudioManager");
   }
 
   /**
@@ -108,7 +124,21 @@ export class WeaponSystem implements GameSystem {
    */
   firePrimary(position: THREE.Vector3, direction: THREE.Vector3): boolean {
     if (!this.primaryWeapon) return false;
-    return this.primaryWeapon.fire(position, direction);
+
+    const result = this.primaryWeapon.fire(position, direction);
+
+    // If the weapon fired successfully, play the appropriate sound
+    if (result && this.audioManager) {
+      try {
+        // Play sound based on weapon category
+        const weaponCategory = this.primaryWeapon.getCategory();
+        this.playWeaponSound(weaponCategory);
+      } catch (error) {
+        this.logger.error("Error playing weapon sound:", error);
+      }
+    }
+
+    return result;
   }
 
   /**
@@ -119,7 +149,46 @@ export class WeaponSystem implements GameSystem {
    */
   fireSecondary(position: THREE.Vector3, direction: THREE.Vector3): boolean {
     if (!this.secondaryWeapon) return false;
-    return this.secondaryWeapon.fire(position, direction);
+
+    const result = this.secondaryWeapon.fire(position, direction);
+
+    // If the weapon fired successfully, play the appropriate sound
+    if (result && this.audioManager) {
+      try {
+        // Play sound based on weapon category
+        const weaponCategory = this.secondaryWeapon.getCategory();
+        this.playWeaponSound(weaponCategory);
+      } catch (error) {
+        this.logger.error("Error playing weapon sound:", error);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Plays the appropriate weapon sound effect based on the weapon category
+   * @param category The weapon category
+   */
+  private playWeaponSound(category: WeaponCategory): void {
+    if (!this.audioManager) return;
+
+    this.logger.debug(`WeaponSystem: Playing sound for ${category} weapon`);
+
+    switch (category) {
+      case WeaponCategory.ENERGY:
+        this.audioManager.playLaserSound("energy");
+        break;
+      // case WeaponCategory.BALLISTIC:
+      //   this.audioManager.playRapidFireSound("rapidfire");
+      //   break;
+      // case WeaponCategory.EXPLOSIVE:
+      //   this.audioManager.playMissileLaunchSound("missiles");
+      //   break;
+      default:
+        this.audioManager.playLaserSound("energy");
+        break;
+    }
   }
 
   /**

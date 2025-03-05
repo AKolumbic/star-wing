@@ -418,6 +418,14 @@ export class Menu {
     const input = this.game.getInputSystem().getInput();
     const uiSystem = this.game.getUISystem();
 
+    // Ensure audio context is activated for weapon sounds
+    try {
+      this.game.getAudioManager().playTestTone();
+      this.logger.info("Audio context activated for weapon sounds");
+    } catch (error) {
+      this.logger.warn("Could not activate audio context:", error);
+    }
+
     // Initialize required systems before showing text crawl
     scene.setInput(input);
     this.logger.info("Input set on scene");

@@ -10,6 +10,7 @@ import { Logger } from "../utils/Logger";
 import { UIUtils } from "../utils/UIUtils";
 import { Game } from "./Game";
 import { UISystem } from "./systems/UISystem";
+import { Asteroid } from "../entities/Asteroid";
 
 /**
  * Scene class responsible for managing the 3D rendering environment.
@@ -80,6 +81,24 @@ export class Scene {
 
   /** Reference to the Game instance */
   private game: Game | null = null;
+
+  /** Last time an asteroid was spawned (in milliseconds) */
+  private lastAsteroidSpawnTime: number = 0;
+
+  /** Minimum time between asteroid spawns (in milliseconds) */
+  private asteroidSpawnInterval: number = 5000; // 5 seconds initially
+
+  /** Collection of active asteroids in the scene */
+  private asteroids: Asteroid[] = [];
+
+  /** Maximum number of asteroids allowed at once */
+  private maxAsteroids: number = 10;
+
+  /** Maximum horizontal distance from center (full width = 2800) */
+  private horizontalLimit: number = 1400;
+
+  /** Maximum vertical distance from center (full height = 1400) */
+  private verticalLimit: number = 700;
 
   /**
    * Creates a new scene with a WebGL renderer.
@@ -275,6 +294,13 @@ export class Scene {
       // Update the player ship with delta time
       this.playerShip.update(deltaTime);
 
+      // Update and manage asteroids
+      this.updateAsteroids(deltaTime);
+      this.manageAsteroidSpawning();
+
+      // Check for collisions between ship and asteroids
+      this.checkCollisions();
+
       // Update the score based on time (1 point per second)
       if (Math.random() < 0.05) {
         // Approximately once every ~20 frames
@@ -321,6 +347,12 @@ export class Scene {
       this.playerShip.dispose();
       this.playerShip = null;
     }
+
+    // Clean up asteroids
+    this.asteroids.forEach((asteroid) => {
+      asteroid.dispose();
+    });
+    this.asteroids = [];
 
     // Clear all objects from scene
     while (this.scene.children.length > 0) {
@@ -439,6 +471,8 @@ export class Scene {
       );
     }
 
+    this.logger.info("Scene: Initializing player ship");
+
     // Create the ship with our scene and input system, passing devMode flag
     this.playerShip = new Ship(this.scene, this.input, this.devMode);
 
@@ -448,12 +482,31 @@ export class Scene {
     // Initialize ship systems
     await this.playerShip.initialize();
 
-    // Connect weapon system to UI system if available
+    // Connect to game instance for audio and UI access
     if (this.game && this.playerShip) {
+      this.logger.info("Scene: Connecting ship to game services");
+
+      // Get and pass the weapon system to the game for audio access
+      const weaponSystem = this.playerShip.getWeaponSystem();
+      if (weaponSystem) {
+        weaponSystem.setGame(this.game);
+        this.logger.info("Scene: Weapon system connected to game for audio");
+      } else {
+        this.logger.warn(
+          "Scene: Could not connect weapon system to game - weaponSystem is null"
+        );
+      }
+
+      // Connect weapon system to UI system if available
       const uiSystem = this.game.getUISystem();
       if (uiSystem) {
         this.playerShip.setUISystem(uiSystem);
+        this.logger.info("Scene: Ship connected to UI system");
       }
+    } else {
+      this.logger.warn(
+        "Scene: Could not connect ship to game services - game or ship is null"
+      );
     }
 
     // If in dev mode, add boundary controls after ship is created
@@ -663,5 +716,165 @@ export class Scene {
    */
   setGame(game: Game): void {
     this.game = game;
+  }
+
+  /**
+   * Updates all active asteroids in the scene.
+   * @param deltaTime Time elapsed since the last frame in seconds
+   */
+  private updateAsteroids(deltaTime: number): void {
+    // Update each asteroid and filter out any that are no longer active
+    this.asteroids = this.asteroids.filter((asteroid) => {
+      return asteroid.update(deltaTime);
+    });
+  }
+
+  /**
+   * Manages the spawning of new asteroids at regular intervals.
+   */
+  private manageAsteroidSpawning(): void {
+    const currentTime = performance.now();
+
+    // Only spawn if interval has passed and we're below max asteroids
+    if (
+      currentTime - this.lastAsteroidSpawnTime > this.asteroidSpawnInterval &&
+      this.asteroids.length < this.maxAsteroids
+    ) {
+      this.spawnAsteroid();
+      this.lastAsteroidSpawnTime = currentTime;
+
+      // Gradually decrease spawn interval as the game progresses (min 2 seconds)
+      this.asteroidSpawnInterval = Math.max(
+        2000,
+        5000 - (this.currentZone - 1) * 500
+      );
+    }
+  }
+
+  /**
+   * Spawns a new asteroid at a random position outside the player's view.
+   */
+  private spawnAsteroid(): void {
+    if (!this.playerShip) return;
+
+    const playerPos = this.playerShip.getPosition();
+
+    // Generate random position at the edge of the starfield, ahead of the player
+    // (asteroid will move toward the player)
+    const spawnDistance = 1500; // Far enough to not be immediately visible
+    const spawnWidth = this.horizontalLimit * 1.5;
+    const spawnHeight = this.verticalLimit * 1.5;
+
+    const asteroidPosition = new THREE.Vector3(
+      playerPos.x + (Math.random() * spawnWidth - spawnWidth / 2),
+      playerPos.y + (Math.random() * spawnHeight - spawnHeight / 2),
+      playerPos.z - spawnDistance
+    );
+
+    // Direction vector pointing toward the player's general area
+    const targetPos = new THREE.Vector3(
+      playerPos.x + (Math.random() * 400 - 200), // Add some randomness
+      playerPos.y + (Math.random() * 400 - 200),
+      playerPos.z + 200 // Aim past the player a bit
+    );
+
+    const direction = new THREE.Vector3()
+      .subVectors(targetPos, asteroidPosition)
+      .normalize();
+
+    // Randomize asteroid properties
+    const speed = 150 + Math.random() * 100; // 150-250 units per second
+    const size = 20 + Math.random() * 30; // 20-50 units radius
+    const damage = 10 + Math.floor(Math.random() * 20); // 10-30 damage
+
+    // Create and add the asteroid
+    const asteroid = new Asteroid(
+      this.scene,
+      asteroidPosition,
+      direction,
+      speed,
+      size,
+      damage
+    );
+
+    // Pass the Game reference to the asteroid if available
+    if (this.game) {
+      asteroid.setGame(this.game);
+    }
+
+    this.asteroids.push(asteroid);
+    this.logger.debug(
+      `Spawned asteroid (${this.asteroids.length}/${this.maxAsteroids})`
+    );
+  }
+
+  /**
+   * Checks for collisions between the player ship and asteroids.
+   */
+  private checkCollisions(): void {
+    if (!this.playerShip) return;
+
+    const shipHitbox = this.playerShip.getHitbox();
+    if (!shipHitbox) return;
+
+    // Create a bounding sphere for the ship hitbox
+    const shipBoundingSphere = new THREE.Sphere(
+      shipHitbox.position.clone(),
+      30 // Ship hitbox radius (estimated from box)
+    );
+
+    // Check each asteroid for collision with the ship
+    this.asteroids.forEach((asteroid) => {
+      if (!asteroid.isActive()) return;
+
+      const asteroidHitbox = asteroid.getHitbox();
+
+      // Check if the bounding spheres intersect
+      if (shipBoundingSphere.intersectsSphere(asteroidHitbox)) {
+        // Collision detected!
+        this.logger.info("Collision detected between ship and asteroid!");
+
+        // Play collision sound effect if game object is available
+        if (this.game) {
+          try {
+            // Play impact sound using the audio manager
+            this.game.getAudioManager().playAsteroidCollisionSound("medium");
+            this.logger.info("Playing asteroid collision sound");
+          } catch (error) {
+            this.logger.warn("Failed to play collision sound:", error);
+          }
+        }
+
+        // Apply damage to the ship
+        const damage = asteroid.getDamage();
+        const isDestroyed = this.playerShip!.takeDamage(damage);
+
+        // Handle asteroid collision
+        asteroid.handleCollision();
+
+        // If ship is destroyed, handle game over
+        if (isDestroyed) {
+          this.handleShipDestruction();
+        }
+      }
+    });
+  }
+
+  /**
+   * Handles the destruction of the player's ship (game over).
+   */
+  private handleShipDestruction(): void {
+    this.logger.info("Player ship destroyed! Game over.");
+
+    // For now, just stop the game
+    this.setGameActive(false);
+
+    // TODO: Add game over screen and explosion effect
+
+    // Notify the game if available
+    if (this.game) {
+      // Call game over method when implemented
+      // this.game.handleGameOver();
+    }
   }
 }

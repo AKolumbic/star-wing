@@ -808,4 +808,242 @@ export class AudioManager {
   public isAudioPlaying(): boolean {
     return this.isPlaying;
   }
+
+  /**
+   * Plays a laser firing sound effect
+   * @param weaponCategory Type of weapon being fired (affects sound characteristics)
+   */
+  public playLaserSound(weaponCategory: string = "energy"): void {
+    if (!this.isInitialized) {
+      this.initialize();
+    }
+
+    // Resume audio context if suspended
+    if (this.audioContext.state === "suspended") {
+      this.audioContext.resume().catch((err) => {
+        this.logger.error("AudioManager: Error resuming AudioContext:", err);
+      });
+    }
+
+    if (this.isMuted) {
+      return;
+    }
+
+    try {
+      // Create master gain node
+      const masterGain = this.audioContext.createGain();
+      masterGain.connect(this.mainGainNode);
+      masterGain.gain.value = 0.3; // Increased volume for better audibility
+
+      // Different sound characteristics based on weapon type
+      let oscillatorType: OscillatorType = "sine";
+      let baseFrequency = 880; // A5
+      let sweepEnd = 220; // A3
+      let duration = 0.2;
+
+      if (weaponCategory === "energy") {
+        // High-pitched laser sound
+        oscillatorType = "sawtooth";
+        baseFrequency = 1200;
+        sweepEnd = 400;
+        duration = 0.15;
+      } else if (weaponCategory === "ballistic") {
+        // Lower, punchier sound for ballistic weapons
+        oscillatorType = "square";
+        baseFrequency = 220;
+        sweepEnd = 110;
+        duration = 0.1;
+      } else if (weaponCategory === "explosive") {
+        // Deeper sound for explosive weapons
+        oscillatorType = "triangle";
+        baseFrequency = 150;
+        sweepEnd = 80;
+        duration = 0.3;
+      }
+
+      // Create oscillator
+      const osc = this.audioContext.createOscillator();
+      osc.type = oscillatorType;
+      osc.frequency.value = baseFrequency;
+
+      // Create a filter for the laser sound
+      const filter = this.audioContext.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.value = baseFrequency;
+      filter.Q.value = 5;
+
+      // Create gain node for envelope
+      const gainNode = this.audioContext.createGain();
+
+      // Connect nodes
+      osc.connect(filter);
+      filter.connect(gainNode);
+      gainNode.connect(masterGain);
+
+      // Create second oscillator for harmonic
+      const osc2 = this.audioContext.createOscillator();
+      osc2.type = "sine";
+      osc2.frequency.value = baseFrequency * 1.5;
+
+      const gainNode2 = this.audioContext.createGain();
+      osc2.connect(gainNode2);
+      gainNode2.connect(masterGain);
+      gainNode2.gain.value = 0.1;
+
+      // Schedule sound
+      const now = this.audioContext.currentTime;
+
+      // Attack-decay envelope for primary oscillator
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(0.4, now + 0.01); // Faster attack
+      gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      // Frequency sweep for sci-fi effect
+      osc.frequency.setValueAtTime(baseFrequency, now);
+      osc.frequency.exponentialRampToValueAtTime(sweepEnd, now + duration);
+
+      // Start and stop oscillators
+      osc.start(now);
+      osc.stop(now + duration);
+
+      osc2.start(now);
+      osc2.stop(now + duration);
+    } catch (error) {
+      this.logger.error("AudioManager: Error playing laser sound:", error);
+    }
+  }
+
+  /**
+   * Plays an asteroid collision sound effect
+   * @param intensity Intensity of the collision (affects sound characteristics)
+   */
+  public playAsteroidCollisionSound(intensity: string = "medium"): void {
+    if (!this.isInitialized) {
+      this.initialize();
+    }
+
+    // Resume audio context if suspended
+    if (this.audioContext.state === "suspended") {
+      this.audioContext.resume().catch((err) => {
+        this.logger.error("AudioManager: Error resuming AudioContext:", err);
+      });
+    }
+
+    if (this.isMuted) {
+      return;
+    }
+
+    try {
+      // Create master gain node
+      const masterGain = this.audioContext.createGain();
+      masterGain.connect(this.mainGainNode);
+      masterGain.gain.value = 0.4; // Slightly louder than laser sounds
+
+      // Different sound characteristics based on collision intensity
+      let duration = 0.3;
+      let noiseGain = 0.7;
+
+      if (intensity === "light") {
+        duration = 0.2;
+        noiseGain = 0.5;
+      } else if (intensity === "heavy") {
+        duration = 0.5;
+        noiseGain = 0.9;
+      }
+
+      const now = this.audioContext.currentTime;
+
+      // Create noise for the impact sound
+      const bufferSize = this.audioContext.sampleRate * duration;
+      const noiseBuffer = this.audioContext.createBuffer(
+        1,
+        bufferSize,
+        this.audioContext.sampleRate
+      );
+
+      // Fill buffer with noise
+      const data = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+
+      // Create noise source
+      const noise = this.audioContext.createBufferSource();
+      noise.buffer = noiseBuffer;
+
+      // Create filters to shape the noise into an impact sound
+      const lowpass = this.audioContext.createBiquadFilter();
+      lowpass.type = "lowpass";
+      lowpass.frequency.value = 400;
+      lowpass.Q.value = 1;
+
+      const highpass = this.audioContext.createBiquadFilter();
+      highpass.type = "highpass";
+      highpass.frequency.value = 100;
+      highpass.Q.value = 1;
+
+      // Create gain node for envelope
+      const noiseGainNode = this.audioContext.createGain();
+
+      // Connect nodes
+      noise.connect(lowpass);
+      lowpass.connect(highpass);
+      highpass.connect(noiseGainNode);
+      noiseGainNode.connect(masterGain);
+
+      // Start noise
+      noise.start(now);
+
+      // Envelope for impact sound - quick attack, longer decay
+      noiseGainNode.gain.setValueAtTime(0, now);
+      noiseGainNode.gain.linearRampToValueAtTime(noiseGain, now + 0.01);
+      noiseGainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      // Add a low frequency oscillator for the "thud" component
+      const thud = this.audioContext.createOscillator();
+      thud.type = "sine";
+      thud.frequency.value = 80;
+
+      const thudGain = this.audioContext.createGain();
+      thud.connect(thudGain);
+      thudGain.connect(masterGain);
+
+      // Envelope for thud - slightly delayed attack, quick decay
+      thudGain.gain.setValueAtTime(0, now);
+      thudGain.gain.linearRampToValueAtTime(0.6, now + 0.02);
+      thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+      // Start and stop oscillator
+      thud.start(now);
+      thud.stop(now + 0.2);
+
+      // Stop noise after duration
+      noise.stop(now + duration);
+
+      this.logger.debug("AudioManager: Playing asteroid collision sound");
+    } catch (error) {
+      this.logger.error("AudioManager: Error playing collision sound:", error);
+    }
+  }
+
+  /**
+   * Creates a buffer of noise for use in sound effects.
+   * @returns AudioBuffer containing noise
+   */
+  private createNoiseBuffer(): AudioBuffer {
+    const bufferSize = this.audioContext.sampleRate * 2; // 2 seconds of noise
+    const buffer = this.audioContext.createBuffer(
+      1,
+      bufferSize,
+      this.audioContext.sampleRate
+    );
+    const data = buffer.getChannelData(0);
+
+    // Fill with random values for noise
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+
+    return buffer;
+  }
 }
