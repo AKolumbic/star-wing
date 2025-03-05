@@ -206,7 +206,6 @@ export class Game {
 
   /**
    * Starts the game loop.
-   * This begins the update-render cycle and activates all game systems.
    */
   start(): void {
     this.logger.info("Game starting...");
@@ -219,8 +218,14 @@ export class Game {
     this.isRunning = true;
     this.gameLoop.start();
 
-    // Show the main menu after starting the game loop
-    this.uiSystem.showMenu();
+    // Only show main menu in non-development mode
+    // In dev mode, we want to bypass the menu and go straight to gameplay
+    if (!this.devMode) {
+      this.logger.info("Normal mode: Showing main menu");
+      this.uiSystem.showMenu();
+    } else {
+      this.logger.info("Dev mode: Bypassing main menu");
+    }
   }
 
   /**
