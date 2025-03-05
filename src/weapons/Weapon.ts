@@ -26,6 +26,7 @@ export interface WeaponProps {
   maxAmmo?: number; // Maximum ammo capacity
   projectileSpeed?: number; // Speed of projectile if applicable
   projectileColor?: THREE.Color; // Color of the projectile
+  scale?: number; // Scale factor for projectile size
   upgradeLevel?: number; // Current upgrade level of the weapon
   isActive?: boolean; // Whether the weapon is currently active
 }

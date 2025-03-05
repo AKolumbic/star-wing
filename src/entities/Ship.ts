@@ -96,6 +96,13 @@ export class Ship {
   /** Direction the ship is facing/aiming */
   private aimDirection: THREE.Vector3 = new THREE.Vector3(0, 0, -1);
 
+  /** Array of engine trails */
+  private engineTrails: {
+    mesh: THREE.Points;
+    positions: Float32Array;
+    parentEngine: THREE.Mesh;
+  }[] = [];
+
   /**
    * Creates a new Ship instance.
    * @param scene The THREE.Scene to add the ship to
@@ -123,168 +130,384 @@ export class Ship {
 
     // Create a group to hold the ship model
     this.model = new THREE.Group();
-    this.model.scale.set(2.5, 2.5, 2.5); // Scale up the entire ship by 2.5x
+    this.model.scale.set(3.2, 3.2, 3.2); // Larger scale for more prominence
     this.scene.add(this.model);
 
-    // Create retro color materials
+    // Position ship closer to camera
+    this.position.set(0, -30, -100); // Moved forward (z) and down (y) for closer perspective
+
+    // Cyberpunk color palette
     const primaryColor = new THREE.MeshPhongMaterial({
-      color: 0xff3366, // Bright pink-red
-      shininess: 70,
-      specular: 0xffffff,
+      color: 0x101020, // Dark blue-black
+      shininess: 90,
+      specular: 0x222244,
     });
 
     const secondaryColor = new THREE.MeshPhongMaterial({
-      color: 0x33ffcc, // Bright teal
-      shininess: 80,
+      color: 0x7700ff, // Neon purple
+      shininess: 100,
       specular: 0xffffff,
     });
 
     const accentColor = new THREE.MeshPhongMaterial({
-      color: 0xffdd00, // Bright yellow
-      shininess: 90,
+      color: 0x00ffaa, // Neon teal
+      shininess: 120,
       specular: 0xffffff,
     });
 
-    // Main body - classic triangular shape
-    const shipBody = new THREE.Mesh(
-      new THREE.CylinderGeometry(0, 8, 25, 6, 1), // Hexagonal pyramid
-      primaryColor
+    const metallicColor = new THREE.MeshPhongMaterial({
+      color: 0x333344, // Dark metallic
+      shininess: 150,
+      specular: 0x8888aa,
+    });
+
+    // Main body - stealth bomber style with more height
+    const bodyGeometry = new THREE.BufferGeometry();
+    // Define body shape vertices for a stealthy angular design with more height
+    const bodyVertices = new Float32Array([
+      // Top face (raised in the middle)
+      -15,
+      2,
+      10, // front left
+      15,
+      2,
+      10, // front right
+      0,
+      6,
+      0, // top middle peak
+      -30,
+      2,
+      -20, // back left
+      30,
+      2,
+      -20, // back right
+
+      // Bottom face
+      -15,
+      -2,
+      10, // front left
+      15,
+      -2,
+      10, // front right
+      -30,
+      -3,
+      -20, // back left
+      30,
+      -3,
+      -20, // back right
+    ]);
+
+    bodyGeometry.setAttribute(
+      "position",
+      new THREE.BufferAttribute(bodyVertices, 3)
     );
-    shipBody.rotation.x = Math.PI / 2; // Rotate to point forward
+    bodyGeometry.setIndex([
+      // Top faces - triangular design with central ridge
+      0,
+      1,
+      2, // front left-right-peak
+      0,
+      2,
+      3, // left-peak-back left
+      1,
+      4,
+      2, // right-back right-peak
+      2,
+      4,
+      3, // peak-back right-back left
+
+      // Bottom face
+      5,
+      7,
+      6, // front left-back left-front right
+      6,
+      7,
+      8, // front right-back left-back right
+
+      // Front face
+      0,
+      5,
+      1, // top left-bottom left-top right
+      1,
+      5,
+      6, // top right-bottom left-bottom right
+
+      // Back face
+      3,
+      4,
+      7, // top left-top right-bottom left
+      4,
+      8,
+      7, // top right-bottom right-bottom left
+
+      // Left side
+      0,
+      3,
+      5, // top front-top back-bottom front
+      3,
+      7,
+      5, // top back-bottom back-bottom front
+
+      // Right side
+      1,
+      6,
+      4, // top front-bottom front-top back
+      4,
+      6,
+      8, // top back-bottom front-bottom back
+    ]);
+
+    bodyGeometry.computeVertexNormals();
+    const shipBody = new THREE.Mesh(bodyGeometry, primaryColor);
     this.model.add(shipBody);
 
-    // Top fin
-    const topFin = new THREE.Mesh(
-      new THREE.BoxGeometry(2, 15, 5),
-      secondaryColor
+    // Add elevated central spine
+    const centralSpine = new THREE.Mesh(
+      new THREE.BoxGeometry(2, 4, 25),
+      metallicColor
     );
-    topFin.position.set(0, 12, -5);
-    this.model.add(topFin);
+    centralSpine.position.set(0, 4, -5);
+    this.model.add(centralSpine);
 
-    // Add side wings - more angular and geometric
-    const wingGeometry = new THREE.BufferGeometry();
-    // Define wing shape vertices for a triangular wing
-    const wingVertices = new Float32Array([
-      // Left wing
-      -25,
+    // Add angular cockpit - cyberpunk style
+    const cockpitGeometry = new THREE.BufferGeometry();
+    const cockpitVertices = new Float32Array([
+      // Base points
+      -8,
+      2,
+      5, // back left
+      8,
+      2,
+      5, // back right
       0,
-      -5, // outer point
-      -5,
+      2,
+      15, // front center
+
+      // Top point
       0,
-      -10, // back inner
-      -5,
-      0,
-      0, // front inner
+      8,
+      5, // peak - higher for more height
     ]);
-    wingGeometry.setAttribute(
+
+    cockpitGeometry.setAttribute(
       "position",
-      new THREE.BufferAttribute(wingVertices, 3)
+      new THREE.BufferAttribute(cockpitVertices, 3)
     );
-    wingGeometry.setIndex([0, 1, 2]); // Create triangle face
-    wingGeometry.computeVertexNormals();
-
-    const leftWing = new THREE.Mesh(wingGeometry, secondaryColor);
-    this.model.add(leftWing);
-
-    // Right wing (mirror of left wing)
-    const rightWingGeometry = new THREE.BufferGeometry();
-    const rightWingVertices = new Float32Array([
-      25,
+    cockpitGeometry.setIndex([
       0,
-      -5, // outer point
-      5,
+      1,
+      3, // left-right-top
+      1,
+      2,
+      3, // right-front-top
+      2,
       0,
-      -10, // back inner
-      5,
+      3, // front-left-top
       0,
-      0, // front inner
+      2,
+      1, // base
     ]);
-    rightWingGeometry.setAttribute(
-      "position",
-      new THREE.BufferAttribute(rightWingVertices, 3)
-    );
-    rightWingGeometry.setIndex([0, 2, 1]); // Note reversed order for correct facing
-    rightWingGeometry.computeVertexNormals();
 
-    const rightWing = new THREE.Mesh(rightWingGeometry, secondaryColor);
-    this.model.add(rightWing);
+    cockpitGeometry.computeVertexNormals();
 
-    // Add wing decorations
-    const leftWingAccent = new THREE.Mesh(
-      new THREE.BoxGeometry(5, 1, 5),
-      accentColor
-    );
-    leftWingAccent.position.set(-15, 0, -5);
-    this.model.add(leftWingAccent);
+    const cockpitMaterial = new THREE.MeshPhongMaterial({
+      color: 0x00ddff, // Bright cyan
+      transparent: true,
+      opacity: 0.7,
+      shininess: 120,
+      specular: 0x88ffff,
+    });
 
-    const rightWingAccent = new THREE.Mesh(
-      new THREE.BoxGeometry(5, 1, 5),
-      accentColor
-    );
-    rightWingAccent.position.set(15, 0, -5);
-    this.model.add(rightWingAccent);
-
-    // Add cockpit - more angular with bright color
-    const cockpit = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(4, 0), // Low-poly geometric shape
-      new THREE.MeshPhongMaterial({
-        color: 0x66ffff, // Bright cyan
-        transparent: true,
-        opacity: 0.8,
-        shininess: 100,
-        specular: 0xffffff,
-      })
-    );
-    cockpit.position.set(0, 2, 0);
+    const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
     this.model.add(cockpit);
 
-    // Engine glow effects - more visible and vibrant
+    // Add wing details with height
+    const wingAccent = (x: number, width: number) => {
+      const accent = new THREE.Mesh(
+        new THREE.BoxGeometry(width, 0.5, 5),
+        accentColor
+      );
+      accent.position.set(x, 2.25, -5);
+      return accent;
+    };
+
+    // Add neon edge highlights
+    this.model.add(wingAccent(-20, 8)); // left wing
+    this.model.add(wingAccent(20, 8)); // right wing
+
+    // Add larger vertical stabilizers for more height
+    const stabilizer = (x: number) => {
+      const fin = new THREE.Mesh(
+        new THREE.BoxGeometry(2, 8, 10), // Taller fins
+        secondaryColor
+      );
+      fin.position.set(x, 6, -15); // Positioned higher
+      return fin;
+    };
+
+    this.model.add(stabilizer(-20)); // left stabilizer
+    this.model.add(stabilizer(20)); // right stabilizer
+
+    // Add wing elevations - makes wings not completely flat
+    const wingElevation = (x: number, y: number, z: number) => {
+      const elevation = new THREE.Mesh(
+        new THREE.BoxGeometry(10, 1, 6),
+        metallicColor
+      );
+      elevation.position.set(x, y, z);
+      return elevation;
+    };
+
+    this.model.add(wingElevation(-15, 3, -10)); // left wing elevation
+    this.model.add(wingElevation(15, 3, -10)); // right wing elevation
+
+    // Add engine exhausts - positioned at wing edges
     const engineGlowMaterial = new THREE.MeshBasicMaterial({
-      color: 0xff9900, // Orange glow
+      color: 0x00aaff, // Bright blue neon
       transparent: true,
       opacity: 0.9,
     });
 
-    // Center large thruster
-    const mainEngine = new THREE.Mesh(
-      new THREE.BoxGeometry(6, 3, 3), // Square exhaust
+    // Create engine meshes at wing edges
+    const engines = [];
+
+    // Wing edge engines - positioned to flow toward the camera
+    const leftWingEngine = new THREE.Mesh(
+      new THREE.BoxGeometry(3, 1, 2),
       engineGlowMaterial.clone()
     );
-    mainEngine.position.set(0, 0, -15);
-    this.model.add(mainEngine);
+    leftWingEngine.position.set(-30, 2, -10); // At wing edge
+    leftWingEngine.rotation.y = Math.PI / 4; // Angle toward camera
+    this.model.add(leftWingEngine);
+    engines.push(leftWingEngine);
 
-    // Additional smaller thrusters
-    const leftEngine = new THREE.Mesh(
-      new THREE.BoxGeometry(3, 2, 2),
+    const rightWingEngine = new THREE.Mesh(
+      new THREE.BoxGeometry(3, 1, 2),
       engineGlowMaterial.clone()
     );
-    leftEngine.position.set(-5, 0, -12);
-    this.model.add(leftEngine);
+    rightWingEngine.position.set(30, 2, -10); // At wing edge
+    rightWingEngine.rotation.y = -Math.PI / 4; // Angle toward camera
+    this.model.add(rightWingEngine);
+    engines.push(rightWingEngine);
 
-    const rightEngine = new THREE.Mesh(
-      new THREE.BoxGeometry(3, 2, 2),
+    // Additional engines at wing tips for more visual effects
+    const leftTipEngine = new THREE.Mesh(
+      new THREE.BoxGeometry(2, 1, 2),
       engineGlowMaterial.clone()
     );
-    rightEngine.position.set(5, 0, -12);
-    this.model.add(rightEngine);
+    leftTipEngine.position.set(-28, 2, -18);
+    leftTipEngine.rotation.y = Math.PI / 6;
+    this.model.add(leftTipEngine);
+    engines.push(leftTipEngine);
 
-    // Add pixel-like details
+    const rightTipEngine = new THREE.Mesh(
+      new THREE.BoxGeometry(2, 1, 2),
+      engineGlowMaterial.clone()
+    );
+    rightTipEngine.position.set(28, 2, -18);
+    rightTipEngine.rotation.y = -Math.PI / 6;
+    this.model.add(rightTipEngine);
+    engines.push(rightTipEngine);
+
+    // Store engine references for glow effects
+    this.engineGlowMeshes = engines;
+
+    // Create engine trails flowing toward camera
+    this.engineTrails = [];
+
+    engines.forEach((engine, index) => {
+      // Get the engine's world direction
+      const direction = new THREE.Vector3(0, 0, 1); // Toward camera
+      if (index % 2 === 0) {
+        // Left engines
+        direction.x = 0.3; // Slightly outward
+      } else {
+        direction.x = -0.3; // Slightly outward
+      }
+
+      // Create trail mesh with gradient opacity
+      const segments = 15; // More segments for longer trails
+      const trailLength = 60; // Longer trails toward camera
+      const trailGeometry = new THREE.BufferGeometry();
+      const positions = new Float32Array(segments * 3);
+      const colors = new Float32Array(segments * 3);
+
+      // Set initial positions - trailing toward camera (positive Z)
+      for (let i = 0; i < segments; i++) {
+        const z = i * (trailLength / segments); // Positive Z goes toward camera
+        const offset = i * 0.3; // Increasing spread
+        positions[i * 3] = direction.x * offset; // x
+        positions[i * 3 + 1] = 0; // y
+        positions[i * 3 + 2] = z; // z
+
+        // Gradient color with fading alpha - intense blue neon
+        const alpha = 1 - i / segments;
+        colors[i * 3] = 0.0; // r (no red for bright blue)
+        colors[i * 3 + 1] = 0.7; // g (some green for cyan tint)
+        colors[i * 3 + 2] = 1.0; // b (full blue)
+      }
+
+      trailGeometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(positions, 3)
+      );
+      trailGeometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+
+      const trailMaterial = new THREE.PointsMaterial({
+        size: 2.0, // Larger points
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.8,
+        depthWrite: false,
+      });
+
+      const trail = new THREE.Points(trailGeometry, trailMaterial);
+      trail.position.copy(engine.position);
+      trail.visible = false; // Initially invisible, shown only when moving
+      this.model?.add(trail);
+
+      this.engineTrails.push({
+        mesh: trail,
+        positions: positions,
+        parentEngine: engine,
+      });
+    });
+
+    // Add weapon mount points
+    const weaponMount = new THREE.Mesh(
+      new THREE.BoxGeometry(30, 1, 3),
+      metallicColor
+    );
+    weaponMount.position.set(0, -1, 5);
+    this.model.add(weaponMount);
+
+    // Add cyberpunk design details
     for (let i = -1; i <= 1; i += 2) {
       // Side lights
       const sideLights = new THREE.Mesh(
-        new THREE.BoxGeometry(2, 2, 2),
-        new THREE.MeshBasicMaterial({ color: i < 0 ? 0xff0000 : 0x00ff00 }) // Red and green navigation lights
+        new THREE.BoxGeometry(1, 1, 3),
+        new THREE.MeshBasicMaterial({ color: i < 0 ? 0xff0000 : 0x00ff00 }) // Red and green nav lights
       );
-      sideLights.position.set(i * 10, 0, -2);
+      sideLights.position.set(i * 30, 2, -5);
       this.model.add(sideLights);
+    }
 
-      // Wing tip lights
-      const wingTipLight = new THREE.Mesh(
-        new THREE.BoxGeometry(2, 2, 2),
-        new THREE.MeshBasicMaterial({ color: 0xffff00 })
+    // Add pulsing tech details
+    for (let i = 0; i < 5; i++) {
+      const techDetail = new THREE.Mesh(
+        new THREE.BoxGeometry(0.8, 0.5, 0.8),
+        new THREE.MeshBasicMaterial({
+          color: 0x00ffff,
+          transparent: true,
+          opacity: 0.8,
+        })
       );
-      wingTipLight.position.set(i * 22, 0, -5);
-      this.model.add(wingTipLight);
+      techDetail.position.set(
+        Math.random() * 40 - 20,
+        2,
+        Math.random() * 20 - 15
+      );
+      this.model.add(techDetail);
     }
 
     // Position the model
@@ -292,7 +515,7 @@ export class Ship {
     this.model.rotation.copy(this.rotation);
 
     // Create a hitbox based on the model
-    const hitboxGeometry = new THREE.BoxGeometry(45, 15, 35);
+    const hitboxGeometry = new THREE.BoxGeometry(60, 15, 40);
     const hitboxMaterial = new THREE.MeshBasicMaterial({
       color: 0xff0000,
       wireframe: true,
@@ -302,9 +525,6 @@ export class Ship {
     this.hitbox = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
     this.hitbox.position.copy(this.position);
     this.scene.add(this.hitbox);
-
-    // Store engine meshes for animation
-    this.engineGlowMeshes = [mainEngine, leftEngine, rightEngine];
 
     // After loading the ship model, create the boundary visualization
     this.createBoundaryVisualization();
@@ -641,58 +861,78 @@ export class Ship {
    * @param deltaTime Time elapsed since the last frame in seconds
    */
   private updateEngineGlow(_deltaTime: number): void {
-    if (!this.engineGlowMeshes || this.engineGlowMeshes.length === 0) return;
+    if (
+      !this.engineGlowMeshes ||
+      this.engineGlowMeshes.length === 0 ||
+      !this.input
+    )
+      return;
 
-    // Create retro-style "pulsing" effect - more digital looking
-    // Use step function instead of sine for a more digital feel
-    const time = performance.now() / 150;
-    const pulseSteps = 4; // Number of pulse steps
-    const pulseIndex = Math.floor(time % pulseSteps);
-    const pulseValues = [0.6, 0.8, 1.0, 0.8]; // Discrete pulse values
-    const pulse = pulseValues[pulseIndex];
+    // Detect if ship is accelerating forward (moving toward camera)
+    const isAccelerating = this.input.isKeyPressed("w");
+    const pulseRate = 0.3; // Lower for slower pulsing
 
-    // Make the engines brighter when accelerating
-    let intensity = 0.8;
-    if (this.input.isKeyPressed("w") || this.input.isKeyPressed("arrowup")) {
-      intensity = 1.5;
-    }
+    // Get a more arcade-like pulsing effect with discrete pulse values
+    const pulse = 0.8 + Math.sin(Date.now() * pulseRate) * 0.2;
 
-    // Randomly flicker occasionally for retro effect
-    const shouldFlicker = Math.random() < 0.05;
-    const flickerIntensity = shouldFlicker ? 0.5 + Math.random() * 0.5 : 1.0;
+    // Update engine glow brightness
+    this.engineGlowMeshes.forEach((engine) => {
+      // Make engines brighter when accelerating
+      const brightness = isAccelerating ? 1.0 : 0.6;
 
-    // Update each engine glow
-    this.engineGlowMeshes.forEach((engine, index) => {
-      if (engine && engine.material) {
-        // Apply different colors to each engine for a more arcade-like look
-        const engineColors = [
-          new THREE.Color(0xff6600), // Orange for main
-          new THREE.Color(0xffcc00), // Yellow for left
-          new THREE.Color(0xffcc00), // Yellow for right
-        ];
+      // Random flickering for retro effect
+      const flicker = 0.8 + Math.random() * 0.4;
 
-        // Adjust opacity for pulsing effect
-        const finalIntensity = intensity * pulse * flickerIntensity;
-        (engine.material as THREE.MeshBasicMaterial).opacity =
-          0.7 + 0.3 * finalIntensity;
+      // Update engine color - bright cyan-blue
+      const material = engine.material as THREE.MeshBasicMaterial;
+      material.color.setRGB(
+        0,
+        0.6 * pulse * brightness * flicker,
+        1.0 * pulse * brightness * flicker
+      );
 
-        // Set color
-        const color = engineColors[index].clone();
-        // Brighten based on intensity
-        color.r = Math.min(1, color.r * finalIntensity);
-        color.g = Math.min(1, color.g * finalIntensity);
-        color.b = Math.min(1, color.b * finalIntensity);
-        (engine.material as THREE.MeshBasicMaterial).color = color;
+      // Update engine visibility
+      engine.visible = true;
+    });
 
-        // Update size - stretching engines when accelerating for a "thrust" effect
-        let scaleZ = 1.0;
-        if (
-          this.input.isKeyPressed("w") ||
-          this.input.isKeyPressed("arrowup")
-        ) {
-          scaleZ = 1.5 + Math.random() * 0.5; // Random variation for flame effect
+    // Animate engine trails
+    this.engineTrails.forEach((trail) => {
+      // Ensure trail mesh exists
+      if (!trail.mesh || !trail.positions) return;
+
+      // Ensure trail is visible when accelerating, fading in/out based on ship movement
+      trail.mesh.visible = true;
+
+      // Get the material to update opacity
+      const material = trail.mesh.material as THREE.PointsMaterial;
+      material.opacity = isAccelerating ? 0.9 : 0.3;
+
+      // Access geometry and update trail positions for wave effect
+      const geometry = trail.mesh.geometry;
+
+      if (geometry && geometry.attributes.position) {
+        const positions = geometry.attributes.position.array;
+        const segments = positions.length / 3;
+
+        // Create undulating effect on the trails
+        const time = Date.now() * 0.001; // Slow time factor
+
+        for (let i = 0; i < segments; i++) {
+          const segmentPosition = i / segments;
+          const waveAmplitude = segmentPosition * 0.5; // Larger amplitude toward the end
+
+          // Lateral wave movement
+          const xOffset = Math.sin(time * 2 + i * 0.5) * waveAmplitude;
+
+          // Update X position with wave
+          if (i > 0) {
+            // Leave the base position fixed
+            positions[i * 3] = trail.positions[i * 3] + xOffset;
+          }
         }
-        engine.scale.set(1.0, 1.0, scaleZ);
+
+        // Flag geometry for update
+        geometry.attributes.position.needsUpdate = true;
       }
     });
   }

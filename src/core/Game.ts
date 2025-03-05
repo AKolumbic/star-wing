@@ -184,8 +184,7 @@ export class Game {
       // Initialize all systems in parallel
       await Promise.all(this.systems.map((system) => system.init()));
 
-      // Start background music
-      this.audioSystem.playMenuThump();
+      // Music will now be started in the UI System's showMenu method
 
       this.logger.info("Game initialization complete");
     } catch (error: unknown) {
@@ -219,6 +218,9 @@ export class Game {
 
     this.isRunning = true;
     this.gameLoop.start();
+
+    // Show the main menu after starting the game loop
+    this.uiSystem.showMenu();
   }
 
   /**

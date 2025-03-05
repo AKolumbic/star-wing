@@ -112,6 +112,12 @@ export class UISystem implements GameSystem {
     this.menu.show();
     // Hide the HUD when menu is shown
     this.gameHUD.hide();
+
+    // Start menu music when the menu is shown
+    const audioSystem = this.game.getAudioSystem();
+    if (audioSystem) {
+      audioSystem.playMenuThump();
+    }
   }
 
   /**

@@ -25,7 +25,8 @@ export class LaserCannon extends Weapon {
       category: WeaponCategory.ENERGY,
       energyCost: 1,
       projectileSpeed: 600, // Fast moving
-      projectileColor: new THREE.Color(0x22aaff), // Bright blue
+      projectileColor: new THREE.Color(0xff0022), // Bright red color
+      scale: 1.3, // Slightly larger projectiles for better visibility
     };
 
     super(props, scene);
@@ -55,7 +56,7 @@ export class LaserCannon extends Weapon {
       lifetime: 2.0, // 2 seconds of flight time
       color: this.props.projectileColor,
       category: WeaponCategory.ENERGY,
-      scale: 1.0 + (this.props.upgradeLevel || 0) * 0.1, // Slightly larger with upgrades
+      scale: (this.props.scale || 1.0) + (this.props.upgradeLevel || 0) * 0.1, // Base scale plus upgrade bonus
     };
 
     // Create and add the projectile

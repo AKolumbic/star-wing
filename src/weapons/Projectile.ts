@@ -92,11 +92,32 @@ export class Projectile {
         material = new THREE.MeshPhongMaterial({
           color: color,
           emissive: color,
-          emissiveIntensity: 1.5,
+          emissiveIntensity: 2.5, // Increased glow intensity for better visibility
           transparent: true,
-          opacity: 0.8,
+          opacity: 0.9, // Higher opacity for better visibility
         });
         mesh = new THREE.Mesh(geometry, material);
+
+        // Add a trail effect for better visibility
+        const trailGeometry = new THREE.CylinderGeometry(
+          3.5 * scale, // Slightly wider than the main beam
+          1.5 * scale, // Tapered end
+          20 * scale, // Longer than the main beam
+          6
+        );
+        trailGeometry.rotateX(Math.PI / 2);
+
+        const trailMaterial = new THREE.MeshPhongMaterial({
+          color: color,
+          emissive: color,
+          emissiveIntensity: 1.2,
+          transparent: true,
+          opacity: 0.5, // More transparent than the main beam
+        });
+
+        const trail = new THREE.Mesh(trailGeometry, trailMaterial);
+        trail.position.z = 5 * scale; // Position behind the main beam
+        mesh.add(trail); // Add trail as child of the main projectile
 
         // Add a point light for extra glow
         const light = new THREE.PointLight(color, 1, 30);
