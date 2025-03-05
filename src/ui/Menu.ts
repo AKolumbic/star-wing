@@ -264,6 +264,8 @@ export class Menu {
     copyrightLink.style.color = "#fff"; // Keep same color as before
     copyrightLink.style.textDecoration = "none"; // No underline by default
     copyrightLink.style.transition = "color 0.2s, text-shadow 0.2s"; // Smooth transition for hover effect
+    copyrightLink.target = "_blank"; // Open in new tab
+    copyrightLink.rel = "noopener noreferrer"; // Security best practice for external links
 
     // Add hover effect
     copyrightLink.addEventListener("mouseover", () => {
