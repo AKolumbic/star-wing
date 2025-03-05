@@ -1,4 +1,5 @@
 import { GameSystem } from "../GameSystem";
+import { Game } from "../Game";
 import { Menu } from "../../ui/Menu";
 import { LoadingScreen } from "../../ui/LoadingScreen";
 import { TerminalBorder } from "../../ui/TerminalBorder";
@@ -27,16 +28,22 @@ export class UISystem implements GameSystem {
   private gameHUD: GameHUD;
 
   /** Reference to the main game for accessing game state */
-  private game: any; // Using 'any' to avoid circular dependency
+  private game: Game;
 
   /** Logger instance */
   private logger = Logger.getInstance();
+
+  /** Whether the game is currently active (used to determine menu context) */
+  private gameActive: boolean = false;
+
+  /** Escape key handler for in-game menu toggle */
+  private escapeKeyHandler: ((e: KeyboardEvent) => void) | null = null;
 
   /**
    * Creates a new UISystem.
    * @param game Reference to the main game instance
    */
-  constructor(game: any) {
+  constructor(game: Game) {
     this.game = game;
     this.menu = new Menu(this.game);
     this.terminalBorder = TerminalBorder.getInstance();
@@ -44,6 +51,9 @@ export class UISystem implements GameSystem {
     this.gameHUD = new GameHUD(this.game);
 
     // The loading screen is created later when needed
+
+    // Set up Escape key handler for in-game menu
+    this.setupEscapeKeyHandler();
   }
 
   /**
@@ -95,6 +105,41 @@ export class UISystem implements GameSystem {
     if (this.gameHUD && typeof this.gameHUD.dispose === "function") {
       this.gameHUD.dispose();
     }
+
+    // Remove escape key handler
+    this.removeEscapeKeyHandler();
+  }
+
+  /**
+   * Sets up the Escape key handler for toggling the in-game menu
+   */
+  private setupEscapeKeyHandler(): void {
+    this.escapeKeyHandler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && this.gameActive) {
+        // Toggle menu visibility
+        if (this.isMenuVisible()) {
+          this.resumeGame();
+        } else {
+          this.showInGameMenu();
+        }
+
+        // Prevent default action (browser escape)
+        e.preventDefault();
+      }
+    };
+
+    // Add the event listener
+    document.addEventListener("keydown", this.escapeKeyHandler);
+  }
+
+  /**
+   * Removes the escape key handler
+   */
+  private removeEscapeKeyHandler(): void {
+    if (this.escapeKeyHandler) {
+      document.removeEventListener("keydown", this.escapeKeyHandler);
+      this.escapeKeyHandler = null;
+    }
   }
 
   /**
@@ -106,10 +151,12 @@ export class UISystem implements GameSystem {
   }
 
   /**
-   * Shows the menu.
+   * Shows the main menu (not during gameplay).
    */
   showMenu(): void {
-    this.menu.show();
+    this.gameActive = false;
+    this.menu.showMainMenu();
+
     // Hide the HUD when menu is shown
     this.gameHUD.hide();
 
@@ -118,6 +165,39 @@ export class UISystem implements GameSystem {
     if (audioSystem) {
       audioSystem.playMenuThump();
     }
+  }
+
+  /**
+   * Shows the in-game menu (pause menu during gameplay).
+   */
+  showInGameMenu(): void {
+    // Don't change the gameActive flag here - we just need to pause temporarily
+
+    // Show the in-game menu through the Menu class
+    this.menu.showInGameMenu();
+
+    // Hide the HUD when menu is shown
+    this.gameHUD.hide();
+
+    // Log the action
+    this.logger.info("In-game menu displayed (paused)");
+  }
+
+  /**
+   * Resumes the game by hiding the menu and showing the HUD
+   */
+  resumeGame(): void {
+    // Set flag to indicate game is active
+    this.gameActive = true;
+
+    // Hide the menu
+    this.menu.hide();
+
+    // Show the game HUD
+    this.showGameHUD();
+
+    // Log the resume action
+    this.logger.info("Game resumed from pause menu");
   }
 
   /**
@@ -160,10 +240,12 @@ export class UISystem implements GameSystem {
   }
 
   /**
-   * Shows the in-game HUD.
+   * Shows the game HUD
    */
   showGameHUD(): void {
     this.logger.info("[UISystem] Showing game HUD");
+    // Set gameActive flag to true when HUD is shown
+    this.gameActive = true;
     this.gameHUD.show();
   }
 

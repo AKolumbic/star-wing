@@ -8,6 +8,7 @@ export class Menu {
   private isVisible: boolean = true;
   private currentSelection: number = 0;
   private menuOptions: string[] = ["START GAME", "SETTINGS", "HIGH SCORES"];
+  private inGameMode: boolean = false; // Flag to track if menu is shown during gameplay
   private settings: Settings;
   private highScores: HighScores;
   private game: Game;
@@ -317,13 +318,32 @@ export class Menu {
     this.currentSelection = index;
   }
 
+  private updateMenuOptions(): void {
+    // Update the first menu option based on in-game state
+    const menuOptionElements = document.querySelectorAll(".menu-option");
+    if (menuOptionElements.length > 0) {
+      menuOptionElements[0].textContent = this.inGameMode
+        ? "RESUME GAME"
+        : "START GAME";
+    }
+
+    // Also update our internal array to keep things consistent
+    this.menuOptions[0] = this.inGameMode ? "RESUME GAME" : "START GAME";
+  }
+
   private activateCurrentOption(): void {
-    this.logger.info(
-      `Activating menu option: ${this.menuOptions[this.currentSelection]}`
-    );
+    const currentOption = this.menuOptions[this.currentSelection];
+    this.logger.info(`Activating menu option: ${currentOption}`);
+
     switch (this.currentSelection) {
-      case 0: // START GAME
-        this.startGame();
+      case 0: // START GAME or RESUME GAME
+        if (this.inGameMode) {
+          this.logger.info("Resuming game from pause menu");
+          this.resumeGame();
+        } else {
+          this.logger.info("Starting new game from main menu");
+          this.startGame();
+        }
         break;
       case 1: // SETTINGS
         this.showSettings();
@@ -371,6 +391,15 @@ export class Menu {
    * Start the game
    */
   private startGame(): void {
+    // Safety check - if we're in game mode, we should be resuming, not starting a new game
+    if (this.inGameMode) {
+      this.logger.warn(
+        "Attempted to start a new game while already in-game. Resuming instead."
+      );
+      this.resumeGame();
+      return;
+    }
+
     if (!this.isVisible) {
       this.logger.info("Menu is not visible, cannot start game");
       return;
@@ -399,74 +428,48 @@ export class Menu {
       scene
         .transitionHyperspace(true, 2.0)
         .then(() => {
-          this.logger.info("Hyperspace transition complete");
+          // Wait for a moment to enjoy the hyperspace effect
+          this.logger.info(
+            "Hyperspace transition begun, setting up ship entry"
+          );
+          setTimeout(() => {
+            // Initialize player ship
+            scene
+              .initPlayerShip()
+              .then(() => {
+                this.logger.info("Ship initialized successfully");
 
-          // Initialize ship after hyperspace
-          return scene.initPlayerShip();
+                // Once the game is starting, show the HUD
+                uiSystem.showGameHUD();
+
+                // Begin the ship entry animation
+                this.logger.info("Starting ship entry animation");
+                scene.startShipEntry();
+              })
+              .catch((error) => {
+                this.logger.error("Failed to initialize ship:", error);
+              });
+          }, 500);
         })
-        .then(() => {
-          this.logger.info("Ship initialized successfully");
-
-          // Show game HUD before starting ship entry
-          uiSystem.showGameHUD();
-          this.logger.info("Game HUD displayed");
-
-          // Start ship entry animation with no callback
-          // The ship will enable player control via its internal mechanism
-          scene.startShipEntry(() => {
-            // This is only called after ship entry and player control is already enabled
-            this.logger.info("Ship entry complete and player control enabled");
-          });
-
-          this.logger.info("Ship entry animation started");
-        })
-        .catch((error: Error) => {
-          this.logger.error("Error in game startup sequence:", error);
+        .catch((error) => {
+          this.logger.error("Failed to transition to hyperspace:", error);
         });
     });
   }
 
   /**
-   * Shows a placeholder for gameplay in the vertical slice demo.
+   * Resume the game by hiding the menu
    */
-  // private showGameplayPlaceholder(): void {
-  //   // Create a placeholder message indicating this is just a demo
-  //   const placeholder = document.createElement("div");
-  //   placeholder.style.position = "fixed";
-  //   placeholder.style.top = "50%";
-  //   placeholder.style.left = "50%";
-  //   placeholder.style.transform = "translate(-50%, -50%)";
-  //   placeholder.style.color = "#33ff33";
-  //   placeholder.style.fontFamily = "'PressStart2P', monospace";
-  //   placeholder.style.fontSize = "24px";
-  //   placeholder.style.textAlign = "center";
-  //   placeholder.style.zIndex = "1000";
-  //   placeholder.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
-  //   placeholder.style.padding = "20px";
-  //   placeholder.style.borderRadius = "10px";
-  //   placeholder.style.boxShadow = "0 0 20px rgba(51, 255, 51, 0.5)";
+  private resumeGame(): void {
+    this.logger.info("Resuming game...");
 
-  //   placeholder.innerHTML = `
-  //     <div style="margin-bottom: 20px;">VERTICAL SLICE DEMO</div>
-  //     <div style="font-size: 16px; margin-bottom: 30px;">
-  //       This is where the gameplay would begin.<br>
-  //       Press ESC to return to the main menu.
-  //     </div>
-  //   `;
+    // Make sure we don't trigger any game start logic - just hide the menu
+    this.hide();
 
-  //   document.body.appendChild(placeholder);
-
-  //   // Add event listener to return to menu when ESC is pressed
-  //   const escHandler = (e: KeyboardEvent) => {
-  //     if (e.key === "Escape") {
-  //       document.body.removeChild(placeholder);
-  //       document.removeEventListener("keydown", escHandler);
-  //       this.show();
-  //     }
-  //   };
-
-  //   document.addEventListener("keydown", escHandler);
-  // }
+    // Show the game HUD through the UI system
+    const uiSystem = this.game.getUISystem();
+    uiSystem.resumeGame();
+  }
 
   private showSettings(): void {
     // Hide the menu container but stay "active" logically
@@ -491,91 +494,22 @@ export class Menu {
   }
 
   /**
-   * Shows a placeholder "In Development" message when START GAME is selected
+   * Shows the menu for in-game pause
    */
-  // private showDevelopmentPlaceholder(): void {
-  //   // Hide the regular menu options
-  //   const menuSection = document.querySelector(".menu-section") as HTMLElement;
-  //   if (menuSection) {
-  //     menuSection.style.display = "none";
-  //   }
+  showInGameMenu(): void {
+    this.inGameMode = true;
+    this.updateMenuOptions();
+    this.show();
+  }
 
-  //   // Get the content container
-  //   const contentContainer = document.querySelector(
-  //     ".content-container"
-  //   ) as HTMLElement;
-  //   if (!contentContainer) return;
-
-  //   // Create the placeholder container
-  //   const placeholderContainer = document.createElement("div");
-  //   placeholderContainer.className = "development-placeholder";
-  //   placeholderContainer.style.display = "flex";
-  //   placeholderContainer.style.flexDirection = "column";
-  //   placeholderContainer.style.alignItems = "center";
-  //   placeholderContainer.style.justifyContent = "center";
-  //   placeholderContainer.style.textAlign = "center";
-  //   placeholderContainer.style.marginTop = "2rem";
-
-  //   // Create main message
-  //   const mainMessage = document.createElement("div");
-  //   mainMessage.textContent = "IN DEVELOPMENT";
-  //   mainMessage.style.color = "#ff0";
-  //   mainMessage.style.fontSize = "2rem";
-  //   mainMessage.style.fontWeight = "bold";
-  //   mainMessage.style.marginBottom = "1rem";
-  //   mainMessage.style.textShadow = "0 0 10px rgba(255, 255, 0, 0.7)";
-  //   mainMessage.style.animation = "pulse 1.5s infinite alternate";
-
-  //   // Create sub message
-  //   const subMessage = document.createElement("div");
-  //   subMessage.textContent = "COMING SOON";
-  //   subMessage.style.color = "#0f0";
-  //   subMessage.style.fontSize = "1.5rem";
-  //   subMessage.style.marginBottom = "2rem";
-
-  //   // Create back button
-  //   const backButton = document.createElement("div");
-  //   backButton.textContent = "BACK TO MENU";
-  //   backButton.style.color = "#fff";
-  //   backButton.style.fontSize = "1.2rem";
-  //   backButton.style.padding = "10px 20px";
-  //   backButton.style.border = "2px solid #fff";
-  //   backButton.style.cursor = "pointer";
-  //   backButton.style.marginTop = "3rem";
-  //   backButton.style.transition = "all 0.2s";
-
-  //   // Add hover effect
-  //   backButton.addEventListener("mouseover", () => {
-  //     backButton.style.color = "#0f0";
-  //     backButton.style.borderColor = "#0f0";
-  //     backButton.style.textShadow = "0 0 5px rgba(0, 255, 0, 0.7)";
-  //     backButton.style.boxShadow = "0 0 15px rgba(0, 255, 0, 0.5)";
-  //   });
-
-  //   backButton.addEventListener("mouseout", () => {
-  //     backButton.style.color = "#fff";
-  //     backButton.style.borderColor = "#fff";
-  //     backButton.style.textShadow = "none";
-  //     backButton.style.boxShadow = "none";
-  //   });
-
-  //   // Add click handler
-  //   backButton.addEventListener("click", () => {
-  //     // Remove the placeholder
-  //     contentContainer.removeChild(placeholderContainer);
-
-  //     // Show the menu again
-  //     if (menuSection) {
-  //       menuSection.style.display = "flex";
-  //     }
-  //   });
-
-  //   // Append elements
-  //   placeholderContainer.appendChild(mainMessage);
-  //   placeholderContainer.appendChild(subMessage);
-  //   placeholderContainer.appendChild(backButton);
-  //   contentContainer.appendChild(placeholderContainer);
-  // }
+  /**
+   * Shows the main menu (not in-game)
+   */
+  showMainMenu(): void {
+    this.inGameMode = false;
+    this.updateMenuOptions();
+    this.show();
+  }
 
   show(): void {
     this.container.style.display = "flex";

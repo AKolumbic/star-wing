@@ -213,23 +213,18 @@ export class LoadingScreen {
         this.executeButton.style.backgroundColor = "rgba(51, 255, 51, 0.4)";
         setTimeout(() => {
           this.executeButton.style.backgroundColor = "#000";
-          setTimeout(() => {
-            // Clear button interval to stop cursor blinking during transition
-            clearInterval(this.cursorBlinkInterval);
 
-            // Fade out the entire loading screen
-            this.container.style.transition = "opacity 1s ease-out";
-            this.container.style.opacity = "0";
+          // Clear button interval to stop cursor blinking during transition
+          clearInterval(this.cursorBlinkInterval);
 
-            // Call the completion callback after animation
-            setTimeout(() => {
-              this.hide();
-              if (this.onComplete) {
-                this.onComplete();
-              }
-            }, 1000);
-          }, 100);
-        }, 150);
+          // Immediate transition - no fade animation
+          this.hide();
+
+          // Call the completion callback immediately
+          if (this.onComplete) {
+            this.onComplete();
+          }
+        }, 150); // Keep the button flash animation for feedback
       });
     }
 
@@ -390,12 +385,15 @@ export class LoadingScreen {
     this.errorMessageElement.dataset.blinkInterval = String(blinkInterval);
   }
 
+  /**
+   * Hides the loading screen and cleans up resources.
+   */
   public hide(): void {
     // Clear all intervals
     clearInterval(this.ellipsisInterval);
 
-    if (this.executeButton && this.executeButton.dataset.cursorInterval) {
-      clearInterval(parseInt(this.executeButton.dataset.cursorInterval));
+    if (this.cursorBlinkInterval) {
+      clearInterval(this.cursorBlinkInterval);
     }
 
     // Clear error message blink interval if it exists
@@ -406,7 +404,7 @@ export class LoadingScreen {
       clearInterval(parseInt(this.errorMessageElement.dataset.blinkInterval));
     }
 
-    // Remove from DOM
+    // Remove from DOM immediately
     if (this.container && this.container.parentNode) {
       this.container.parentNode.removeChild(this.container);
     }
