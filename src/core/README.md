@@ -25,13 +25,28 @@ The central controller for the entire game.
 - Handles initialization and startup sequence
 - Maintains references to all major system components
 - Delegates game loop management to the GameLoop class
+- Provides dev mode options including audio control
 
 ```typescript
 // Basic usage
 const game = new Game("gameCanvas");
 await game.init();
 game.start();
+
+// With dev mode enabled
+const game = new Game("gameCanvas", true);
+
+// With dev mode and audio enabled
+const game = new Game("gameCanvas", true, true);
+
+// Toggle audio in dev mode via console
+game.toggleDevModeAudio();
 ```
+
+**Development Mode Parameters:**
+
+- Dev mode can be enabled via URL: `http://localhost:3000/?dev`
+- Dev mode with audio: `http://localhost:3000/?dev&enableDevAudio`
 
 ### GameSystem.ts
 

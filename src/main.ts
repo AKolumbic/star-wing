@@ -26,14 +26,19 @@ window.addEventListener("DOMContentLoaded", () => {
   // Check for dev mode flag in URL
   const urlParams = new URLSearchParams(window.location.search);
   const devMode = urlParams.has("dev");
+  const enableDevAudio = urlParams.has("enableDevAudio");
 
   // Log dev mode status
   if (devMode) {
     logger.info("DEV MODE ENABLED: Skipping intro, muting audio");
+
+    if (enableDevAudio) {
+      logger.info("DEV AUDIO ENABLED: Audio will be unmuted in dev mode");
+    }
   }
 
   // Create the game with the canvas ID and store in global variable
-  window.gameInstance = new Game("gameCanvas", devMode);
+  window.gameInstance = new Game("gameCanvas", devMode, enableDevAudio);
 
   // Initialize the game
   window.gameInstance.init().catch((error) => {

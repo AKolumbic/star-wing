@@ -40,6 +40,9 @@ export class Game {
   /** Flag indicating if the game is running in dev mode */
   private devMode: boolean = false;
 
+  /** Flag indicating if dev mode audio should be enabled */
+  private enableDevAudio: boolean = false;
+
   /** Logger instance */
   private logger = Logger.getInstance();
 
@@ -47,11 +50,17 @@ export class Game {
    * Creates a new Game instance and initializes all subsystems.
    * @param canvasId The HTML ID of the canvas element to render the game on
    * @param devMode Whether to run in development mode (skips intro, mutes audio)
+   * @param enableDevAudio Whether to enable audio in dev mode
    * @throws Error if the canvas element cannot be found
    */
-  constructor(canvasId: string, devMode: boolean = false) {
+  constructor(
+    canvasId: string,
+    devMode: boolean = false,
+    enableDevAudio: boolean = false
+  ) {
     // Store dev mode setting
     this.devMode = devMode;
+    this.enableDevAudio = enableDevAudio;
 
     // Get the canvas element by ID
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -128,11 +137,26 @@ export class Game {
 
           // Set audio to muted in dev mode
           // We do this after initialization to ensure the UI can properly reflect this state
-          if (!this.audioSystem.getAudioManager().getMuteState()) {
+          if (
+            !this.enableDevAudio &&
+            !this.audioSystem.getAudioManager().getMuteState()
+          ) {
             // Force-mute audio but preserve the state in localStorage
             this.setDevModeMuted(true);
             this.logger.info(
               "DEV MODE: Audio muted by default (can be enabled in settings)"
+            );
+          } else if (this.enableDevAudio) {
+            // Ensure audio is unmuted if enableDevAudio is true
+            if (this.audioSystem.getAudioManager().getMuteState()) {
+              this.setDevModeMuted(false);
+            }
+
+            // Play the procedural audio explicitly
+            this.audioSystem.playMenuThump(true);
+
+            this.logger.info(
+              "DEV MODE: Audio enabled via enableDevAudio parameter"
             );
           }
         })
@@ -351,6 +375,33 @@ export class Game {
     // Restore the original localStorage value to preserve user preference
     if (savedMuteState !== null) {
       localStorage.setItem("starWing_muted", savedMuteState);
+    }
+  }
+
+  /**
+   * Toggles the audio in devMode for testing purposes.
+   * This is useful when you want to hear the procedural audio in devMode.
+   * Access this via the browser console with: game.toggleDevModeAudio()
+   */
+  public toggleDevModeAudio(): void {
+    if (!this.devMode) {
+      this.logger.info("Toggle dev mode audio: Not in dev mode, ignoring");
+      return;
+    }
+
+    const audioManager = this.audioSystem.getAudioManager();
+
+    // Toggle the actual mute state
+    audioManager.toggleMute();
+
+    // Log the new state
+    const isMuted = audioManager.getMuteState();
+    this.logger.info(`DEV MODE: Audio is now ${isMuted ? "muted" : "unmuted"}`);
+
+    // If we just unmuted, make sure music is playing
+    if (!isMuted && !audioManager.isAudioPlaying()) {
+      this.logger.info("DEV MODE: Restarting procedural audio");
+      this.audioSystem.playMenuThump(true);
     }
   }
 }

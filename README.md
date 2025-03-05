@@ -56,7 +56,19 @@ To enable dev mode, simply add `?dev` to the URL:
 http://localhost:5173/?dev
 ```
 
-This is particularly useful during development to avoid repeatedly clicking through the intro sequence and managing audio levels while testing.
+If you want to enable audio in dev mode (to hear the procedural music), you can add the `enableDevAudio` parameter:
+
+```bash
+http://localhost:5173/?dev&enableDevAudio
+```
+
+You can also toggle audio during development by using the browser console:
+
+```javascript
+game.toggleDevModeAudio();
+```
+
+These options are particularly useful during development to avoid repeatedly clicking through the intro sequence and for testing audio features while in development mode.
 
 ## Project Structure
 

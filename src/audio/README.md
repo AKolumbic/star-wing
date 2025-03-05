@@ -48,6 +48,25 @@ audioManager.dispose();
 
 The audio system is built entirely on the [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API), providing high-performance, low-latency audio processing capabilities.
 
+### Development Mode Audio
+
+In development mode, the audio is muted by default to avoid disruption during testing. However, there are ways to enable audio in dev mode:
+
+1. **URL Parameter Method**:
+   Add the `enableDevAudio` parameter when launching the game in dev mode:
+
+   ```
+   http://localhost:3000/?dev&enableDevAudio
+   ```
+
+2. **Console Command Method**:
+   While in dev mode, open the browser console and type:
+   ```javascript
+   game.toggleDevModeAudio();
+   ```
+3. **Procedural Audio**:
+   When using dev mode with audio enabled, the game will use the procedural audio system instead of the MP3 files. This allows for faster testing of audio features without waiting for asset loading.
+
 ### Procedural Music Generation
 
 Rather than using pre-recorded music files, the game generates a synthesized soundtrack in real-time:

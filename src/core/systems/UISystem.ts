@@ -163,7 +163,8 @@ export class UISystem implements GameSystem {
     // Start menu music when the menu is shown
     const audioSystem = this.game.getAudioSystem();
     if (audioSystem) {
-      audioSystem.playMenuThump();
+      // Pass devMode flag to use procedural audio if in dev mode
+      audioSystem.playMenuThump(this.game.isDevMode());
     }
   }
 

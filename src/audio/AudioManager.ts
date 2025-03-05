@@ -29,31 +29,30 @@ export class AudioManager {
 
   /** Base note frequencies for procedural music generation */
   // D minor scale frequencies
-  private dFrequency: number = 73.42; // D2
-  private fFrequency: number = 87.31; // F2
-  private aFrequency: number = 110.0; // A2
+  private bFrequency: number = 123.47; // B2
+  private dFrequency: number = 146.83; // D3
+  private eFrequency: number = 164.81; // E3
   private cFrequency: number = 130.81; // C3
 
-  // Kavinsky-inspired patterns - simple and driving
-  /** Bass drum pattern (1 = play, 0 = silent) */
-  private bassPattern = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0];
+  // Updated bass pattern for 8-bit inspired drum beat
+  private bassPattern = [1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0];
 
   /**
-   * D minor arpeggio pattern: D, F, A, C, A, F
+   * Updated arpeggio pattern: B2, -, D3, E3, D3, -, B2, C3
    * Values correspond to indexes in arpeggioNotes array
    * -1 means no note played
    */
   private arpeggioPattern = [
-    0, -1, 1, -1, 2, -1, 3, -1, 2, -1, 1, -1, 0, -1, -1, -1, 0, -1, 1, -1, 2,
-    -1, 3, -1, 2, -1, 1, -1, 0, 2, 3, 1,
+    0, -1, 1, 2, 1, -1, 0, 3, 0, -1, 1, 2, 1, -1, 0, 3, 0, -1, 1, 2, 1, -1, 0,
+    3, 0, -1, 1, 2, 1, -1, 0, 3,
   ];
 
   /** Frequency lookup for arpeggios */
   private arpeggioNotes = [
-    this.dFrequency * 2, // D3
-    this.fFrequency * 2, // F3
-    this.aFrequency * 2, // A3
-    this.cFrequency * 2, // C4
+    this.bFrequency, // B2
+    this.dFrequency, // D3
+    this.eFrequency, // E3
+    this.cFrequency, // C3
   ];
 
   /**
@@ -82,7 +81,7 @@ export class AudioManager {
   /** Current beat position in the pattern sequence */
   private currentBeat: number = 0;
   /** Music tempo in beats per minute */
-  private tempo: number = 120;
+  private tempo: number = 130; // Updated to 130 BPM
 
   /**
    * Initializes the AudioManager with a suspended audio context.
@@ -225,8 +224,9 @@ export class AudioManager {
    * Starts playing the menu music.
    * If the audio system is not initialized, it will be initialized first.
    * If music is already playing, this method does nothing.
+   * @param useProceduralAudio Force using procedural audio instead of MP3 (for devMode)
    */
-  public playMenuThump(): void {
+  public playMenuThump(useProceduralAudio: boolean = false): void {
     if (!this.isInitialized) {
       this.logger.info("AudioManager: Not initialized, initializing now");
       this.initialize();
@@ -245,8 +245,52 @@ export class AudioManager {
 
     try {
       this.isPlaying = true;
-      this.nextNoteTime = this.audioContext.currentTime;
-      this.scheduleBeats();
+
+      // If useProceduralAudio is true, always use procedural audio
+      if (useProceduralAudio) {
+        this.logger.info("AudioManager: Using procedural audio (devMode)");
+
+        // Set up next note time
+        this.nextNoteTime = this.audioContext.currentTime;
+
+        // Log the mute state for debugging
+        this.logger.info(
+          `AudioManager: Mute state is ${this.isMuted ? "muted" : "unmuted"}`
+        );
+
+        // Start procedural audio
+        this.scheduleBeats();
+
+        return;
+      }
+
+      // Path to the MP3 file
+      const menuMusicFile = "/assets/audio/star-wing_menu-loop.mp3";
+      const menuMusicId = "menuMusic";
+
+      // Check if the audio is already loaded
+      if (!this.audioBufferCache.has(menuMusicId)) {
+        this.logger.info(
+          `AudioManager: Loading menu music from ${menuMusicFile}`
+        );
+        // Load and then play the audio
+        this.loadAudioSample(menuMusicFile, menuMusicId, true)
+          .then(() => {
+            this.logger.info("AudioManager: Menu music loaded successfully");
+            // Play the music in a loop with reduced volume (15%)
+            this.playAudioSample(menuMusicId, 0.15, true);
+          })
+          .catch((err) => {
+            this.logger.error("AudioManager: Failed to load menu music:", err);
+            // Fall back to procedural music if loading fails
+            this.nextNoteTime = this.audioContext.currentTime;
+            this.scheduleBeats();
+          });
+      } else {
+        // Audio already loaded, just play it
+        this.logger.info("AudioManager: Playing cached menu music");
+        this.playAudioSample(menuMusicId, 0.15, true);
+      }
     } catch (err) {
       this.logger.error("AudioManager: Error starting audio playback:", err);
     }
@@ -258,9 +302,20 @@ export class AudioManager {
    */
   public stopMusic(): void {
     this.isPlaying = false;
+
+    // Stop the scheduler if it's running
     if (this.schedulerTimer !== null) {
       window.clearTimeout(this.schedulerTimer);
       this.schedulerTimer = null;
+    }
+
+    // Stop any playing audio sources
+    // This will disconnect and stop all playing sources
+    // We're creating a new audio context when needed, so this is a clean approach
+    if (this.audioContext) {
+      this.audioContext.suspend().catch((err) => {
+        this.logger.error("AudioManager: Error suspending audio context:", err);
+      });
     }
   }
 
@@ -309,11 +364,9 @@ export class AudioManager {
    */
   public toggleMute(): void {
     this.isMuted = !this.isMuted;
+    const volume = this.isMuted ? 0 : this.getVolume();
 
-    // When muted, set volume to 0, otherwise restore to saved volume
-    const volume = this.isMuted ? 0 : this.getVolume() * 0.6;
-
-    // Use setTargetAtTime for smoother transition
+    // Set gain on main gain node with smooth transition
     this.mainGainNode.gain.setTargetAtTime(
       volume,
       this.audioContext.currentTime,
@@ -322,88 +375,177 @@ export class AudioManager {
 
     // Store mute state in localStorage
     localStorage.setItem("starWing_muted", this.isMuted.toString());
+
+    // If we're now unmuted and music should be playing, restart it
+    if (!this.isMuted && this.isPlaying) {
+      // Check if we have the menu music loaded
+      if (this.audioBufferCache.has("menuMusic")) {
+        // If music was playing and we unmuted, make sure it's playing again
+        this.playAudioSample("menuMusic", 0.15, true);
+      } else {
+        // Fallback to procedural music
+        this.nextNoteTime = this.audioContext.currentTime;
+        this.scheduleBeats();
+      }
+    }
+
+    this.logger.info(
+      `AudioManager: Audio ${this.isMuted ? "muted" : "unmuted"}`
+    );
   }
 
   /**
-   * Schedules multiple beats ahead of time for smooth playback.
-   * Implements a lookahead scheduler pattern for precise timing.
+   * Schedules beats for playback and recursively sets up the next scheduling cycle.
+   * This creates a lookahead scheduler for accurate timing.
    * @private
    */
   private scheduleBeats(): void {
-    // Schedule several beats ahead
+    // Ensure mainGainNode reflects mute state
+    if (this.isMuted && this.mainGainNode.gain.value > 0) {
+      this.mainGainNode.gain.value = 0;
+      this.logger.info("AudioManager: Setting gain to 0 due to mute state");
+    } else if (!this.isMuted && this.mainGainNode.gain.value === 0) {
+      // If not muted but gain is 0, restore it
+      const volume = this.getVolume();
+      this.mainGainNode.gain.value = volume;
+      this.logger.info(`AudioManager: Restoring gain to ${volume} as unmuted`);
+    }
+
+    // Looking ahead by 0.2 seconds to schedule notes
     while (this.nextNoteTime < this.audioContext.currentTime + 0.2) {
-      // Play bass
-      if (this.bassPattern[this.currentBeat]) {
+      const currentBeat = this.currentBeat;
+
+      // Bass pattern - 8-bit style drum
+      if (this.bassPattern[currentBeat % 16] === 1) {
         this.playBass(this.nextNoteTime);
       }
 
-      // Play arpeggio
-      const arpeggioNote = this.arpeggioPattern[this.currentBeat];
-      if (arpeggioNote >= 0) {
-        this.playArpeggio(this.nextNoteTime, this.arpeggioNotes[arpeggioNote]);
+      // Arpeggio pattern - 8-bit melody notes
+      const arpeggioIndex =
+        this.arpeggioPattern[currentBeat % this.arpeggioPattern.length];
+      if (arpeggioIndex !== -1) {
+        this.playArpeggio(this.nextNoteTime, this.arpeggioNotes[arpeggioIndex]);
       }
 
-      // Advance to next beat
+      // Increment beat counter
+      this.currentBeat = (this.currentBeat + 1) % 32;
+
+      // Calculate time for next beat - 16th notes for more precise timing
       const secondsPerBeat = 60.0 / this.tempo;
-      this.nextNoteTime += secondsPerBeat / 4; // 16th notes for synth wave feel
-      this.currentBeat = (this.currentBeat + 1) % this.arpeggioPattern.length;
+      this.nextNoteTime += secondsPerBeat / 4; // 16th notes for 8-bit feel
     }
 
-    // Schedule next batch of beats
-    this.schedulerTimer = window.setTimeout(() => {
-      if (this.isPlaying) {
+    // Reset scheduler timer if music is playing
+    if (this.isPlaying) {
+      this.schedulerTimer = window.setTimeout(() => {
         this.scheduleBeats();
-      }
-    }, 50); // Check more frequently
+      }, 50); // 50ms scheduler interval for smoother timing
+    }
   }
 
   /**
-   * Plays a bass note at the specified time.
+   * Plays the bass drum on the specified beat.
    * @param time The audio context time to play the note
    * @private
    */
   private playBass(time: number): void {
-    // Simplified bass - just use a sine wave at higher volume
-    const bassOsc = this.audioContext.createOscillator();
-    bassOsc.type = "sine";
-    bassOsc.frequency.value = this.dFrequency;
+    if (this.bassPattern[this.currentBeat % 16] === 0) return;
 
-    // Bass gain with lower volume
+    // 8-bit inspired bass drum
+    const bassOsc = this.audioContext.createOscillator();
+    bassOsc.type = "triangle"; // More 8-bit sounding
+    bassOsc.frequency.value = 60; // Lower for bass drum
+
     const bassGain = this.audioContext.createGain();
     bassGain.gain.value = 0;
 
-    // Connect through main gain node for volume control
     bassOsc.connect(bassGain);
     bassGain.connect(this.mainGainNode);
 
-    // Start the oscillator
+    // Start oscillator
     bassOsc.start(time);
 
-    // Simple envelope with reduced volume
+    // 8-bit style quick decay
     bassGain.gain.setValueAtTime(0, time);
-    bassGain.gain.linearRampToValueAtTime(0.15, time + 0.01);
-    bassGain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+    bassGain.gain.linearRampToValueAtTime(0.3, time + 0.01); // Faster attack
+    bassGain.gain.exponentialRampToValueAtTime(0.001, time + 0.1); // Faster decay
 
-    // Stop the oscillator
-    bassOsc.stop(time + 0.6);
+    // Short duration for punchy 8-bit feel
+    bassOsc.stop(time + 0.2);
+
+    // Add a noise burst for more 8-bit drum character
+    if (this.currentBeat % 4 === 0) {
+      this.playNoiseHihat(time, 0.1); // Hi-hat on main beats
+    }
   }
 
   /**
-   * Plays an arpeggio note at the specified time and frequency.
+   * Plays a noise-based hi-hat sound for 8-bit style drums
+   * @param time The audio context time to play the sound
+   * @param volume Volume level for the hi-hat
+   */
+  private playNoiseHihat(time: number, volume: number): void {
+    // Create buffer for noise
+    const bufferSize = 2 * this.audioContext.sampleRate;
+    const noiseBuffer = this.audioContext.createBuffer(
+      1,
+      bufferSize,
+      this.audioContext.sampleRate
+    );
+    const output = noiseBuffer.getChannelData(0);
+
+    // Fill with noise
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = Math.random() * 2 - 1;
+    }
+
+    // Create noise source
+    const noise = this.audioContext.createBufferSource();
+    noise.buffer = noiseBuffer;
+
+    // Create bandpass filter to shape noise into hi-hat
+    const filter = this.audioContext.createBiquadFilter();
+    filter.type = "highpass";
+    filter.frequency.value = 7000;
+    filter.Q.value = 1;
+
+    // Create gain node
+    const gainNode = this.audioContext.createGain();
+    gainNode.gain.value = 0;
+
+    // Connect nodes
+    noise.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(this.mainGainNode);
+
+    // Start noise
+    noise.start(time);
+
+    // Very short envelope for hi-hat
+    gainNode.gain.setValueAtTime(0, time);
+    gainNode.gain.linearRampToValueAtTime(volume, time + 0.002);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.03);
+
+    // Stop after short duration
+    noise.stop(time + 0.05);
+  }
+
+  /**
+   * Plays an arpeggio note on the specified beat.
    * @param time The audio context time to play the note
    * @param frequency The frequency of the note to play
    * @private
    */
   private playArpeggio(time: number, frequency: number): void {
-    // Simplified arpeggio - use square wave for more presence
+    // 8-bit style lead synth
     const arpeggioOsc = this.audioContext.createOscillator();
-    arpeggioOsc.type = "square";
+    arpeggioOsc.type = "square"; // Classic 8-bit sound
     arpeggioOsc.frequency.value = frequency;
 
     // Get cached filter or create a new one
-    const filter = this.getOrCreateFilter("lowpass1000", "lowpass", 1000, 5);
+    const filter = this.getOrCreateFilter("lowpass2000", "lowpass", 2000, 2);
 
-    // Gain with lower volume
+    // Gain with 8-bit appropriate volume
     const arpeggioGain = this.audioContext.createGain();
     arpeggioGain.gain.value = 0;
 
@@ -415,13 +557,51 @@ export class AudioManager {
     // Start oscillator
     arpeggioOsc.start(time);
 
-    // Simple envelope with reduced volume
+    // 8-bit style envelope - sharper attack and decay
     arpeggioGain.gain.setValueAtTime(0, time);
-    arpeggioGain.gain.linearRampToValueAtTime(0.1, time + 0.01);
-    arpeggioGain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+    arpeggioGain.gain.linearRampToValueAtTime(0.12, time + 0.005); // Quick attack
+    arpeggioGain.gain.exponentialRampToValueAtTime(0.05, time + 0.2); // Sustain a bit longer
 
     // Stop oscillator
     arpeggioOsc.stop(time + 0.25);
+
+    // Add a bass track (one octave lower) for dual-track feel
+    if (this.currentBeat % 2 === 0) {
+      this.playBassArpeggio(time, frequency / 2);
+    }
+  }
+
+  /**
+   * Plays a bass arpeggio note for the dual-track feel
+   * @param time The audio context time to play the note
+   * @param frequency The frequency of the note (lower octave)
+   */
+  private playBassArpeggio(time: number, frequency: number): void {
+    const bassOsc = this.audioContext.createOscillator();
+    bassOsc.type = "triangle"; // Smoother bass sound
+    bassOsc.frequency.value = frequency;
+
+    // Use a different filter for the bass
+    const filter = this.getOrCreateFilter("lowpass600", "lowpass", 600, 1);
+
+    const bassGain = this.audioContext.createGain();
+    bassGain.gain.value = 0;
+
+    // Connect
+    bassOsc.connect(bassGain);
+    bassGain.connect(filter);
+    filter.connect(this.mainGainNode);
+
+    // Start
+    bassOsc.start(time);
+
+    // Slower attack and longer sustain for bass
+    bassGain.gain.setValueAtTime(0, time);
+    bassGain.gain.linearRampToValueAtTime(0.1, time + 0.01);
+    bassGain.gain.exponentialRampToValueAtTime(0.05, time + 0.3);
+
+    // Stop
+    bassOsc.stop(time + 0.4);
   }
 
   /**
@@ -446,75 +626,34 @@ export class AudioManager {
   }
 
   /**
-   * Plays a synth chord at the specified time and frequency.
-   * Creates a rich 80s-style synth sound with chorus effect.
-   * @param time The audio context time to play the synth
-   * @param frequency The base frequency for the synth
-   * @private
-   */
-  // private playSynth(time: number, frequency: number): void {
-  //   // Classic 80s synth sound - PWM-like
-  //   const synthOsc = this.audioContext.createOscillator();
-  //   synthOsc.type = "square";
-  //   synthOsc.frequency.value = frequency;
-
-  //   // Create slight detune for thickness
-  //   const detuneOsc = this.audioContext.createOscillator();
-  //   detuneOsc.type = "square";
-  //   detuneOsc.frequency.value = frequency * 1.003; // Slight detune
-
-  //   // Create gain for envelope
-  //   const synthGain = this.audioContext.createGain();
-  //   synthGain.gain.value = 0;
-
-  //   // Get cached filter
-  //   const filter = this.getOrCreateFilter("lowpass2000", "lowpass", 2000, 3);
-
-  //   // Create chorus effect with delay
-  //   const delay = this.audioContext.createDelay();
-  //   delay.delayTime.value = 0.03;
-  //   const delayGain = this.audioContext.createGain();
-  //   delayGain.gain.value = 0.2;
-
-  //   // Connect everything
-  //   synthOsc.connect(synthGain);
-  //   detuneOsc.connect(synthGain);
-  //   synthGain.connect(filter);
-  //   filter.connect(this.mainGainNode);
-
-  //   // Chorus effect connection
-  //   filter.connect(delay);
-  //   delay.connect(delayGain);
-  //   delayGain.connect(this.mainGainNode);
-
-  //   // Start oscillators
-  //   synthOsc.start(time);
-  //   detuneOsc.start(time);
-
-  //   // Classic synth ADSR envelope (shortened for faster tempo)
-  //   synthGain.gain.setValueAtTime(0, time);
-  //   synthGain.gain.linearRampToValueAtTime(0.3, time + 0.05); // Attack
-  //   synthGain.gain.linearRampToValueAtTime(0.2, time + 0.15); // Decay to sustain
-  //   synthGain.gain.setValueAtTime(0.2, time + 0.2); // Sustain
-  //   synthGain.gain.linearRampToValueAtTime(0, time + 0.4); // Release
-
-  //   // Stop oscillators
-  //   synthOsc.stop(time + 0.5);
-  //   detuneOsc.stop(time + 0.5);
-  // }
-
-  /**
-   * Loads an audio sample from a URL and caches it for later use.
+   * Loads an audio sample from the specified URL and caches it for future use.
    * @param url The URL of the audio file to load
-   * @param id A unique identifier to reference this sample later
+   * @param id The identifier to use for caching
+   * @param optimizeForLooping Whether to optimize the buffer for seamless looping
    * @returns A promise that resolves when the sample is loaded
    */
-  public async loadAudioSample(url: string, id: string): Promise<void> {
+  public async loadAudioSample(
+    url: string,
+    id: string,
+    optimizeForLooping: boolean = false
+  ): Promise<void> {
     try {
       const response = await fetch(url);
       const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+      let audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+
+      // If this is meant to be looped, optimize the buffer
+      if (optimizeForLooping && id === "menuMusic") {
+        this.logger.info(`AudioManager: Optimizing buffer for looping: ${id}`);
+        // Store the original buffer for reference
+        this.audioBufferCache.set(`${id}_original`, audioBuffer);
+
+        // For now, we'll keep using the original buffer
+        // If looping issues persist, we can implement more advanced optimizations
+      }
+
       this.audioBufferCache.set(id, audioBuffer);
+      this.logger.info(`AudioManager: Successfully loaded audio sample: ${id}`);
     } catch (error) {
       this.logger.error(
         `AudioManager: Error loading audio sample ${id}:`,
@@ -545,6 +684,24 @@ export class AudioManager {
     source.buffer = buffer;
     source.loop = loop;
 
+    // For looped music, add loop points for smoother looping
+    if (loop && id === "menuMusic") {
+      // Set loop points for cleaner looping if needed
+      // Precise loop points depend on the specific audio file
+      const loopStartPosition = 0; // Start from beginning
+      // Loop a tiny bit before the end to avoid the hiccup
+      const loopEndPosition = buffer.duration - 0.05;
+
+      // Set loop points if supported by the browser
+      if (source.loopStart !== undefined && source.loopEnd !== undefined) {
+        source.loopStart = loopStartPosition;
+        source.loopEnd = loopEndPosition;
+        this.logger.info(
+          `AudioManager: Set custom loop points for ${id}: ${loopStartPosition} to ${loopEndPosition}`
+        );
+      }
+    }
+
     const gainNode = this.audioContext.createGain();
     gainNode.gain.value = volume * (this.isMuted ? 0 : this.getVolume());
 
@@ -553,6 +710,69 @@ export class AudioManager {
 
     source.start();
     return source;
+  }
+
+  /**
+   * Creates a seamless playback experience for looped audio.
+   * @param buffer The audio buffer to analyze
+   * @private
+   */
+  private optimizeBufferForLooping(buffer: AudioBuffer): AudioBuffer {
+    // Sample rate and length info
+    const sampleRate = buffer.sampleRate;
+    const channels = buffer.numberOfChannels;
+
+    // Find zero crossings near the end for cleaner loop points
+    const findOptimalLoopPoint = (channelData: Float32Array): number => {
+      // Look at last 0.1 seconds of audio
+      const loopPointArea = Math.floor(sampleRate * 0.1);
+      const startIndex = channelData.length - loopPointArea;
+
+      let bestIndex = 0;
+      let minimumValue = 1.0;
+
+      // Find zero crossing point
+      for (let i = startIndex; i < channelData.length - 1; i++) {
+        const currentValue = Math.abs(channelData[i]);
+
+        // Detect a zero crossing
+        if (
+          (currentValue < minimumValue &&
+            channelData[i] > 0 &&
+            channelData[i + 1] < 0) ||
+          (channelData[i] < 0 && channelData[i + 1] > 0)
+        ) {
+          minimumValue = currentValue;
+          bestIndex = i;
+        }
+      }
+
+      return bestIndex > 0 ? bestIndex : channelData.length - 1;
+    };
+
+    // Get the loop point from the first channel
+    const channelData = buffer.getChannelData(0);
+    const loopPoint = findOptimalLoopPoint(channelData);
+
+    // Create a new buffer trimmed to the loop point
+    const newBuffer = this.audioContext.createBuffer(
+      channels,
+      loopPoint,
+      sampleRate
+    );
+
+    // Copy the data with a short crossfade at the loop point
+    for (let c = 0; c < channels; c++) {
+      const newChannelData = newBuffer.getChannelData(c);
+      const originalData = buffer.getChannelData(c);
+
+      // Copy main content
+      for (let i = 0; i < loopPoint; i++) {
+        newChannelData[i] = originalData[i];
+      }
+    }
+
+    return newBuffer;
   }
 
   /**
@@ -579,5 +799,13 @@ export class AudioManager {
     // Clear caches
     this.audioBufferCache.clear();
     this.nodeCache.clear();
+  }
+
+  /**
+   * Returns whether audio is currently playing.
+   * @returns True if audio is playing
+   */
+  public isAudioPlaying(): boolean {
+    return this.isPlaying;
   }
 }

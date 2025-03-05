@@ -12,6 +12,8 @@ export class Menu {
   private settings: Settings;
   private highScores: HighScores;
   private game: Game;
+  private invaders: HTMLDivElement[] = []; // To store references to invader elements
+  private invaderAnimationInterval: number | null = null; // Store interval ID
 
   /** Logger instance */
   private logger = Logger.getInstance();
@@ -122,11 +124,15 @@ export class Menu {
           100% 60%, 85% 60%, 85% 75%, 70% 75%, 70% 60%, 30% 60%, 
           30% 75%, 15% 75%, 15% 60%, 0% 60%
         );
-        animation: invader-dance 1s infinite step-end;
       }
 
-      .invader:nth-child(odd) {
-        animation-delay: 0.5s;
+      /* We'll control the animation with JavaScript to sync with the music */
+      .invader-up {
+        transform: translateY(0);
+      }
+
+      .invader-down {
+        transform: translateY(5px);
       }
 
       .copyright {
@@ -171,11 +177,6 @@ export class Menu {
         100% { opacity: 1; }
       }
 
-      @keyframes invader-dance {
-        0%, 50% { transform: translateY(0); }
-        50.01%, 100% { transform: translateY(5px); }
-      }
-
       /* Fix for the screen-flicker animation to prevent line artifacts */
       @keyframes screen-flicker {
         0%, 95% { opacity: 1; background: transparent; }
@@ -213,8 +214,9 @@ export class Menu {
     // Add space invader style icons
     for (let i = 0; i < 5; i++) {
       const invader = document.createElement("div");
-      invader.className = "invader";
+      invader.className = "invader invader-up"; // Default to "up" position
       invadersRow.appendChild(invader);
+      this.invaders.push(invader); // Store reference to each invader
     }
 
     titleSection.appendChild(title);
@@ -514,6 +516,10 @@ export class Menu {
   show(): void {
     this.container.style.display = "flex";
     this.isVisible = true;
+    this.logger.info("Menu: Menu displayed");
+
+    // Start syncing invaders with music beat
+    this.startInvaderBeatSync();
   }
 
   hide(): void {
@@ -521,7 +527,10 @@ export class Menu {
 
     this.isVisible = false;
     this.container.style.display = "none";
-    this.logger.info("[Menu] Hiding menu");
+    this.logger.info("Menu: Menu hidden");
+
+    // Stop syncing invaders with music beat
+    this.stopInvaderBeatSync();
   }
 
   isMenuVisible(): boolean {
@@ -529,9 +538,62 @@ export class Menu {
   }
 
   dispose(): void {
+    // Stop invader animation
+    this.stopInvaderBeatSync();
+
     document.body.removeChild(this.container);
     document.removeEventListener("keydown", this.handleKeyDown.bind(this));
     this.settings.dispose();
     this.highScores.dispose();
+  }
+
+  /**
+   * Start syncing the invader animation with the music beat.
+   * This uses the tempo of the music (130 BPM) to sync the animation.
+   */
+  private startInvaderBeatSync(): void {
+    // Stop any existing animation
+    this.stopInvaderBeatSync();
+
+    // Define the beat interval based on music tempo (130 BPM)
+    // 60000 ms / 130 BPM = ~461.5 ms per beat
+    const beatInterval = 60000 / 130;
+
+    // Flag to track current animation state
+    let isUp = true;
+
+    // Update all invaders immediately
+    this.updateInvaderPositions(isUp);
+
+    // Set interval to toggle positions on the beat
+    this.invaderAnimationInterval = window.setInterval(() => {
+      isUp = !isUp;
+      this.updateInvaderPositions(isUp);
+    }, beatInterval / 2); // Half the beat interval for 8th notes
+
+    this.logger.info("Menu: Started invader beat sync animation");
+  }
+
+  /**
+   * Stop the invader beat sync animation.
+   */
+  private stopInvaderBeatSync(): void {
+    if (this.invaderAnimationInterval !== null) {
+      window.clearInterval(this.invaderAnimationInterval);
+      this.invaderAnimationInterval = null;
+      this.logger.info("Menu: Stopped invader beat sync animation");
+    }
+  }
+
+  /**
+   * Update all invader positions based on the beat state.
+   * @param isUp Whether invaders should be in the "up" position
+   */
+  private updateInvaderPositions(isUp: boolean): void {
+    // Every other invader gets the opposite position for more interesting animation
+    this.invaders.forEach((invader, index) => {
+      const position = index % 2 === 0 ? isUp : !isUp;
+      invader.className = `invader ${position ? "invader-up" : "invader-down"}`;
+    });
   }
 }
