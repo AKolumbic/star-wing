@@ -1,8 +1,6 @@
 import { Game } from "../core/Game";
 import { Settings } from "./Settings";
 import { HighScores } from "./HighScores";
-import { BackgroundType } from "../core/backgrounds/BackgroundManager";
-import { Input } from "../core/Input";
 import { Logger } from "../utils/Logger";
 
 export class Menu {
@@ -431,44 +429,44 @@ export class Menu {
   /**
    * Shows a placeholder for gameplay in the vertical slice demo.
    */
-  private showGameplayPlaceholder(): void {
-    // Create a placeholder message indicating this is just a demo
-    const placeholder = document.createElement("div");
-    placeholder.style.position = "fixed";
-    placeholder.style.top = "50%";
-    placeholder.style.left = "50%";
-    placeholder.style.transform = "translate(-50%, -50%)";
-    placeholder.style.color = "#33ff33";
-    placeholder.style.fontFamily = "'PressStart2P', monospace";
-    placeholder.style.fontSize = "24px";
-    placeholder.style.textAlign = "center";
-    placeholder.style.zIndex = "1000";
-    placeholder.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
-    placeholder.style.padding = "20px";
-    placeholder.style.borderRadius = "10px";
-    placeholder.style.boxShadow = "0 0 20px rgba(51, 255, 51, 0.5)";
+  // private showGameplayPlaceholder(): void {
+  //   // Create a placeholder message indicating this is just a demo
+  //   const placeholder = document.createElement("div");
+  //   placeholder.style.position = "fixed";
+  //   placeholder.style.top = "50%";
+  //   placeholder.style.left = "50%";
+  //   placeholder.style.transform = "translate(-50%, -50%)";
+  //   placeholder.style.color = "#33ff33";
+  //   placeholder.style.fontFamily = "'PressStart2P', monospace";
+  //   placeholder.style.fontSize = "24px";
+  //   placeholder.style.textAlign = "center";
+  //   placeholder.style.zIndex = "1000";
+  //   placeholder.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+  //   placeholder.style.padding = "20px";
+  //   placeholder.style.borderRadius = "10px";
+  //   placeholder.style.boxShadow = "0 0 20px rgba(51, 255, 51, 0.5)";
 
-    placeholder.innerHTML = `
-      <div style="margin-bottom: 20px;">VERTICAL SLICE DEMO</div>
-      <div style="font-size: 16px; margin-bottom: 30px;">
-        This is where the gameplay would begin.<br>
-        Press ESC to return to the main menu.
-      </div>
-    `;
+  //   placeholder.innerHTML = `
+  //     <div style="margin-bottom: 20px;">VERTICAL SLICE DEMO</div>
+  //     <div style="font-size: 16px; margin-bottom: 30px;">
+  //       This is where the gameplay would begin.<br>
+  //       Press ESC to return to the main menu.
+  //     </div>
+  //   `;
 
-    document.body.appendChild(placeholder);
+  //   document.body.appendChild(placeholder);
 
-    // Add event listener to return to menu when ESC is pressed
-    const escHandler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        document.body.removeChild(placeholder);
-        document.removeEventListener("keydown", escHandler);
-        this.show();
-      }
-    };
+  //   // Add event listener to return to menu when ESC is pressed
+  //   const escHandler = (e: KeyboardEvent) => {
+  //     if (e.key === "Escape") {
+  //       document.body.removeChild(placeholder);
+  //       document.removeEventListener("keydown", escHandler);
+  //       this.show();
+  //     }
+  //   };
 
-    document.addEventListener("keydown", escHandler);
-  }
+  //   document.addEventListener("keydown", escHandler);
+  // }
 
   private showSettings(): void {
     // Hide the menu container but stay "active" logically
@@ -495,89 +493,89 @@ export class Menu {
   /**
    * Shows a placeholder "In Development" message when START GAME is selected
    */
-  private showDevelopmentPlaceholder(): void {
-    // Hide the regular menu options
-    const menuSection = document.querySelector(".menu-section") as HTMLElement;
-    if (menuSection) {
-      menuSection.style.display = "none";
-    }
+  // private showDevelopmentPlaceholder(): void {
+  //   // Hide the regular menu options
+  //   const menuSection = document.querySelector(".menu-section") as HTMLElement;
+  //   if (menuSection) {
+  //     menuSection.style.display = "none";
+  //   }
 
-    // Get the content container
-    const contentContainer = document.querySelector(
-      ".content-container"
-    ) as HTMLElement;
-    if (!contentContainer) return;
+  //   // Get the content container
+  //   const contentContainer = document.querySelector(
+  //     ".content-container"
+  //   ) as HTMLElement;
+  //   if (!contentContainer) return;
 
-    // Create the placeholder container
-    const placeholderContainer = document.createElement("div");
-    placeholderContainer.className = "development-placeholder";
-    placeholderContainer.style.display = "flex";
-    placeholderContainer.style.flexDirection = "column";
-    placeholderContainer.style.alignItems = "center";
-    placeholderContainer.style.justifyContent = "center";
-    placeholderContainer.style.textAlign = "center";
-    placeholderContainer.style.marginTop = "2rem";
+  //   // Create the placeholder container
+  //   const placeholderContainer = document.createElement("div");
+  //   placeholderContainer.className = "development-placeholder";
+  //   placeholderContainer.style.display = "flex";
+  //   placeholderContainer.style.flexDirection = "column";
+  //   placeholderContainer.style.alignItems = "center";
+  //   placeholderContainer.style.justifyContent = "center";
+  //   placeholderContainer.style.textAlign = "center";
+  //   placeholderContainer.style.marginTop = "2rem";
 
-    // Create main message
-    const mainMessage = document.createElement("div");
-    mainMessage.textContent = "IN DEVELOPMENT";
-    mainMessage.style.color = "#ff0";
-    mainMessage.style.fontSize = "2rem";
-    mainMessage.style.fontWeight = "bold";
-    mainMessage.style.marginBottom = "1rem";
-    mainMessage.style.textShadow = "0 0 10px rgba(255, 255, 0, 0.7)";
-    mainMessage.style.animation = "pulse 1.5s infinite alternate";
+  //   // Create main message
+  //   const mainMessage = document.createElement("div");
+  //   mainMessage.textContent = "IN DEVELOPMENT";
+  //   mainMessage.style.color = "#ff0";
+  //   mainMessage.style.fontSize = "2rem";
+  //   mainMessage.style.fontWeight = "bold";
+  //   mainMessage.style.marginBottom = "1rem";
+  //   mainMessage.style.textShadow = "0 0 10px rgba(255, 255, 0, 0.7)";
+  //   mainMessage.style.animation = "pulse 1.5s infinite alternate";
 
-    // Create sub message
-    const subMessage = document.createElement("div");
-    subMessage.textContent = "COMING SOON";
-    subMessage.style.color = "#0f0";
-    subMessage.style.fontSize = "1.5rem";
-    subMessage.style.marginBottom = "2rem";
+  //   // Create sub message
+  //   const subMessage = document.createElement("div");
+  //   subMessage.textContent = "COMING SOON";
+  //   subMessage.style.color = "#0f0";
+  //   subMessage.style.fontSize = "1.5rem";
+  //   subMessage.style.marginBottom = "2rem";
 
-    // Create back button
-    const backButton = document.createElement("div");
-    backButton.textContent = "BACK TO MENU";
-    backButton.style.color = "#fff";
-    backButton.style.fontSize = "1.2rem";
-    backButton.style.padding = "10px 20px";
-    backButton.style.border = "2px solid #fff";
-    backButton.style.cursor = "pointer";
-    backButton.style.marginTop = "3rem";
-    backButton.style.transition = "all 0.2s";
+  //   // Create back button
+  //   const backButton = document.createElement("div");
+  //   backButton.textContent = "BACK TO MENU";
+  //   backButton.style.color = "#fff";
+  //   backButton.style.fontSize = "1.2rem";
+  //   backButton.style.padding = "10px 20px";
+  //   backButton.style.border = "2px solid #fff";
+  //   backButton.style.cursor = "pointer";
+  //   backButton.style.marginTop = "3rem";
+  //   backButton.style.transition = "all 0.2s";
 
-    // Add hover effect
-    backButton.addEventListener("mouseover", () => {
-      backButton.style.color = "#0f0";
-      backButton.style.borderColor = "#0f0";
-      backButton.style.textShadow = "0 0 5px rgba(0, 255, 0, 0.7)";
-      backButton.style.boxShadow = "0 0 15px rgba(0, 255, 0, 0.5)";
-    });
+  //   // Add hover effect
+  //   backButton.addEventListener("mouseover", () => {
+  //     backButton.style.color = "#0f0";
+  //     backButton.style.borderColor = "#0f0";
+  //     backButton.style.textShadow = "0 0 5px rgba(0, 255, 0, 0.7)";
+  //     backButton.style.boxShadow = "0 0 15px rgba(0, 255, 0, 0.5)";
+  //   });
 
-    backButton.addEventListener("mouseout", () => {
-      backButton.style.color = "#fff";
-      backButton.style.borderColor = "#fff";
-      backButton.style.textShadow = "none";
-      backButton.style.boxShadow = "none";
-    });
+  //   backButton.addEventListener("mouseout", () => {
+  //     backButton.style.color = "#fff";
+  //     backButton.style.borderColor = "#fff";
+  //     backButton.style.textShadow = "none";
+  //     backButton.style.boxShadow = "none";
+  //   });
 
-    // Add click handler
-    backButton.addEventListener("click", () => {
-      // Remove the placeholder
-      contentContainer.removeChild(placeholderContainer);
+  //   // Add click handler
+  //   backButton.addEventListener("click", () => {
+  //     // Remove the placeholder
+  //     contentContainer.removeChild(placeholderContainer);
 
-      // Show the menu again
-      if (menuSection) {
-        menuSection.style.display = "flex";
-      }
-    });
+  //     // Show the menu again
+  //     if (menuSection) {
+  //       menuSection.style.display = "flex";
+  //     }
+  //   });
 
-    // Append elements
-    placeholderContainer.appendChild(mainMessage);
-    placeholderContainer.appendChild(subMessage);
-    placeholderContainer.appendChild(backButton);
-    contentContainer.appendChild(placeholderContainer);
-  }
+  //   // Append elements
+  //   placeholderContainer.appendChild(mainMessage);
+  //   placeholderContainer.appendChild(subMessage);
+  //   placeholderContainer.appendChild(backButton);
+  //   contentContainer.appendChild(placeholderContainer);
+  // }
 
   show(): void {
     this.container.style.display = "flex";

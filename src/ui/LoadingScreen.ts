@@ -1,4 +1,3 @@
-import { AudioManager } from "../audio/AudioManager";
 import { Logger } from "../utils/Logger";
 
 export class LoadingScreen {
@@ -7,7 +6,6 @@ export class LoadingScreen {
   private loadingText!: HTMLDivElement;
   private executeButton!: HTMLDivElement;
   private errorMessageElement!: HTMLDivElement;
-  private ellipsisState: number = 0;
   private ellipsisInterval!: number;
   private cursorBlinkInterval!: number;
   private isMobileDevice: boolean = false;
