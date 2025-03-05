@@ -10,8 +10,12 @@ export class SceneSystem implements GameSystem {
   /** The underlying Scene instance */
   private scene: Scene;
 
-  /** Reference to the Game instance - stored for potential future use */
-  private game: Game; // Stored reference passed to scene.setGame()
+  /**
+   * Reference to the Game instance
+   * Stored for future interaction with game state
+   * and passed to scene.setGame() during initialization
+   */
+  private game: Game;
 
   /**
    * Creates a new SceneSystem.

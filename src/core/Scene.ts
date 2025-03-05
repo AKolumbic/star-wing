@@ -9,6 +9,7 @@ import { Input } from "./Input";
 import { Logger } from "../utils/Logger";
 import { UIUtils } from "../utils/UIUtils";
 import { Game } from "./Game";
+// import { UISystem } from "./systems/UISystem";
 import { Asteroid } from "../entities/Asteroid";
 
 /**
@@ -34,14 +35,20 @@ export class Scene {
   /** Background manager for handling different background modes */
   private backgroundManager: BackgroundManager;
 
-  /** Current animation frame request ID - used in animation loop management */
-  private animationFrameId: number | null = null; // Kept for animation frame cancellation
+  /** Current animation frame request ID - reserved for animation management */
+  private animationFrameId: number | null = null;
 
-  /** Game canvas element - used for initial setup and cleanup */
-  private canvas: HTMLCanvasElement; // Referenced in constructor
+  /**
+   * Canvas element reference - initialized in constructor,
+   * used when disposing scene
+   */
+  private canvas: HTMLCanvasElement;
 
-  /** Last timestamp for animation frame - used for delta time calculation */
-  private lastTime: number = 0; // Used for timing calculations
+  /**
+   * Last timestamp for animation frame - used for delta time calculation
+   * in the animation loop
+   */
+  private lastTime: number = 0;
 
   /** Camera default position */
   private readonly CAMERA_DEFAULT_POSITION = new THREE.Vector3(0, 50, 600);

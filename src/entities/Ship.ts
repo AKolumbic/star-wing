@@ -440,7 +440,7 @@ export class Ship {
         positions[i * 3 + 1] = 0; // y
         positions[i * 3 + 2] = z; // z
 
-        // Gradient color with fading alpha - intense blue neon
+        // Gradient color - intense blue neon
         colors[i * 3] = 0.0; // r (no red for bright blue)
         colors[i * 3 + 1] = 0.7; // g (some green for cyan tint)
         colors[i * 3 + 2] = 1.0; // b (full blue)

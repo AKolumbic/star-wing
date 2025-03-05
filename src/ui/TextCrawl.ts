@@ -6,7 +6,10 @@ export class TextCrawl {
   private crawlContainer: HTMLDivElement;
   private isVisible: boolean = false;
 
-  // Stored for future integration with game state and event systems
+  /**
+   * Reference to the Game instance
+   * Stored for future integration with game progress and narrative systems
+   */
   private game: Game;
   private onCompleteCallback: (() => void) | null = null;
   private animationEndHandler: ((e: AnimationEvent) => void) | null = null;

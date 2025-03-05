@@ -716,7 +716,7 @@ export class AudioManager {
    * Creates a seamless playback experience for looped audio.
    * @param buffer The audio buffer to analyze
    * @private
-   * @unused Currently not used but kept for future implementation
+   * @unused This method is preserved for future implementation
    */
   private optimizeBufferForLooping(buffer: AudioBuffer): AudioBuffer {
     // Sample rate and length info
@@ -1030,7 +1030,7 @@ export class AudioManager {
   /**
    * Creates a buffer of noise for use in sound effects.
    * @returns AudioBuffer containing noise
-   * @unused Currently not used but kept for future implementation
+   * @unused This method is preserved for future implementation
    */
   private createNoiseBuffer(): AudioBuffer {
     const bufferSize = this.audioContext.sampleRate * 2; // 2 seconds of noise

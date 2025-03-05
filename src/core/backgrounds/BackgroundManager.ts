@@ -144,8 +144,8 @@ export class BackgroundManager {
    */
   async transitionTo(
     toType: BackgroundType,
-    duration: number, // Duration is used in the updateTransition method
-    params?: Record<string, any> // Params are used when creating the new background
+    duration: number, // Stored in this.transitionParams and used during transition
+    params?: Record<string, any> // Passed to the new background when instantiated
   ): Promise<void> {
     if (!this.backgroundRegistry.has(toType)) {
       this.logger.warn(

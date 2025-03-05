@@ -4,7 +4,10 @@ export class HighScores {
   private container: HTMLDivElement;
   private isVisible: boolean = false;
 
-  // Stored for future integration with game state management
+  /**
+   * Reference to the Game instance
+   * Maintained for future integration with game state and score management
+   */
   private game: Game;
   private onCloseCallback: (() => void) | null = null;
 
