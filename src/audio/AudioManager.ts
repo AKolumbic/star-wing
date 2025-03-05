@@ -60,24 +60,24 @@ export class AudioManager {
    * Pattern for synth chord arpeggiation
    * Each pair represents [D, A] note triggering
    */
-  private synthArpPattern = [
-    [0, 0],
-    [0, 0],
-    [1, 0],
-    [0, 0],
-    [0, 1],
-    [0, 0],
-    [0, 0],
-    [0, 0],
-    [0, 0],
-    [0, 0],
-    [1, 0],
-    [0, 0],
-    [0, 1],
-    [0, 0],
-    [0, 0],
-    [1, 1],
-  ]; // [D, A] notes
+  // private synthArpPattern = [
+  //   [0, 0],
+  //   [0, 0],
+  //   [1, 0],
+  //   [0, 0],
+  //   [0, 1],
+  //   [0, 0],
+  //   [0, 0],
+  //   [0, 0],
+  //   [0, 0],
+  //   [0, 0],
+  //   [1, 0],
+  //   [0, 0],
+  //   [0, 1],
+  //   [0, 0],
+  //   [0, 0],
+  //   [1, 1],
+  // ]; // [D, A] notes
 
   /** Current beat position in the pattern sequence */
   private currentBeat: number = 0;
@@ -452,56 +452,56 @@ export class AudioManager {
    * @param frequency The base frequency for the synth
    * @private
    */
-  private playSynth(time: number, frequency: number): void {
-    // Classic 80s synth sound - PWM-like
-    const synthOsc = this.audioContext.createOscillator();
-    synthOsc.type = "square";
-    synthOsc.frequency.value = frequency;
+  // private playSynth(time: number, frequency: number): void {
+  //   // Classic 80s synth sound - PWM-like
+  //   const synthOsc = this.audioContext.createOscillator();
+  //   synthOsc.type = "square";
+  //   synthOsc.frequency.value = frequency;
 
-    // Create slight detune for thickness
-    const detuneOsc = this.audioContext.createOscillator();
-    detuneOsc.type = "square";
-    detuneOsc.frequency.value = frequency * 1.003; // Slight detune
+  //   // Create slight detune for thickness
+  //   const detuneOsc = this.audioContext.createOscillator();
+  //   detuneOsc.type = "square";
+  //   detuneOsc.frequency.value = frequency * 1.003; // Slight detune
 
-    // Create gain for envelope
-    const synthGain = this.audioContext.createGain();
-    synthGain.gain.value = 0;
+  //   // Create gain for envelope
+  //   const synthGain = this.audioContext.createGain();
+  //   synthGain.gain.value = 0;
 
-    // Get cached filter
-    const filter = this.getOrCreateFilter("lowpass2000", "lowpass", 2000, 3);
+  //   // Get cached filter
+  //   const filter = this.getOrCreateFilter("lowpass2000", "lowpass", 2000, 3);
 
-    // Create chorus effect with delay
-    const delay = this.audioContext.createDelay();
-    delay.delayTime.value = 0.03;
-    const delayGain = this.audioContext.createGain();
-    delayGain.gain.value = 0.2;
+  //   // Create chorus effect with delay
+  //   const delay = this.audioContext.createDelay();
+  //   delay.delayTime.value = 0.03;
+  //   const delayGain = this.audioContext.createGain();
+  //   delayGain.gain.value = 0.2;
 
-    // Connect everything
-    synthOsc.connect(synthGain);
-    detuneOsc.connect(synthGain);
-    synthGain.connect(filter);
-    filter.connect(this.mainGainNode);
+  //   // Connect everything
+  //   synthOsc.connect(synthGain);
+  //   detuneOsc.connect(synthGain);
+  //   synthGain.connect(filter);
+  //   filter.connect(this.mainGainNode);
 
-    // Chorus effect connection
-    filter.connect(delay);
-    delay.connect(delayGain);
-    delayGain.connect(this.mainGainNode);
+  //   // Chorus effect connection
+  //   filter.connect(delay);
+  //   delay.connect(delayGain);
+  //   delayGain.connect(this.mainGainNode);
 
-    // Start oscillators
-    synthOsc.start(time);
-    detuneOsc.start(time);
+  //   // Start oscillators
+  //   synthOsc.start(time);
+  //   detuneOsc.start(time);
 
-    // Classic synth ADSR envelope (shortened for faster tempo)
-    synthGain.gain.setValueAtTime(0, time);
-    synthGain.gain.linearRampToValueAtTime(0.3, time + 0.05); // Attack
-    synthGain.gain.linearRampToValueAtTime(0.2, time + 0.15); // Decay to sustain
-    synthGain.gain.setValueAtTime(0.2, time + 0.2); // Sustain
-    synthGain.gain.linearRampToValueAtTime(0, time + 0.4); // Release
+  //   // Classic synth ADSR envelope (shortened for faster tempo)
+  //   synthGain.gain.setValueAtTime(0, time);
+  //   synthGain.gain.linearRampToValueAtTime(0.3, time + 0.05); // Attack
+  //   synthGain.gain.linearRampToValueAtTime(0.2, time + 0.15); // Decay to sustain
+  //   synthGain.gain.setValueAtTime(0.2, time + 0.2); // Sustain
+  //   synthGain.gain.linearRampToValueAtTime(0, time + 0.4); // Release
 
-    // Stop oscillators
-    synthOsc.stop(time + 0.5);
-    detuneOsc.stop(time + 0.5);
-  }
+  //   // Stop oscillators
+  //   synthOsc.stop(time + 0.5);
+  //   detuneOsc.stop(time + 0.5);
+  // }
 
   /**
    * Loads an audio sample from a URL and caches it for later use.

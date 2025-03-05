@@ -29,7 +29,7 @@ export class InputSystem implements GameSystem {
    * Updates the input system for the current frame.
    * @param deltaTime Time elapsed since the last frame in seconds
    */
-  update(deltaTime: number): void {
+  update(_deltaTime: number): void {
     this.input.update();
   }
 

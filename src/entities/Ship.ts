@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { Input } from "../core/Input";
 import { Logger } from "../utils/Logger";
 
@@ -36,7 +35,7 @@ export class Ship {
   private rotation: THREE.Euler = new THREE.Euler(0, 0, 0);
 
   /** The ship's movement speed */
-  private speed: number = 5;
+  // private speed: number = 5;
 
   /** Maximum horizontal distance from center (full width = 2800) */
   private horizontalLimit: number = 1400;
@@ -57,7 +56,7 @@ export class Ship {
   private maxShield: number = 100;
 
   /** The ship's rotation speed */
-  private rotationSpeed: number = 0.05;
+  // private rotationSpeed: number = 0.05;
 
   /** Reference to the input system */
   private input: Input;
@@ -497,9 +496,9 @@ export class Ship {
 
     // Create a retro-style "step" movement instead of smooth interpolation
     // Divide the animation into discrete steps
-    const numberOfSteps = 8;
-    const stepIndex = Math.floor(progress * numberOfSteps);
-    const steppedProgress = stepIndex / numberOfSteps;
+    // const numberOfSteps = 8;
+    // const stepIndex = Math.floor(progress * numberOfSteps);
+    // const steppedProgress = stepIndex / numberOfSteps;
 
     // Phase 1: Enter from right side with "digital" steps (0-60%)
     if (progress < 0.6) {
@@ -622,7 +621,7 @@ export class Ship {
    * Animates the engine glow effect.
    * @param deltaTime Time elapsed since the last frame in seconds
    */
-  private updateEngineGlow(deltaTime: number): void {
+  private updateEngineGlow(_deltaTime: number): void {
     if (!this.engineGlowMeshes || this.engineGlowMeshes.length === 0) return;
 
     // Create retro-style "pulsing" effect - more digital looking
@@ -686,7 +685,7 @@ export class Ship {
   private handleInput(deltaTime: number): void {
     // Arcade-style movement with instant response and digital feeling
     const moveSpeed = 8.0; // Faster movement for arcade feel
-    const maxSpeed = 8.0; // Higher max speed
+    // const maxSpeed = 8.0; // Higher max speed
 
     // Digital-style input response (full speed or nothing)
     let moveX = 0;

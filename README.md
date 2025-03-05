@@ -23,19 +23,19 @@ git clone https://github.com/akolumbic/star-wing.git
 cd star-wing
 ```
 
-2. Install dependencies:
+1. Install dependencies:
 
 ```bash
 npm install
 ```
 
-3. Start the development server:
+1. Start the development server:
 
 ```bash
 npm run dev
 ```
 
-4. Build for production:
+1. Build for production:
 
 ```bash
 npm run build
@@ -50,7 +50,7 @@ For more efficient development workflow, Star Wing includes a developer mode tha
 
 To enable dev mode, simply add `?dev=true` to the URL:
 
-```
+```bash
 http://localhost:5173/?dev=true
 ```
 
@@ -58,7 +58,7 @@ This is particularly useful during development to avoid repeatedly clicking thro
 
 ## Project Structure
 
-```
+```bash
 star-wing/
 ├── src/
 │   ├── core/                  # Core game systems

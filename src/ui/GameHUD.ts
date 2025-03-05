@@ -1,5 +1,4 @@
 import { Game } from "../core/Game";
-import { Ship } from "../entities/Ship";
 import { Scene } from "../core/Scene";
 
 /**
@@ -280,7 +279,7 @@ export class GameHUD {
    * Updates HUD elements with current game state
    * @param deltaTime Time elapsed since last frame in seconds
    */
-  update(deltaTime: number): void {
+  update(_deltaTime: number): void {
     if (!this.isVisible) return;
 
     // Get the scene from the game
