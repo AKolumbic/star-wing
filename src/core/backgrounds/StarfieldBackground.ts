@@ -128,7 +128,7 @@ export class StarfieldBackground implements Background {
     // Initialize random star positions, speeds, streak lengths, and opacities
     for (let i = 0; i < this.params.starCount; i++) {
       const idx = i * 3;
-      const halfSize = this.params.fieldSize / 2;
+      // const halfSize = this.params.fieldSize / 2;
 
       // Position (x,y,z) with z spread throughout the field
       this.starPositions[idx] = (Math.random() - 0.5) * this.params.fieldSize; // x

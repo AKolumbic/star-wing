@@ -30,7 +30,7 @@ export class AudioSystem implements GameSystem {
    * Currently a no-op as the AudioManager handles its own timing.
    * @param deltaTime Time elapsed since the last frame in seconds
    */
-  update(deltaTime: number): void {
+  update(_deltaTime: number): void {
     // AudioManager handles its own timing internally
   }
 
