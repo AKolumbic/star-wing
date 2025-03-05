@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { Input } from "../core/Input";
 import { Logger } from "../utils/Logger";
+import { WeaponSystem } from "../weapons/WeaponSystem";
+import { UISystem } from "../core/systems/UISystem";
 
 /**
  * Represents the player's ship in the game.
@@ -88,6 +90,12 @@ export class Ship {
   /** Logger instance */
   private logger = Logger.getInstance();
 
+  /** Weapon system for the ship */
+  private weaponSystem: WeaponSystem | null = null;
+
+  /** Direction the ship is facing/aiming */
+  private aimDirection: THREE.Vector3 = new THREE.Vector3(0, 0, -1);
+
   /**
    * Creates a new Ship instance.
    * @param scene The THREE.Scene to add the ship to
@@ -101,6 +109,9 @@ export class Ship {
 
     // Set initial position off-screen
     this.position.copy(this.ENTRY_START_POSITION);
+
+    // Initialize the weapon system
+    this.weaponSystem = new WeaponSystem(scene);
   }
 
   /**
@@ -435,8 +446,16 @@ export class Ship {
     if (this.playingEntryAnimation) {
       // Update entry animation if playing
       this.updateEntryAnimation(deltaTime);
-    } else if (this.playerControlled) {
-      // Handle player input
+      return;
+    }
+
+    // Update weapons
+    if (this.weaponSystem) {
+      this.weaponSystem.update(deltaTime);
+    }
+
+    // Only handle input if player controlled
+    if (this.playerControlled) {
       this.handleInput(deltaTime);
 
       // Add some drag/friction to make controls feel better
@@ -563,7 +582,7 @@ export class Ship {
     if (this.engineGlowMeshes && this.engineGlowMeshes.length > 0) {
       const engineState = Math.floor(elapsed * 10) % 2; // Blink at 5Hz
 
-      this.engineGlowMeshes.forEach((engine) => {
+      this.engineGlowMeshes.forEach((engine, index) => {
         if (engine && engine.material) {
           // Digital on/off for engines
           if (engineState === 0) {
@@ -758,6 +777,54 @@ export class Ship {
         this.position.z -= 1;
       }, 50);
     }
+
+    // Handle weapon firing
+    if (this.weaponSystem) {
+      // Get aim direction (make it match the direction the ship is facing)
+      this.aimDirection
+        .copy(new THREE.Vector3(0, 0, -1))
+        .applyQuaternion(this.model!.quaternion);
+
+      // Fire primary weapon on left mouse button
+      if (this.input.isMouseButtonPressed(0)) {
+        this.firePrimaryWeapon();
+      }
+
+      // Fire secondary weapon on right mouse button
+      if (this.input.isMouseButtonPressed(2)) {
+        this.fireSecondaryWeapon();
+      }
+    }
+  }
+
+  /**
+   * Fires the primary weapon
+   */
+  firePrimaryWeapon(): void {
+    if (!this.weaponSystem || !this.model) return;
+
+    // Get the position to fire from (slightly in front of the ship)
+    const firePosition = this.position
+      .clone()
+      .add(this.aimDirection.clone().multiplyScalar(10));
+
+    // Fire the weapon
+    this.weaponSystem.firePrimary(firePosition, this.aimDirection);
+  }
+
+  /**
+   * Fires the secondary weapon
+   */
+  fireSecondaryWeapon(): void {
+    if (!this.weaponSystem || !this.model) return;
+
+    // Get the position to fire from (slightly in front of the ship)
+    const firePosition = this.position
+      .clone()
+      .add(this.aimDirection.clone().multiplyScalar(10));
+
+    // Fire the weapon
+    this.weaponSystem.fireSecondary(firePosition, this.aimDirection);
   }
 
   /**
@@ -879,6 +946,12 @@ export class Ship {
     this.engineGlowMeshes = [];
     this.loaded = false;
 
+    // Dispose of weapon system
+    if (this.weaponSystem) {
+      this.weaponSystem.dispose();
+      this.weaponSystem = null;
+    }
+
     this.logger.info("Ship disposed");
   }
 
@@ -988,5 +1061,52 @@ export class Ship {
    */
   getVerticalLimit(): number {
     return this.verticalLimit;
+  }
+
+  /**
+   * Initializes the ship's systems
+   */
+  async initialize(): Promise<void> {
+    // Initialize weapon system
+    if (this.weaponSystem) {
+      await this.weaponSystem.init();
+    }
+  }
+
+  /**
+   * Sets the UI system for the weapon system
+   * @param uiSystem The UI system to connect to
+   */
+  setUISystem(uiSystem: UISystem): void {
+    if (this.weaponSystem) {
+      this.weaponSystem.setUISystem(uiSystem);
+    }
+  }
+
+  /**
+   * Sets a specific primary weapon
+   * @param weaponId The ID of the weapon to set
+   * @returns Whether the weapon was set successfully
+   */
+  setPrimaryWeapon(weaponId: string): boolean {
+    if (!this.weaponSystem) return false;
+    return this.weaponSystem.setPrimaryWeapon(weaponId);
+  }
+
+  /**
+   * Sets a specific secondary weapon
+   * @param weaponId The ID of the weapon to set
+   * @returns Whether the weapon was set successfully
+   */
+  setSecondaryWeapon(weaponId: string): boolean {
+    if (!this.weaponSystem) return false;
+    return this.weaponSystem.setSecondaryWeapon(weaponId);
+  }
+
+  /**
+   * Gets the weapon system
+   */
+  getWeaponSystem(): WeaponSystem | null {
+    return this.weaponSystem;
   }
 }

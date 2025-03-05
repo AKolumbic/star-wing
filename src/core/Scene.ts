@@ -8,6 +8,8 @@ import { Ship } from "../entities/Ship";
 import { Input } from "./Input";
 import { Logger } from "../utils/Logger";
 import { UIUtils } from "../utils/UIUtils";
+import { Game } from "./Game";
+import { UISystem } from "./systems/UISystem";
 
 /**
  * Scene class responsible for managing the 3D rendering environment.
@@ -75,6 +77,9 @@ export class Scene {
 
   /** Whether dev mode is enabled */
   private devMode: boolean = false;
+
+  /** Reference to the Game instance */
+  private game: Game | null = null;
 
   /**
    * Creates a new scene with a WebGL renderer.
@@ -440,6 +445,17 @@ export class Scene {
     // Load the ship model (async)
     await this.playerShip.load();
 
+    // Initialize ship systems
+    await this.playerShip.initialize();
+
+    // Connect weapon system to UI system if available
+    if (this.game && this.playerShip) {
+      const uiSystem = this.game.getUISystem();
+      if (uiSystem) {
+        this.playerShip.setUISystem(uiSystem);
+      }
+    }
+
     // If in dev mode, add boundary controls after ship is created
     if (this.devMode && this.playerShip) {
       this.setupDebugControls();
@@ -639,5 +655,13 @@ export class Scene {
     window.addEventListener("resize", this.onWindowResize.bind(this));
 
     this.logger.info("Scene: Event listeners set up");
+  }
+
+  /**
+   * Sets the game instance reference
+   * @param game The Game instance
+   */
+  setGame(game: Game): void {
+    this.game = game;
   }
 }
