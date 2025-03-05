@@ -136,7 +136,7 @@ export class BackgroundManager {
   }
 
   /**
-   * Start a transition between background types.
+   * Transitions from the current background to a new one.
    * @param toType The background type to transition to
    * @param duration The duration of the transition in seconds
    * @param params Optional parameters for the new background
@@ -144,8 +144,8 @@ export class BackgroundManager {
    */
   async transitionTo(
     toType: BackgroundType,
-    duration: number,
-    params?: Record<string, any>
+    duration: number, // Duration is used in the updateTransition method
+    params?: Record<string, any> // Params are used when creating the new background
   ): Promise<void> {
     if (!this.backgroundRegistry.has(toType)) {
       this.logger.warn(

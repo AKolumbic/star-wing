@@ -441,7 +441,6 @@ export class Ship {
         positions[i * 3 + 2] = z; // z
 
         // Gradient color with fading alpha - intense blue neon
-        const alpha = 1 - i / segments;
         colors[i * 3] = 0.0; // r (no red for bright blue)
         colors[i * 3 + 1] = 0.7; // g (some green for cyan tint)
         colors[i * 3 + 2] = 1.0; // b (full blue)
@@ -802,7 +801,7 @@ export class Ship {
     if (this.engineGlowMeshes && this.engineGlowMeshes.length > 0) {
       const engineState = Math.floor(elapsed * 10) % 2; // Blink at 5Hz
 
-      this.engineGlowMeshes.forEach((engine, index) => {
+      this.engineGlowMeshes.forEach((engine) => {
         if (engine && engine.material) {
           // Digital on/off for engines
           if (engineState === 0) {

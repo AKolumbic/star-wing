@@ -3,6 +3,8 @@ import { Game } from "../core/Game";
 export class HighScores {
   private container: HTMLDivElement;
   private isVisible: boolean = false;
+
+  // Stored for future integration with game state management
   private game: Game;
   private onCloseCallback: (() => void) | null = null;
 

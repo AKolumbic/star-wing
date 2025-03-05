@@ -29,6 +29,8 @@ export class WeaponSystem implements GameSystem {
   // References
   private scene: THREE.Scene;
   private uiSystem: UISystem | null = null;
+
+  // Game reference for future integration with game state and events
   private game: Game | null = null;
   private audioManager: AudioManager | null = null;
   private logger = Logger.getInstance();
