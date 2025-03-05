@@ -404,4 +404,98 @@ export class Game {
       this.audioSystem.playMenuThump(true);
     }
   }
+
+  /**
+   * Attempts to ensure audio can play in the game.
+   * May add a button for the user to click to unlock audio if the browser requires it.
+   */
+  public ensureAudioCanPlay(): void {
+    const audioManager = this.getAudioManager();
+
+    if (!audioManager) {
+      this.logger.warn(
+        "Cannot ensure audio playback - AudioManager not available"
+      );
+      return;
+    }
+
+    // Check if audio can play already
+    if (audioManager.canPlayAudio()) {
+      this.logger.info("Audio context is already running");
+      return;
+    }
+
+    // Create an "Unlock Audio" button if needed
+    const audioContext = audioManager.getAudioContext();
+    if (audioContext && audioContext.state === "suspended") {
+      this.createAudioUnlockButton();
+    }
+  }
+
+  /**
+   * Creates a temporary button for users to click to unlock audio playback.
+   * This is necessary in browsers that require user interaction before audio can play.
+   */
+  private createAudioUnlockButton(): void {
+    const existingButton = document.getElementById("audio-unlock-button");
+    if (existingButton) return; // Don't create duplicate buttons
+
+    this.logger.info("Creating audio unlock button");
+
+    // Create the button
+    const button = document.createElement("button");
+    button.id = "audio-unlock-button";
+    button.textContent = "Click to Enable Audio";
+    button.style.position = "fixed";
+    button.style.top = "50%";
+    button.style.left = "50%";
+    button.style.transform = "translate(-50%, -50%)";
+    button.style.padding = "16px 24px";
+    button.style.backgroundColor = "#33ff99";
+    button.style.color = "#000";
+    button.style.border = "none";
+    button.style.borderRadius = "8px";
+    button.style.fontSize = "18px";
+    button.style.fontFamily = "'Press Start 2P', monospace";
+    button.style.cursor = "pointer";
+    button.style.zIndex = "9999";
+
+    // Add pulsing animation
+    button.style.animation = "pulse 1.5s infinite";
+
+    // Add the animation style
+    const style = document.createElement("style");
+    style.textContent = `
+      @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(51, 255, 153, 0.7); }
+        70% { box-shadow: 0 0 0 15px rgba(51, 255, 153, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(51, 255, 153, 0); }
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Add click handler to unlock audio
+    button.addEventListener("click", async () => {
+      const audioManager = this.getAudioManager();
+      const success = await audioManager.tryResumeAudioContext();
+
+      if (success) {
+        this.logger.info("Audio context unlocked by user interaction");
+        button.textContent = "Audio Enabled!";
+
+        // Play a test sound to confirm audio is working
+        audioManager.playTestTone();
+
+        // Remove the button after a short delay
+        setTimeout(() => {
+          button.remove();
+        }, 1500);
+      } else {
+        button.textContent = "Try Again";
+        button.style.backgroundColor = "#ff3366";
+      }
+    });
+
+    document.body.appendChild(button);
+  }
 }

@@ -26,8 +26,14 @@ export class AudioSystem implements GameSystem {
 
     // Preload the menu music
     try {
-      const menuMusicFile = "/assets/audio/star-wing_menu-loop.mp3";
+      // Use a relative path instead of absolute path
+      // Remove the leading slash so it's relative to base URL
+      const menuMusicFile = "assets/audio/star-wing_menu-loop.mp3";
       const menuMusicId = "menuMusic";
+
+      // Log the full URL for debugging
+      const fullUrl = new URL(menuMusicFile, window.location.origin).href;
+      console.log("Loading menu music from:", fullUrl);
 
       // Load the menu music in advance
       await this.audioManager.loadAudioSample(menuMusicFile, menuMusicId);

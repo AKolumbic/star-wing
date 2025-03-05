@@ -41,9 +41,17 @@ window.addEventListener("DOMContentLoaded", () => {
   window.gameInstance = new Game("gameCanvas", devMode, enableDevAudio);
 
   // Initialize the game
-  window.gameInstance.init().catch((error) => {
-    logger.error("Failed to initialize game:", error);
-  });
+  window.gameInstance
+    .init()
+    .catch((error) => {
+      logger.error("Failed to initialize game:", error);
+    })
+    .then(() => {
+      // After initialization, ensure audio can play with a proper UI element if needed
+      setTimeout(() => {
+        window.gameInstance.ensureAudioCanPlay();
+      }, 2000); // Wait 2 seconds to allow other UI to load first
+    });
 
   // Export game instance for debugging
   (window as any).game = window.gameInstance;

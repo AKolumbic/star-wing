@@ -177,6 +177,32 @@ export class AudioManager {
           this.logger.info(
             "AudioManager: Audio context is suspended, will resume on user interaction"
           );
+
+          // Add event listeners to resume AudioContext on user interaction
+          const resumeAudioContext = () => {
+            if (this.audioContext.state === "suspended") {
+              this.audioContext
+                .resume()
+                .then(() => {
+                  this.logger.info(
+                    "AudioManager: AudioContext resumed successfully"
+                  );
+                })
+                .catch((error) => {
+                  this.logger.error(
+                    "AudioManager: Failed to resume AudioContext:",
+                    error
+                  );
+                });
+            }
+          };
+
+          // Add listeners for common user interactions
+          ["click", "touchstart", "keydown"].forEach((event) => {
+            document.addEventListener(event, resumeAudioContext, {
+              once: true,
+            });
+          });
         }
       }
 
@@ -663,6 +689,42 @@ export class AudioManager {
   }
 
   /**
+   * Checks if audio playback is currently allowed by the browser
+   * @returns True if audio can be played, false otherwise
+   */
+  public canPlayAudio(): boolean {
+    return (
+      this.isInitialized &&
+      this.audioContext &&
+      this.audioContext.state === "running"
+    );
+  }
+
+  /**
+   * Attempts to resume the audio context if it's suspended
+   * @returns Promise that resolves to true if resumed, false otherwise
+   */
+  public async tryResumeAudioContext(): Promise<boolean> {
+    if (!this.audioContext) return false;
+
+    if (this.audioContext.state === "suspended") {
+      try {
+        await this.audioContext.resume();
+        this.logger.info("AudioManager: AudioContext resumed manually");
+        return true;
+      } catch (error) {
+        this.logger.error(
+          "AudioManager: Failed to resume AudioContext:",
+          error
+        );
+        return false;
+      }
+    }
+
+    return this.audioContext.state === "running";
+  }
+
+  /**
    * Plays a previously loaded audio sample.
    * @param id The identifier of the sample to play
    * @param volume Volume level for playback (0.0 to 1.0)
@@ -680,36 +742,45 @@ export class AudioManager {
       return null;
     }
 
-    const source = this.audioContext.createBufferSource();
-    source.buffer = buffer;
-    source.loop = loop;
-
-    // For looped music, add loop points for smoother looping
-    if (loop && id === "menuMusic") {
-      // Set loop points for cleaner looping if needed
-      // Precise loop points depend on the specific audio file
-      const loopStartPosition = 0; // Start from beginning
-      // Loop a tiny bit before the end to avoid the hiccup
-      const loopEndPosition = buffer.duration - 0.05;
-
-      // Set loop points if supported by the browser
-      if (source.loopStart !== undefined && source.loopEnd !== undefined) {
-        source.loopStart = loopStartPosition;
-        source.loopEnd = loopEndPosition;
+    try {
+      // Try to resume the audio context first if it's suspended
+      if (this.audioContext.state === "suspended") {
         this.logger.info(
-          `AudioManager: Set custom loop points for ${id}: ${loopStartPosition} to ${loopEndPosition}`
+          `AudioManager: Attempting to resume AudioContext for ${id}`
         );
+        this.audioContext.resume().catch((err) => {
+          this.logger.error("AudioManager: Resume error:", err);
+        });
       }
+
+      // Create and configure the source node
+      const source = this.audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.loop = loop;
+
+      // Create a gain node for this sample's volume
+      const gainNode = this.audioContext.createGain();
+      gainNode.gain.value = volume * (this.isMuted ? 0 : 1);
+
+      // Connect the nodes
+      source.connect(gainNode);
+      gainNode.connect(this.mainGainNode);
+
+      // Start playback
+      source.start(0);
+
+      this.logger.info(
+        `AudioManager: Playing audio sample ${id} (loop: ${loop}, volume: ${volume}, context state: ${this.audioContext.state})`
+      );
+
+      return source;
+    } catch (error) {
+      this.logger.error(
+        `AudioManager: Error playing audio sample ${id}:`,
+        error
+      );
+      return null;
     }
-
-    const gainNode = this.audioContext.createGain();
-    gainNode.gain.value = volume * (this.isMuted ? 0 : this.getVolume());
-
-    source.connect(gainNode);
-    gainNode.connect(this.mainGainNode);
-
-    source.start();
-    return source;
   }
 
   /**
@@ -1047,5 +1118,13 @@ export class AudioManager {
     }
 
     return buffer;
+  }
+
+  /**
+   * Gets the AudioContext instance
+   * @returns The current AudioContext or null if not initialized
+   */
+  public getAudioContext(): AudioContext | null {
+    return this.audioContext || null;
   }
 }
