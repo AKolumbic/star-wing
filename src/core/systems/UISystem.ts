@@ -1,7 +1,11 @@
 import { GameSystem } from "../GameSystem";
+import { Game } from "../Game";
 import { Menu } from "../../ui/Menu";
 import { LoadingScreen } from "../../ui/LoadingScreen";
 import { TerminalBorder } from "../../ui/TerminalBorder";
+import { TextCrawl } from "../../ui/TextCrawl";
+import { GameHUD } from "../../ui/GameHUD";
+import { Logger } from "../../utils/Logger";
 
 /**
  * System that manages all UI components including menus, overlays, and HUD.
@@ -17,19 +21,39 @@ export class UISystem implements GameSystem {
   /** Terminal-style border UI element */
   private terminalBorder: TerminalBorder;
 
+  /** Text crawl intro component */
+  private textCrawl: TextCrawl;
+
+  /** In-game HUD component */
+  private gameHUD: GameHUD;
+
   /** Reference to the main game for accessing game state */
-  private game: any; // Using 'any' to avoid circular dependency
+  private game: Game;
+
+  /** Logger instance */
+  private logger = Logger.getInstance();
+
+  /** Whether the game is currently active (used to determine menu context) */
+  private gameActive: boolean = false;
+
+  /** Escape key handler for in-game menu toggle */
+  private escapeKeyHandler: ((e: KeyboardEvent) => void) | null = null;
 
   /**
    * Creates a new UISystem.
    * @param game Reference to the main game instance
    */
-  constructor(game: any) {
+  constructor(game: Game) {
     this.game = game;
     this.menu = new Menu(this.game);
     this.terminalBorder = TerminalBorder.getInstance();
+    this.textCrawl = new TextCrawl(this.game);
+    this.gameHUD = new GameHUD(this.game);
 
     // The loading screen is created later when needed
+
+    // Set up Escape key handler for in-game menu
+    this.setupEscapeKeyHandler();
   }
 
   /**
@@ -46,7 +70,10 @@ export class UISystem implements GameSystem {
    * @param deltaTime Time elapsed since the last frame in seconds
    */
   update(deltaTime: number): void {
-    // UI components are largely event-driven, but we could update animations here
+    // Update the HUD with latest game data
+    if (this.gameHUD) {
+      this.gameHUD.update(deltaTime);
+    }
   }
 
   /**
@@ -70,6 +97,49 @@ export class UISystem implements GameSystem {
     ) {
       this.terminalBorder.dispose();
     }
+
+    if (this.textCrawl && typeof this.textCrawl.dispose === "function") {
+      this.textCrawl.dispose();
+    }
+
+    if (this.gameHUD && typeof this.gameHUD.dispose === "function") {
+      this.gameHUD.dispose();
+    }
+
+    // Remove escape key handler
+    this.removeEscapeKeyHandler();
+  }
+
+  /**
+   * Sets up the Escape key handler for toggling the in-game menu
+   */
+  private setupEscapeKeyHandler(): void {
+    this.escapeKeyHandler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && this.gameActive) {
+        // Toggle menu visibility
+        if (this.isMenuVisible()) {
+          this.resumeGame();
+        } else {
+          this.showInGameMenu();
+        }
+
+        // Prevent default action (browser escape)
+        e.preventDefault();
+      }
+    };
+
+    // Add the event listener
+    document.addEventListener("keydown", this.escapeKeyHandler);
+  }
+
+  /**
+   * Removes the escape key handler
+   */
+  private removeEscapeKeyHandler(): void {
+    if (this.escapeKeyHandler) {
+      document.removeEventListener("keydown", this.escapeKeyHandler);
+      this.escapeKeyHandler = null;
+    }
   }
 
   /**
@@ -81,10 +151,54 @@ export class UISystem implements GameSystem {
   }
 
   /**
-   * Shows the menu.
+   * Shows the main menu (not during gameplay).
    */
   showMenu(): void {
-    this.menu.show();
+    this.gameActive = false;
+    this.menu.showMainMenu();
+
+    // Hide the HUD when menu is shown
+    this.gameHUD.hide();
+
+    // Start menu music when the menu is shown
+    const audioSystem = this.game.getAudioSystem();
+    if (audioSystem) {
+      // Pass devMode flag to use procedural audio if in dev mode
+      audioSystem.playMenuThump(this.game.isDevMode());
+    }
+  }
+
+  /**
+   * Shows the in-game menu (pause menu during gameplay).
+   */
+  showInGameMenu(): void {
+    // Don't change the gameActive flag here - we just need to pause temporarily
+
+    // Show the in-game menu through the Menu class
+    this.menu.showInGameMenu();
+
+    // Hide the HUD when menu is shown
+    this.gameHUD.hide();
+
+    // Log the action
+    this.logger.info("In-game menu displayed (paused)");
+  }
+
+  /**
+   * Resumes the game by hiding the menu and showing the HUD
+   */
+  resumeGame(): void {
+    // Set flag to indicate game is active
+    this.gameActive = true;
+
+    // Hide the menu
+    this.menu.hide();
+
+    // Show the game HUD
+    this.showGameHUD();
+
+    // Log the resume action
+    this.logger.info("Game resumed from pause menu");
   }
 
   /**
@@ -96,10 +210,25 @@ export class UISystem implements GameSystem {
   }
 
   /**
+   * Shows the text crawl intro sequence.
+   * @param onComplete Function to call when the text crawl completes
+   */
+  showTextCrawl(onComplete: () => void): void {
+    this.textCrawl.show(onComplete);
+  }
+
+  /**
+   * Hides the text crawl.
+   */
+  hideTextCrawl(): void {
+    this.textCrawl.hide();
+  }
+
+  /**
    * Shows the terminal border UI element.
    */
   showTerminalBorder(): void {
-    console.log("[UISystem] Showing terminal border");
+    this.logger.info("[UISystem] Showing terminal border");
     this.terminalBorder.initialize();
   }
 
@@ -107,8 +236,77 @@ export class UISystem implements GameSystem {
    * Hides the terminal border UI element.
    */
   hideTerminalBorder(): void {
-    console.log("[UISystem] Hiding terminal border");
+    this.logger.info("[UISystem] Hiding terminal border");
     this.terminalBorder.dispose();
+  }
+
+  /**
+   * Shows the game HUD
+   */
+  showGameHUD(): void {
+    this.logger.info("[UISystem] Showing game HUD");
+    // Set gameActive flag to true when HUD is shown
+    this.gameActive = true;
+    this.gameHUD.show();
+  }
+
+  /**
+   * Hides the in-game HUD.
+   */
+  hideGameHUD(): void {
+    this.logger.info("[UISystem] Hiding game HUD");
+    this.gameHUD.hide();
+  }
+
+  /**
+   * Updates the HUD with current game data.
+   * @param health Current health value
+   * @param maxHealth Maximum health value
+   * @param shield Current shield value
+   * @param maxShield Maximum shield value
+   * @param score Current score
+   * @param zone Current zone number
+   * @param wave Current wave number
+   * @param totalWaves Total waves in current zone
+   */
+  updateHUDData(
+    health: number,
+    maxHealth: number,
+    shield: number,
+    maxShield: number,
+    score: number,
+    zone: number,
+    wave: number,
+    totalWaves: number
+  ): void {
+    this.gameHUD.setHealth(health, maxHealth);
+    this.gameHUD.setShield(shield, maxShield);
+    this.gameHUD.setScore(score);
+    this.gameHUD.setZoneInfo(zone, wave, totalWaves);
+  }
+
+  /**
+   * Updates the HUD weapon cooldowns.
+   * @param primary Primary weapon cooldown (0-1)
+   * @param special Special weapon cooldown (0-1)
+   */
+  updateWeaponCooldowns(primary: number, special: number): void {
+    this.gameHUD.setWeaponCooldowns(primary, special);
+  }
+
+  /**
+   * Show a warning message on the HUD.
+   * @param message The warning message to display
+   */
+  showHUDWarning(message: string): void {
+    this.gameHUD.showWarning(message);
+  }
+
+  /**
+   * Hide the warning message on the HUD.
+   */
+  hideHUDWarning(): void {
+    this.gameHUD.hideWarning();
   }
 
   /**

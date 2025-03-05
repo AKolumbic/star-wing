@@ -6,6 +6,7 @@ import { AudioSystem } from "./systems/AudioSystem";
 import { UISystem } from "./systems/UISystem";
 import { UIUtils } from "../utils/UIUtils";
 import { AudioManager } from "../audio/AudioManager";
+import { Logger } from "../utils/Logger";
 
 /**
  * Main Game class that serves as the core controller for the Star Wing game.
@@ -39,15 +40,27 @@ export class Game {
   /** Flag indicating if the game is running in dev mode */
   private devMode: boolean = false;
 
+  /** Flag indicating if dev mode audio should be enabled */
+  private enableDevAudio: boolean = false;
+
+  /** Logger instance */
+  private logger = Logger.getInstance();
+
   /**
    * Creates a new Game instance and initializes all subsystems.
    * @param canvasId The HTML ID of the canvas element to render the game on
    * @param devMode Whether to run in development mode (skips intro, mutes audio)
+   * @param enableDevAudio Whether to enable audio in dev mode
    * @throws Error if the canvas element cannot be found
    */
-  constructor(canvasId: string, devMode: boolean = false) {
+  constructor(
+    canvasId: string,
+    devMode: boolean = false,
+    enableDevAudio: boolean = false
+  ) {
     // Store dev mode setting
     this.devMode = devMode;
+    this.enableDevAudio = enableDevAudio;
 
     // Get the canvas element by ID
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -57,10 +70,10 @@ export class Game {
     }
 
     // Create all systems
-    this.sceneSystem = new SceneSystem(this.canvas);
     this.inputSystem = new InputSystem();
     this.audioSystem = new AudioSystem();
     this.uiSystem = new UISystem(this);
+    this.sceneSystem = new SceneSystem(this.canvas, this, this.devMode);
 
     // Add systems to the collection
     this.systems.push(
@@ -75,24 +88,79 @@ export class Game {
 
     if (this.devMode) {
       // In dev mode, skip loading screen and initialize directly
-      console.log("DEV MODE: Skipping intro loading screen");
+      this.logger.info("DEV MODE: Skipping intro loading screen and menu");
 
-      // Initialize systems and start the game
+      // Initialize systems
       this.init()
         .then(() => {
-          this.start();
+          // Hide menu if it's visible
+          if (this.uiSystem.isMenuVisible()) {
+            this.uiSystem.hideMenu();
+          }
+
+          // Get required systems for ship initialization
+          const scene = this.sceneSystem.getScene();
+          const input = this.inputSystem.getInput();
+
+          // Set input on scene
+          scene.setInput(input);
+          this.logger.info("DEV MODE: Input set on scene");
+
+          // Initialize ship and start game directly
+          scene
+            .initPlayerShip()
+            .then(() => {
+              this.logger.info("DEV MODE: Ship initialized successfully");
+
+              // Skip entry animation in dev mode - start game immediately
+              scene.skipShipEntry();
+              this.logger.info("DEV MODE: Ship entry animation skipped");
+
+              // Start the game
+              this.start();
+
+              // Show the game HUD
+              this.logger.info("DEV MODE: Showing game HUD");
+              this.uiSystem.showGameHUD();
+
+              // Enable hyperspace mode in dev environment for testing
+              setTimeout(() => {
+                this.logger.info(
+                  "DEV MODE: Activating hyperspace mode for enhanced visuals"
+                );
+                scene.transitionHyperspace(true, 1.0);
+              }, 1000); // Short delay to ensure everything is loaded
+            })
+            .catch((error) => {
+              this.logger.error("DEV MODE: Failed to initialize ship:", error);
+            });
 
           // Set audio to muted in dev mode
           // We do this after initialization to ensure the UI can properly reflect this state
-          if (!this.audioSystem.getAudioManager().getMuteState()) {
+          if (
+            !this.enableDevAudio &&
+            !this.audioSystem.getAudioManager().getMuteState()
+          ) {
             // Force-mute audio but preserve the state in localStorage
             this.setDevModeMuted(true);
-            console.log(
+            this.logger.info(
               "DEV MODE: Audio muted by default (can be enabled in settings)"
+            );
+          } else if (this.enableDevAudio) {
+            // Ensure audio is unmuted if enableDevAudio is true
+            if (this.audioSystem.getAudioManager().getMuteState()) {
+              this.setDevModeMuted(false);
+            }
+
+            // Play the procedural audio explicitly
+            this.audioSystem.playMenuThump(true);
+
+            this.logger.info(
+              "DEV MODE: Audio enabled via enableDevAudio parameter"
             );
           }
         })
-        .catch(console.error);
+        .catch((error) => this.logger.error("Initialization error:", error));
     } else {
       // In normal mode, show the loading screen
       this.showLoadingScreen();
@@ -105,39 +173,46 @@ export class Game {
    * @private
    */
   private showLoadingScreen(): void {
-    // Initialize the audio manager silently
-    this.audioSystem.init().catch(console.error);
+    // We need to initialize audio first to prepare it for user interaction
+    this.audioSystem
+      .init()
+      .catch((error) => this.logger.error("Audio init error:", error));
 
-    // Initialize the terminal border UI before showing the loading screen
-    this.uiSystem.init().catch(console.error);
+    // Initialize UI system so it can create loading screen
+    this.uiSystem
+      .init()
+      .catch((error) => this.logger.error("UI init error:", error));
 
-    // Create and show the loading screen
+    // Show the loading screen through the UI system
+    // This will manage the entire startup process
     this.uiSystem.showLoadingScreen(() => {
       // This is called when the user clicks "execute program"
-      this.init().then(() => {
-        this.start();
-      });
+      this.init()
+        .then(() => {
+          this.start();
+        })
+        .catch((error) =>
+          this.logger.error("Init error in loading screen callback:", error)
+        );
     });
   }
 
   /**
-   * Initializes all game systems asynchronously.
-   * This is called after the loading screen when the user chooses to start.
-   * @returns A promise that resolves when initialization is complete
+   * Initializes all game systems.
+   * @returns A promise that resolves when all systems are initialized
    */
   async init(): Promise<void> {
-    console.log("Game initializing...");
+    this.logger.info("Game initializing...");
 
     try {
       // Initialize all systems in parallel
       await Promise.all(this.systems.map((system) => system.init()));
 
-      // Start background music
-      this.audioSystem.playMenuThump();
+      // Music will now be started in the UI System's showMenu method
 
-      console.log("Game initialization complete");
+      this.logger.info("Game initialization complete");
     } catch (error: unknown) {
-      console.error("Error during game initialization:", error);
+      this.logger.error("Error during game initialization:", error);
 
       // Show user-friendly error message
       const errorMessage =
@@ -155,34 +230,43 @@ export class Game {
 
   /**
    * Starts the game loop.
-   * This begins the update-render cycle and activates all game systems.
    */
   start(): void {
-    console.log("Game starting...");
+    this.logger.info("Game starting...");
 
     if (this.isRunning) {
-      console.warn("Game is already running");
+      this.logger.warn("Game is already running");
       return;
     }
 
     this.isRunning = true;
     this.gameLoop.start();
+
+    // Only show main menu in non-development mode
+    // In dev mode, we want to bypass the menu and go straight to gameplay
+    if (!this.devMode) {
+      this.logger.info("Normal mode: Showing main menu");
+      this.uiSystem.showMenu();
+    } else {
+      this.logger.info("Dev mode: Bypassing main menu");
+    }
   }
 
   /**
-   * Stops the game loop.
-   * This pauses all game systems but does not dispose of resources.
+   * Stops the game loop and marks the game as not running.
    */
   stop(): void {
-    console.log("Game stopping...");
-
     if (!this.isRunning) {
-      console.warn("Game is already stopped");
+      this.logger.warn("Game is already stopped");
       return;
     }
 
-    this.isRunning = false;
+    this.logger.info("Stopping game");
     this.gameLoop.stop();
+    this.isRunning = false;
+
+    // Hide the HUD when game stops
+    this.uiSystem.hideGameHUD();
   }
 
   /**
@@ -190,7 +274,7 @@ export class Game {
    * Call this when the game is being unloaded or destroyed.
    */
   public dispose(): void {
-    console.log("Game disposing...");
+    this.logger.info("Game disposing...");
     this.stop();
 
     // Dispose all systems
@@ -198,7 +282,7 @@ export class Game {
       try {
         system.dispose();
       } catch (error) {
-        console.error(`Error disposing system:`, error);
+        this.logger.error(`Error disposing system:`, error);
       }
     }
 
@@ -232,10 +316,26 @@ export class Game {
   }
 
   /**
+   * Gets the scene system instance.
+   * @returns The game's SceneSystem instance
+   */
+  getSceneSystem(): SceneSystem {
+    return this.sceneSystem;
+  }
+
+  /**
+   * Gets the input system instance.
+   * @returns The game's InputSystem instance
+   */
+  getInputSystem(): InputSystem {
+    return this.inputSystem;
+  }
+
+  /**
    * Shows the terminal border UI element.
    */
   showTerminalBorder(): void {
-    console.log("[Game] Showing terminal border");
+    this.logger.info("[Game] Showing terminal border");
     this.uiSystem.showTerminalBorder();
   }
 
@@ -243,7 +343,7 @@ export class Game {
    * Hides the terminal border UI element.
    */
   hideTerminalBorder(): void {
-    console.log("[Game] Hiding terminal border");
+    this.logger.info("[Game] Hiding terminal border");
     this.uiSystem.hideTerminalBorder();
   }
 
@@ -275,6 +375,33 @@ export class Game {
     // Restore the original localStorage value to preserve user preference
     if (savedMuteState !== null) {
       localStorage.setItem("starWing_muted", savedMuteState);
+    }
+  }
+
+  /**
+   * Toggles the audio in devMode for testing purposes.
+   * This is useful when you want to hear the procedural audio in devMode.
+   * Access this via the browser console with: game.toggleDevModeAudio()
+   */
+  public toggleDevModeAudio(): void {
+    if (!this.devMode) {
+      this.logger.info("Toggle dev mode audio: Not in dev mode, ignoring");
+      return;
+    }
+
+    const audioManager = this.audioSystem.getAudioManager();
+
+    // Toggle the actual mute state
+    audioManager.toggleMute();
+
+    // Log the new state
+    const isMuted = audioManager.getMuteState();
+    this.logger.info(`DEV MODE: Audio is now ${isMuted ? "muted" : "unmuted"}`);
+
+    // If we just unmuted, make sure music is playing
+    if (!isMuted && !audioManager.isAudioPlaying()) {
+      this.logger.info("DEV MODE: Restarting procedural audio");
+      this.audioSystem.playMenuThump(true);
     }
   }
 }

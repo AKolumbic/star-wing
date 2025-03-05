@@ -1,15 +1,22 @@
 import { Game } from "../core/Game";
 import { Settings } from "./Settings";
 import { HighScores } from "./HighScores";
+import { Logger } from "../utils/Logger";
 
 export class Menu {
   private container: HTMLDivElement;
   private isVisible: boolean = true;
   private currentSelection: number = 0;
   private menuOptions: string[] = ["START GAME", "SETTINGS", "HIGH SCORES"];
+  private inGameMode: boolean = false; // Flag to track if menu is shown during gameplay
   private settings: Settings;
   private highScores: HighScores;
   private game: Game;
+  private invaders: HTMLDivElement[] = []; // To store references to invader elements
+  private invaderAnimationInterval: number | null = null; // Store interval ID
+
+  /** Logger instance */
+  private logger = Logger.getInstance();
 
   constructor(game: Game) {
     this.game = game;
@@ -24,27 +31,7 @@ export class Menu {
     document.addEventListener("keydown", (e) => {
       // Press 'D' key for diagnostics
       if (e.key === "d" && this.isVisible) {
-        console.log("[DEBUG] Running UI diagnostics...");
-
-        // Log all elements with high z-indexes
-        const highZElements = Array.from(document.querySelectorAll("*")).filter(
-          (el) => {
-            const style = window.getComputedStyle(el);
-            const zIndex = parseInt(style.zIndex);
-            return !isNaN(zIndex) && zIndex > 100;
-          }
-        );
-
-        console.log("[DEBUG] Elements with high z-index:", highZElements);
-
-        // Toggle menu background to see if that's the issue
-        if (this.container.style.backgroundColor) {
-          console.log("[DEBUG] Setting menu background to transparent");
-          this.container.style.backgroundColor = "transparent";
-        } else {
-          console.log("[DEBUG] Restoring menu background");
-          this.container.style.backgroundColor = "rgba(0, 0, 0, 0.85)";
-        }
+        this.runDiagnostics();
       }
     });
   }
@@ -137,11 +124,15 @@ export class Menu {
           100% 60%, 85% 60%, 85% 75%, 70% 75%, 70% 60%, 30% 60%, 
           30% 75%, 15% 75%, 15% 60%, 0% 60%
         );
-        animation: invader-dance 1s infinite step-end;
       }
 
-      .invader:nth-child(odd) {
-        animation-delay: 0.5s;
+      /* We'll control the animation with JavaScript to sync with the music */
+      .invader-up {
+        transform: translateY(0);
+      }
+
+      .invader-down {
+        transform: translateY(5px);
       }
 
       .copyright {
@@ -186,11 +177,6 @@ export class Menu {
         100% { opacity: 1; }
       }
 
-      @keyframes invader-dance {
-        0%, 50% { transform: translateY(0); }
-        50.01%, 100% { transform: translateY(5px); }
-      }
-
       /* Fix for the screen-flicker animation to prevent line artifacts */
       @keyframes screen-flicker {
         0%, 95% { opacity: 1; background: transparent; }
@@ -228,8 +214,9 @@ export class Menu {
     // Add space invader style icons
     for (let i = 0; i < 5; i++) {
       const invader = document.createElement("div");
-      invader.className = "invader";
+      invader.className = "invader invader-up"; // Default to "up" position
       invadersRow.appendChild(invader);
+      this.invaders.push(invader); // Store reference to each invader
     }
 
     titleSection.appendChild(title);
@@ -255,8 +242,8 @@ export class Menu {
 
       menuOption.addEventListener("click", () => {
         if (option === "START GAME") {
-          console.log("[Menu] START GAME clicked");
-          this.showDevelopmentPlaceholder();
+          this.logger.info("[Menu] START GAME clicked");
+          this.startGame();
         } else if (option === "SETTINGS") {
           this.showSettings();
         } else if (option === "HIGH SCORES") {
@@ -277,6 +264,8 @@ export class Menu {
     copyrightLink.style.color = "#fff"; // Keep same color as before
     copyrightLink.style.textDecoration = "none"; // No underline by default
     copyrightLink.style.transition = "color 0.2s, text-shadow 0.2s"; // Smooth transition for hover effect
+    copyrightLink.target = "_blank"; // Open in new tab
+    copyrightLink.rel = "noopener noreferrer"; // Security best practice for external links
 
     // Add hover effect
     copyrightLink.addEventListener("mouseover", () => {
@@ -333,16 +322,165 @@ export class Menu {
     this.currentSelection = index;
   }
 
-  private activateCurrentOption(): void {
-    const selectedOption = this.menuOptions[this.currentSelection];
-    if (selectedOption === "START GAME") {
-      console.log("[Menu] START GAME activated via keyboard");
-      this.showDevelopmentPlaceholder();
-    } else if (selectedOption === "SETTINGS") {
-      this.showSettings();
-    } else if (selectedOption === "HIGH SCORES") {
-      this.showHighScores();
+  private updateMenuOptions(): void {
+    // Update the first menu option based on in-game state
+    const menuOptionElements = document.querySelectorAll(".menu-option");
+    if (menuOptionElements.length > 0) {
+      menuOptionElements[0].textContent = this.inGameMode
+        ? "RESUME GAME"
+        : "START GAME";
     }
+
+    // Also update our internal array to keep things consistent
+    this.menuOptions[0] = this.inGameMode ? "RESUME GAME" : "START GAME";
+  }
+
+  private activateCurrentOption(): void {
+    const currentOption = this.menuOptions[this.currentSelection];
+    this.logger.info(`Activating menu option: ${currentOption}`);
+
+    switch (this.currentSelection) {
+      case 0: // START GAME or RESUME GAME
+        if (this.inGameMode) {
+          this.logger.info("Resuming game from pause menu");
+          this.resumeGame();
+        } else {
+          this.logger.info("Starting new game from main menu");
+          this.startGame();
+        }
+        break;
+      case 1: // SETTINGS
+        this.showSettings();
+        break;
+      case 2: // HIGH SCORES
+        this.showHighScores();
+        break;
+      default:
+        this.logger.warn("Unknown menu option selected");
+    }
+  }
+
+  /**
+   * Run UI diagnostics to check for potential issues
+   */
+  private runDiagnostics(): void {
+    this.logger.debug("[DEBUG] Running UI diagnostics...");
+
+    // Check for elements with high z-index that might overlap
+    const allElements = document.querySelectorAll("*");
+    const highZElements: Element[] = [];
+
+    allElements.forEach((el) => {
+      const zIndex = window.getComputedStyle(el).zIndex;
+      if (zIndex !== "auto" && parseInt(zIndex) > 900) {
+        highZElements.push(el);
+      }
+    });
+
+    if (highZElements.length > 0) {
+      this.logger.debug("[DEBUG] Elements with high z-index:", highZElements);
+    }
+
+    // Test background transparency
+    this.logger.debug("[DEBUG] Setting menu background to transparent");
+    const originalBg = this.container.style.backgroundColor;
+    this.container.style.backgroundColor = "transparent";
+    setTimeout(() => {
+      this.container.style.backgroundColor = originalBg;
+      this.logger.debug("[DEBUG] Restoring menu background");
+    }, 500);
+  }
+
+  /**
+   * Start the game
+   */
+  private startGame(): void {
+    // Safety check - if we're in game mode, we should be resuming, not starting a new game
+    if (this.inGameMode) {
+      this.logger.warn(
+        "Attempted to start a new game while already in-game. Resuming instead."
+      );
+      this.resumeGame();
+      return;
+    }
+
+    if (!this.isVisible) {
+      this.logger.info("Menu is not visible, cannot start game");
+      return;
+    }
+
+    this.logger.info("Starting game sequence...");
+    this.hide();
+    this.logger.info("Menu hidden");
+
+    // Get required systems
+    const scene = this.game.getSceneSystem().getScene();
+    const input = this.game.getInputSystem().getInput();
+    const uiSystem = this.game.getUISystem();
+
+    // Ensure audio context is activated for weapon sounds
+    try {
+      this.game.getAudioManager().playTestTone();
+      this.logger.info("Audio context activated for weapon sounds");
+    } catch (error) {
+      this.logger.warn("Could not activate audio context:", error);
+    }
+
+    // Initialize required systems before showing text crawl
+    scene.setInput(input);
+    this.logger.info("Input set on scene");
+
+    // Show text crawl as first step in sequence
+    this.logger.info("Showing text crawl");
+    uiSystem.showTextCrawl(() => {
+      // After text crawl completes, immediately start hyperspace
+      this.logger.info("Text crawl complete, starting hyperspace transition");
+
+      // Transition to hyperspace
+      scene
+        .transitionHyperspace(true, 2.0)
+        .then(() => {
+          // Wait for a moment to enjoy the hyperspace effect
+          this.logger.info(
+            "Hyperspace transition begun, setting up ship entry"
+          );
+          setTimeout(() => {
+            // Initialize player ship
+            scene
+              .initPlayerShip()
+              .then(() => {
+                this.logger.info("Ship initialized successfully");
+
+                // Once the game is starting, show the HUD
+                uiSystem.showGameHUD();
+
+                // Begin the ship entry animation
+                this.logger.info("Starting ship entry animation");
+                scene.startShipEntry();
+              })
+              .catch((error) => {
+                this.logger.error("Failed to initialize ship:", error);
+              });
+          }, 500);
+        })
+        .catch((error) => {
+          this.logger.error("Failed to transition to hyperspace:", error);
+        });
+    });
+  }
+
+  /**
+   * Resume the game by hiding the menu
+   */
+  private resumeGame(): void {
+    this.logger.info("Resuming game...");
+
+    // Make sure we don't trigger any game start logic - just hide the menu
+    this.hide();
+
+    // Show the game HUD through the UI system
+    const uiSystem = this.game.getUISystem();
+    uiSystem.resumeGame();
   }
 
   private showSettings(): void {
@@ -368,101 +506,41 @@ export class Menu {
   }
 
   /**
-   * Shows a placeholder "In Development" message when START GAME is selected
+   * Shows the menu for in-game pause
    */
-  private showDevelopmentPlaceholder(): void {
-    // Hide the regular menu options
-    const menuSection = document.querySelector(".menu-section") as HTMLElement;
-    if (menuSection) {
-      menuSection.style.display = "none";
-    }
+  showInGameMenu(): void {
+    this.inGameMode = true;
+    this.updateMenuOptions();
+    this.show();
+  }
 
-    // Get the content container
-    const contentContainer = document.querySelector(
-      ".content-container"
-    ) as HTMLElement;
-    if (!contentContainer) return;
-
-    // Create the placeholder container
-    const placeholderContainer = document.createElement("div");
-    placeholderContainer.className = "development-placeholder";
-    placeholderContainer.style.display = "flex";
-    placeholderContainer.style.flexDirection = "column";
-    placeholderContainer.style.alignItems = "center";
-    placeholderContainer.style.justifyContent = "center";
-    placeholderContainer.style.textAlign = "center";
-    placeholderContainer.style.marginTop = "2rem";
-
-    // Create main message
-    const mainMessage = document.createElement("div");
-    mainMessage.textContent = "IN DEVELOPMENT";
-    mainMessage.style.color = "#ff0";
-    mainMessage.style.fontSize = "2rem";
-    mainMessage.style.fontWeight = "bold";
-    mainMessage.style.marginBottom = "1rem";
-    mainMessage.style.textShadow = "0 0 10px rgba(255, 255, 0, 0.7)";
-    mainMessage.style.animation = "pulse 1.5s infinite alternate";
-
-    // Create sub message
-    const subMessage = document.createElement("div");
-    subMessage.textContent = "COMING SOON";
-    subMessage.style.color = "#0f0";
-    subMessage.style.fontSize = "1.5rem";
-    subMessage.style.marginBottom = "2rem";
-
-    // Create back button
-    const backButton = document.createElement("div");
-    backButton.textContent = "BACK TO MENU";
-    backButton.style.color = "#fff";
-    backButton.style.fontSize = "1.2rem";
-    backButton.style.padding = "10px 20px";
-    backButton.style.border = "2px solid #fff";
-    backButton.style.cursor = "pointer";
-    backButton.style.marginTop = "3rem";
-    backButton.style.transition = "all 0.2s";
-
-    // Add hover effect
-    backButton.addEventListener("mouseover", () => {
-      backButton.style.color = "#0f0";
-      backButton.style.borderColor = "#0f0";
-      backButton.style.textShadow = "0 0 5px rgba(0, 255, 0, 0.7)";
-      backButton.style.boxShadow = "0 0 15px rgba(0, 255, 0, 0.5)";
-    });
-
-    backButton.addEventListener("mouseout", () => {
-      backButton.style.color = "#fff";
-      backButton.style.borderColor = "#fff";
-      backButton.style.textShadow = "none";
-      backButton.style.boxShadow = "none";
-    });
-
-    // Add click handler
-    backButton.addEventListener("click", () => {
-      // Remove the placeholder
-      contentContainer.removeChild(placeholderContainer);
-
-      // Show the menu again
-      if (menuSection) {
-        menuSection.style.display = "flex";
-      }
-    });
-
-    // Append elements
-    placeholderContainer.appendChild(mainMessage);
-    placeholderContainer.appendChild(subMessage);
-    placeholderContainer.appendChild(backButton);
-    contentContainer.appendChild(placeholderContainer);
+  /**
+   * Shows the main menu (not in-game)
+   */
+  showMainMenu(): void {
+    this.inGameMode = false;
+    this.updateMenuOptions();
+    this.show();
   }
 
   show(): void {
     this.container.style.display = "flex";
     this.isVisible = true;
+    this.logger.info("Menu: Menu displayed");
+
+    // Start syncing invaders with music beat
+    this.startInvaderBeatSync();
   }
 
   hide(): void {
-    console.log("[Menu] Hiding menu");
-    this.container.style.display = "none";
+    if (!this.isVisible) return;
+
     this.isVisible = false;
+    this.container.style.display = "none";
+    this.logger.info("Menu: Menu hidden");
+
+    // Stop syncing invaders with music beat
+    this.stopInvaderBeatSync();
   }
 
   isMenuVisible(): boolean {
@@ -470,9 +548,62 @@ export class Menu {
   }
 
   dispose(): void {
+    // Stop invader animation
+    this.stopInvaderBeatSync();
+
     document.body.removeChild(this.container);
     document.removeEventListener("keydown", this.handleKeyDown.bind(this));
     this.settings.dispose();
     this.highScores.dispose();
+  }
+
+  /**
+   * Start syncing the invader animation with the music beat.
+   * This uses the tempo of the music (130 BPM) to sync the animation.
+   */
+  private startInvaderBeatSync(): void {
+    // Stop any existing animation
+    this.stopInvaderBeatSync();
+
+    // Define the beat interval based on music tempo (130 BPM)
+    // 60000 ms / 130 BPM = ~461.5 ms per beat
+    const beatInterval = 60000 / 130;
+
+    // Flag to track current animation state
+    let isUp = true;
+
+    // Update all invaders immediately
+    this.updateInvaderPositions(isUp);
+
+    // Set interval to toggle positions on the beat
+    this.invaderAnimationInterval = window.setInterval(() => {
+      isUp = !isUp;
+      this.updateInvaderPositions(isUp);
+    }, beatInterval / 2); // Half the beat interval for 8th notes
+
+    this.logger.info("Menu: Started invader beat sync animation");
+  }
+
+  /**
+   * Stop the invader beat sync animation.
+   */
+  private stopInvaderBeatSync(): void {
+    if (this.invaderAnimationInterval !== null) {
+      window.clearInterval(this.invaderAnimationInterval);
+      this.invaderAnimationInterval = null;
+      this.logger.info("Menu: Stopped invader beat sync animation");
+    }
+  }
+
+  /**
+   * Update all invader positions based on the beat state.
+   * @param isUp Whether invaders should be in the "up" position
+   */
+  private updateInvaderPositions(isUp: boolean): void {
+    // Every other invader gets the opposite position for more interesting animation
+    this.invaders.forEach((invader, index) => {
+      const position = index % 2 === 0 ? isUp : !isUp;
+      invader.className = `invader ${position ? "invader-up" : "invader-down"}`;
+    });
   }
 }

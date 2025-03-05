@@ -21,8 +21,23 @@ export class AudioSystem implements GameSystem {
    * @returns A promise that resolves when initialization is complete
    */
   async init(): Promise<void> {
+    // Initialize the audio manager
     this.audioManager.initialize();
-    return Promise.resolve();
+
+    // Preload the menu music
+    try {
+      const menuMusicFile = "/assets/audio/star-wing_menu-loop.mp3";
+      const menuMusicId = "menuMusic";
+
+      // Load the menu music in advance
+      await this.audioManager.loadAudioSample(menuMusicFile, menuMusicId);
+
+      return Promise.resolve();
+    } catch (error) {
+      console.error("Failed to preload menu music:", error);
+      // Continue even if preloading fails
+      return Promise.resolve();
+    }
   }
 
   /**
@@ -30,7 +45,7 @@ export class AudioSystem implements GameSystem {
    * Currently a no-op as the AudioManager handles its own timing.
    * @param deltaTime Time elapsed since the last frame in seconds
    */
-  update(deltaTime: number): void {
+  update(_deltaTime: number): void {
     // AudioManager handles its own timing internally
   }
 
@@ -51,9 +66,10 @@ export class AudioSystem implements GameSystem {
 
   /**
    * Plays the menu background music.
+   * @param useProceduralAudio Force using procedural audio instead of MP3 (for devMode)
    */
-  playMenuThump(): void {
-    this.audioManager.playMenuThump();
+  playMenuThump(useProceduralAudio: boolean = false): void {
+    this.audioManager.playMenuThump(useProceduralAudio);
   }
 
   /**

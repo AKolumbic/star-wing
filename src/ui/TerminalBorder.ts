@@ -2,10 +2,15 @@
  * TerminalBorder - A singleton component that creates a consistent terminal-style border
  * that appears over all other UI elements in the application.
  */
+import { Logger } from "../utils/Logger";
+
 export class TerminalBorder {
   private static instance: TerminalBorder | null = null;
   private container: HTMLDivElement;
   private initialized: boolean = false;
+
+  /** Logger instance */
+  private logger = Logger.getInstance();
 
   // Private constructor for singleton pattern
   private constructor() {
@@ -28,13 +33,16 @@ export class TerminalBorder {
   public initialize(): void {
     if (this.initialized) return;
 
-    console.log("[TerminalBorder] Initializing...");
+    this.logger.info("[TerminalBorder] Initializing...");
     this.setupContainer();
     this.setupStyles();
     this.addToDOM();
     this.initialized = true;
 
-    console.log("[TerminalBorder] Initialized, container:", this.container);
+    this.logger.info(
+      "[TerminalBorder] Initialized, container:",
+      this.container
+    );
   }
 
   /**
@@ -223,16 +231,16 @@ export class TerminalBorder {
   public dispose(): void {
     if (!this.initialized) return;
 
-    console.log("[TerminalBorder] Disposing...");
+    this.logger.info("[TerminalBorder] Disposing...");
 
     if (this.container && document.body.contains(this.container)) {
-      console.log("[TerminalBorder] Removing container from DOM");
+      this.logger.info("[TerminalBorder] Removing container from DOM");
       document.body.removeChild(this.container);
     } else {
-      console.log("[TerminalBorder] Container not found in DOM");
+      this.logger.info("[TerminalBorder] Container not found in DOM");
     }
 
     this.initialized = false;
-    console.log("[TerminalBorder] Disposed");
+    this.logger.info("[TerminalBorder] Disposed");
   }
 }

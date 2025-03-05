@@ -1,5 +1,6 @@
 import { GameSystem } from "../GameSystem";
 import { Scene } from "../Scene";
+import { Game } from "../Game";
 
 /**
  * Adapter class that wraps the Scene class to implement the GameSystem interface.
@@ -9,12 +10,19 @@ export class SceneSystem implements GameSystem {
   /** The underlying Scene instance */
   private scene: Scene;
 
+  /** Reference to the Game instance */
+  private game: Game;
+
   /**
    * Creates a new SceneSystem.
    * @param canvas The canvas element to render on
+   * @param game The Game instance
+   * @param devMode Whether to enable development mode features
    */
-  constructor(canvas: HTMLCanvasElement) {
-    this.scene = new Scene(canvas);
+  constructor(canvas: HTMLCanvasElement, game: Game, devMode: boolean = false) {
+    this.scene = new Scene(canvas, devMode);
+    this.game = game;
+    this.scene.setGame(game);
   }
 
   /**

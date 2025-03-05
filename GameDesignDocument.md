@@ -3,14 +3,14 @@
 ## Table of Contents
 
 1. [Introduction](#introduction)
-2. [Story & Setting](#story--setting)
+2. [Story & Setting](#story-setting)
 3. [Player Controls](#player-controls)
-4. [Enemy & Obstacle Design](#enemy--obstacle-design)
-5. [Weapon & Upgrade System](#weapon--upgrade-system)
+4. [Enemy & Obstacle Design](#enemy-obstacle-design)
+5. [Weapon & Upgrade System](#weapon-upgrade-system)
 6. [Level Progression](#level-progression)
-7. [Visual & Audio Style](#visual--audio-style)
+7. [Visual & Audio Style](#visual-audio-style)
 8. [Technical Details](#technical-details)
-9. [UX & UI](#ux--ui)
+9. [UX & UI](#ux-ui)
 10. [Conclusion](#conclusion)
 
 ## Introduction

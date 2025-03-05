@@ -46,19 +46,33 @@ npm run build
 For more efficient development workflow, Star Wing includes a developer mode that:
 
 - Skips the intro loading screen
+- Bypasses the main menu
 - Starts with audio muted by default
+- Immediately initializes the ship and gameplay
 
-To enable dev mode, simply add `?dev=true` to the URL:
+To enable dev mode, simply add `?dev` to the URL:
 
+```bash
+http://localhost:5173/?dev
 ```
-http://localhost:5173/?dev=true
+
+If you want to enable audio in dev mode (to hear the procedural music), you can add the `enableDevAudio` parameter:
+
+```bash
+http://localhost:5173/?dev&enableDevAudio
 ```
 
-This is particularly useful during development to avoid repeatedly clicking through the intro sequence and managing audio levels while testing.
+You can also toggle audio during development by using the browser console:
+
+```javascript
+game.toggleDevModeAudio();
+```
+
+These options are particularly useful during development to avoid repeatedly clicking through the intro sequence and for testing audio features while in development mode.
 
 ## Project Structure
 
-```
+```bash
 star-wing/
 ├── src/
 │   ├── core/                  # Core game systems
@@ -79,17 +93,31 @@ star-wing/
 │   │       ├── AudioSystem.ts # Audio management system
 │   │       └── UISystem.ts    # UI management system
 │   ├── entities/              # Game entities
-│   │   ├── Player.ts          # Player ship
+│   │   ├── Ship.ts            # Player ship
 │   │   ├── Enemy.ts           # Enemy ships
-│   │   └── Projectile.ts      # Weapons
+│   │   └── Entity.ts          # Base entity class
+│   ├── weapons/               # Weapon systems
+│   │   ├── Weapon.ts          # Base weapon class
+│   │   ├── Projectile.ts      # Projectile base class
+│   │   ├── WeaponSystem.ts    # Ship weapon management system
+│   │   └── types/             # Weapon implementations
+│   │       ├── LaserCannon.ts # Standard laser weapon
+│   │       ├── RapidFireGun.ts # Fast-firing weapon
+│   │       ├── MissileLauncher.ts # Homing missile weapon
+│   │       └── GravityBeam.ts # Special weapon that affects enemy movement
 │   ├── audio/                 # Audio management
 │   │   └── AudioManager.ts    # Audio playback and synthesis
 │   ├── ui/                    # User interface
 │   │   ├── LoadingScreen.ts   # Intro loading screen
-│   │   ├── Menu.ts            # Game menus
-│   │   └── TerminalBorder.ts  # Terminal-style UI border
+│   │   ├── Menu.ts            # Main and in-game menus
+│   │   ├── GameHUD.ts         # In-game heads-up display
+│   │   ├── TextCrawl.ts       # Intro text crawl effect
+│   │   ├── TerminalBorder.ts  # Terminal-style UI border
+│   │   ├── Settings.ts        # Game settings interface
+│   │   └── HighScores.ts      # High score tracking
 │   ├── utils/                 # Utility functions
-│   │   └── UIUtils.ts         # UI helper utilities
+│   │   ├── UIUtils.ts         # UI helper utilities
+│   │   └── Logger.ts          # Logging system
 │   └── main.ts                # Entry point (handles dev mode param)
 ├── assets/                    # Game assets
 │   ├── models/                # 3D models
@@ -102,6 +130,15 @@ star-wing/
 └── vite.config.ts             # Vite configuration
 ```
 
+## Features
+
+- **Dynamic Weapon System**: Multiple weapon types with unique behaviors and effects
+- **In-Game Menu**: Pause the game with ESC key during gameplay
+- **Hyperspace Travel**: Dynamic starfield effects with hyperspace transitions
+- **Music System**: Adaptive soundtrack that changes based on game state
+- **Performance Monitoring**: Built-in metrics for development
+- **Dev Mode**: Streamlined testing experience for faster development
+
 ## Controls
 
 - **WASD**: Ship movement
@@ -110,7 +147,7 @@ star-wing/
 - **Right Click**: Fire secondary weapon
 - **Space**: Barrel roll/dodge
 - **1-3**: Switch weapon modes
-- **ESC/P**: Pause menu
+- **ESC**: Pause game/show in-game menu
 
 ## Development Guidelines
 

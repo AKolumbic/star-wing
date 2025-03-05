@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { Background } from "./Background";
+import { StarfieldBackground } from "./StarfieldBackground";
+import { Logger } from "../../utils/Logger";
 
 /**
  * Background type identifiers for the different background modes.
@@ -7,7 +9,6 @@ import { Background } from "./Background";
 export enum BackgroundType {
   NONE = "none",
   STARFIELD = "starfield",
-  HYPERSPACE = "hyperspace",
   GAME = "game",
 }
 
@@ -43,6 +44,22 @@ export class BackgroundManager {
     to: null,
   };
 
+  /** Hyperspace mode transition parameters */
+  private hyperspaceTransition: {
+    inProgress: boolean;
+    duration: number;
+    elapsed: number;
+    targetState: boolean;
+  } = {
+    inProgress: false,
+    duration: 0,
+    elapsed: 0,
+    targetState: false,
+  };
+
+  /** Logger instance */
+  private logger = Logger.getInstance();
+
   /**
    * Create a new BackgroundManager.
    * @param scene The Three.js scene to add backgrounds to
@@ -70,39 +87,52 @@ export class BackgroundManager {
     type: BackgroundType,
     initParams?: Record<string, any>
   ): Promise<void> {
-    // If this type is already active, do nothing
-    if (type === this.currentBackgroundType && this.currentBackground) {
-      return;
+    this.logger.info(`Setting background to ${type}`);
+
+    if (this.backgroundRegistry.has(type)) {
+      // Remove current background from scene if it exists
+      if (this.currentBackground) {
+        this.logger.info(
+          `Disposing of current background: ${this.currentBackgroundType}`
+        );
+        this.currentBackground.removeFromScene(this.scene);
+        await this.currentBackground.dispose();
+      }
+
+      // Get the new background instance - we know it exists because we checked with has()
+      const newBackground = this.backgroundRegistry.get(type) as Background;
+
+      this.logger.info(`Initializing new background: ${type}`);
+
+      // Update current background references
+      this.currentBackground = newBackground;
+      this.currentBackgroundType = type;
+
+      // Set any initialization parameters
+      if (initParams) {
+        this.logger.info(
+          `Applying initialization parameters to ${type} background`
+        );
+        Object.entries(initParams).forEach(([key, value]) => {
+          newBackground.setParameter(key, value);
+        });
+      }
+
+      // Initialize the background
+      try {
+        await newBackground.init();
+        this.logger.info(`Adding ${type} background to scene`);
+        newBackground.addToScene(this.scene);
+        this.logger.info(`Background ${type} successfully set`);
+        return Promise.resolve();
+      } catch (error) {
+        this.logger.error(`Error initializing ${type} background:`, error);
+        return Promise.reject(error);
+      }
+    } else {
+      this.logger.warn(`Background type '${type}' not registered`);
+      return Promise.resolve();
     }
-
-    // Get the background implementation
-    const background = this.backgroundRegistry.get(type);
-    if (!background) {
-      console.warn(`Background type '${type}' not registered`);
-      return;
-    }
-
-    // Remove the current background from the scene
-    if (this.currentBackground) {
-      this.currentBackground.removeFromScene(this.scene);
-    }
-
-    // Set the new background as current
-    this.currentBackgroundType = type;
-    this.currentBackground = background;
-
-    // Apply initialization parameters if provided
-    if (initParams) {
-      Object.entries(initParams).forEach(([key, value]) => {
-        background.setParameter(key, value);
-      });
-    }
-
-    // Initialize the background
-    await background.init();
-
-    // Add the background to the scene
-    background.addToScene(this.scene);
   }
 
   /**
@@ -117,38 +147,74 @@ export class BackgroundManager {
     duration: number,
     params?: Record<string, any>
   ): Promise<void> {
-    // Get the target background implementation
-    const toBackground = this.backgroundRegistry.get(toType);
-    if (!toBackground) {
-      console.warn(
-        `Cannot transition: Background type '${toType}' not registered`
+    if (!this.backgroundRegistry.has(toType)) {
+      this.logger.warn(
+        `Cannot transition to unregistered background type: ${toType}`
       );
-      return;
+      return Promise.resolve();
     }
 
-    // Initialize target background but don't add to scene yet
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        toBackground.setParameter(key, value);
-      });
-    }
-    await toBackground.init();
+    // Set up the transition
+    const toBackground = this.backgroundRegistry.get(toType) as Background;
 
-    // Set up transition
-    this.transitionParams = {
+    // Dispose of previous and set up the new one
+    if (this.currentBackground) {
+      await this.currentBackground.dispose();
+    }
+
+    this.currentBackground = toBackground;
+    this.currentBackgroundType = toType;
+    return this.currentBackground.init();
+  }
+
+  /**
+   * Start a transition to hyperspace mode using the starfield background.
+   * @param enable Whether to enable or disable hyperspace mode
+   * @param duration The duration of the transition in seconds
+   * @returns True if the transition was started successfully, false otherwise
+   */
+  transitionHyperspace(enable: boolean, duration: number = 1.0): boolean {
+    // Only works with starfield background
+    if (
+      this.currentBackgroundType !== BackgroundType.STARFIELD ||
+      !this.currentBackground
+    ) {
+      this.logger.warn(
+        "Hyperspace mode only works with the starfield background"
+      );
+      return false;
+    }
+
+    // Cast to StarfieldBackground
+    const starfield = this.currentBackground as StarfieldBackground;
+
+    // Configure the transition parameters
+    this.hyperspaceTransition = {
       inProgress: true,
       duration,
       elapsed: 0,
-      from: this.currentBackground,
-      to: toBackground,
+      targetState: enable,
     };
 
-    // Add new background to scene but it will be controlled by the transition
-    toBackground.addToScene(this.scene);
+    // Tell the starfield to start transitioning
+    starfield.setHyperspaceMode(enable);
 
-    // Once transition is done, this will be the current background
-    this.currentBackgroundType = toType;
-    this.currentBackground = toBackground;
+    return true;
+  }
+
+  /**
+   * Check if currently in hyperspace mode.
+   * @returns True if in hyperspace mode, false otherwise
+   */
+  isHyperspaceActive(): boolean {
+    if (
+      this.currentBackgroundType !== BackgroundType.STARFIELD ||
+      !this.currentBackground
+    ) {
+      return false;
+    }
+
+    return (this.currentBackground as StarfieldBackground).getHyperspaceMode();
   }
 
   /**
@@ -164,6 +230,11 @@ export class BackgroundManager {
     // Handle transitions if in progress
     if (this.transitionParams.inProgress) {
       this.updateTransition(deltaTime);
+    }
+
+    // Handle hyperspace transition if in progress
+    if (this.hyperspaceTransition.inProgress) {
+      this.updateHyperspaceTransition(deltaTime);
     }
 
     // Update the current background
@@ -201,6 +272,35 @@ export class BackgroundManager {
 
     // Transition logic could be extended here with opacity adjustments, etc.
     // For now, we simply keep both backgrounds in the scene until the transition completes
+  }
+
+  /**
+   * Update an active hyperspace transition.
+   * @param deltaTime Time in seconds since the last update
+   * @private
+   */
+  private updateHyperspaceTransition(deltaTime: number): void {
+    if (!(this.currentBackground instanceof StarfieldBackground)) {
+      this.hyperspaceTransition.inProgress = false;
+      return;
+    }
+
+    // Update elapsed time
+    this.hyperspaceTransition.elapsed += deltaTime;
+
+    // Calculate transition progress (0 to 1)
+    const progress = Math.min(
+      this.hyperspaceTransition.elapsed / this.hyperspaceTransition.duration,
+      1
+    );
+
+    // If transition is complete
+    if (progress >= 1) {
+      this.hyperspaceTransition.inProgress = false;
+      this.hyperspaceTransition.elapsed = 0;
+    }
+
+    // The actual transition is handled by the StarfieldBackground itself
   }
 
   /**
