@@ -2,6 +2,8 @@ import { Game } from "../core/Game";
 import { Settings } from "./Settings";
 import { HighScores } from "./HighScores";
 import { Logger } from "../utils/Logger";
+import { StyleManager } from "../styles/StyleManager";
+import { menuStyles } from "../styles/MenuStyles";
 
 export class Menu {
   private container: HTMLDivElement;
@@ -22,10 +24,20 @@ export class Menu {
     this.game = game;
     this.container = document.createElement("div");
     this.container.className = "terminal-overlay";
+
+    // Apply styles
+    StyleManager.applyStyles("menu", menuStyles);
+
     this.settings = new Settings(game);
     this.highScores = new HighScores(game);
-    this.setupStyles();
+
     this.setupMenu();
+
+    // Add keyboard navigation
+    document.addEventListener("keydown", this.handleKeyDown.bind(this));
+
+    // Start synced invader animation with the menu music beat
+    this.startInvaderBeatSync();
 
     // Add diagnostic key listener to help diagnose the issue
     document.addEventListener("keydown", (e) => {
@@ -34,161 +46,6 @@ export class Menu {
         this.runDiagnostics();
       }
     });
-  }
-
-  private setupStyles(): void {
-    const style = document.createElement("style");
-    style.textContent = `
-      @font-face {
-        font-family: 'PressStart2P';
-        src: url('https://fonts.gstatic.com/s/pressstart2p/v14/e3t4euO8T-267oIAQAu6jDQyK3nVivNm4I81.woff2') format('woff2');
-        font-weight: normal;
-        font-style: normal;
-      }
-
-      .terminal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        font-family: 'PressStart2P', monospace;
-        overflow: hidden;
-        z-index: 1000;
-        color: #fff;
-        box-sizing: border-box;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-      }
-
-      /* CRT Screen Effect with Viewport */
-      .terminal-viewport {
-        position: relative;
-        width: calc(100% - 56px);
-        height: calc(100% - 56px);
-        overflow: hidden;
-        background: transparent;
-        z-index: 1002;
-        border: none;
-      }
-
-      .content-container {
-        position: relative;
-        z-index: 1001;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
-        width: 100%;
-        border: none;
-      }
-
-      /* Remove any potential dividing lines */
-      .title-section, .menu-section, .development-placeholder {
-        border: none;
-        border-bottom: none;
-        border-top: none;
-        outline: none;
-        box-shadow: none;
-      }
-
-      .title-section {
-        text-align: center;
-        margin-bottom: 2rem;
-      }
-
-      .game-title {
-        font-size: 3.5rem;
-        color: #ff0;
-        text-shadow: 3px 3px 0 #f00;
-        margin: 0;
-        animation: pulse 1.5s infinite alternate;
-        letter-spacing: -2px;
-      }
-
-      .title-invaders {
-        display: flex;
-        justify-content: center;
-        margin: 20px 0;
-      }
-
-      .invader {
-        width: 30px;
-        height: 30px;
-        margin: 0 10px;
-        background-color: #0f0;
-        clip-path: polygon(
-          0% 25%, 35% 25%, 35% 0%, 65% 0%, 65% 25%, 100% 25%, 
-          100% 60%, 85% 60%, 85% 75%, 70% 75%, 70% 60%, 30% 60%, 
-          30% 75%, 15% 75%, 15% 60%, 0% 60%
-        );
-      }
-
-      /* We'll control the animation with JavaScript to sync with the music */
-      .invader-up {
-        transform: translateY(0);
-      }
-
-      .invader-down {
-        transform: translateY(5px);
-      }
-
-      .copyright {
-        color: #fff;
-        font-size: 0.8rem;
-        text-align: center;
-        position: absolute;
-        bottom: 20px;
-        width: 100%;
-        z-index: 1006;
-      }
-
-      .menu-section {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        margin: 0;
-      }
-
-      .menu-option {
-        color: #fff;
-        font-size: 1.4rem;
-        margin: 15px 0;
-        padding: 5px 20px;
-        position: relative;
-        transition: all 0.1s;
-        cursor: pointer;
-      }
-
-      .menu-option.selected {
-        color: #0f0;
-      }
-
-      .menu-option:hover {
-        color: #0f0;
-        text-shadow: 0 0 5px rgba(0, 255, 0, 0.7);
-      }
-
-      @keyframes pulse {
-        0% { opacity: 1; }
-        50% { opacity: 0.7; }
-        100% { opacity: 1; }
-      }
-
-      /* Fix for the screen-flicker animation to prevent line artifacts */
-      @keyframes screen-flicker {
-        0%, 95% { opacity: 1; background: transparent; }
-        96%, 100% { opacity: 0.8; background: transparent; }
-      }
-
-      .screen-flicker {
-        animation: screen-flicker 10s infinite;
-        background: transparent;
-      }
-    `;
-    document.head.appendChild(style);
   }
 
   private setupMenu(): void {
@@ -288,9 +145,6 @@ export class Menu {
     terminalViewport.appendChild(contentContainer);
     this.container.appendChild(terminalViewport);
     document.body.appendChild(this.container);
-
-    // Setup keyboard navigation
-    document.addEventListener("keydown", this.handleKeyDown.bind(this));
   }
 
   private handleKeyDown(event: KeyboardEvent): void {
@@ -409,14 +263,24 @@ export class Menu {
       return;
     }
 
+    // Transition menu music to game music for a smooth experience
+    this.game.getAudioSystem().transitionToGameMusic();
+
+    this.logger.info("Starting game");
+    this.hide();
+
+    /* Development screen disabled but kept for future use
     this.logger.info("Showing in development screen instead of starting game");
     this.hide();
     this.showDevelopmentScreen();
+    */
   }
 
   /**
    * Displays a screen indicating the game is still in development.
+   * Currently disabled but kept for future use.
    */
+  /* 
   private showDevelopmentScreen(): void {
     // Create overlay container
     const overlay = document.createElement("div");
@@ -458,60 +322,7 @@ export class Menu {
     subMessage.textContent =
       "Check back soon for updates as development continues!";
     subMessage.style.fontSize = "1rem";
-    subMessage.style.marginBottom = "3rem";
-    subMessage.style.maxWidth = "600px";
-
-    // Create back button
-    const backButton = document.createElement("button");
-    backButton.textContent = "RETURN TO MAIN MENU";
-    backButton.style.padding = "1rem 2rem";
-    backButton.style.backgroundColor = "transparent";
-    backButton.style.border = "2px solid #33ff99";
-    backButton.style.borderRadius = "4px";
-    backButton.style.color = "#33ff99";
-    backButton.style.fontSize = "1rem";
-    backButton.style.fontFamily = "'Press Start 2P', monospace";
-    backButton.style.cursor = "pointer";
-    backButton.style.transition = "all 0.3s ease";
-    backButton.style.outline = "none";
-
-    // Hover effect
-    backButton.addEventListener("mouseover", () => {
-      backButton.style.backgroundColor = "#33ff99";
-      backButton.style.color = "#000";
-    });
-
-    backButton.addEventListener("mouseout", () => {
-      backButton.style.backgroundColor = "transparent";
-      backButton.style.color = "#33ff99";
-    });
-
-    // Click handler
-    backButton.addEventListener("click", () => {
-      document.body.removeChild(overlay);
-      this.show();
-    });
-
-    // Add pulse animation
-    const style = document.createElement("style");
-    style.textContent = `
-      @keyframes pulse {
-        0% { opacity: 1; }
-        50% { opacity: 0.7; }
-        100% { opacity: 1; }
-      }
-    `;
-    document.head.appendChild(style);
-
-    // Append elements to overlay
-    overlay.appendChild(heading);
-    overlay.appendChild(message);
-    overlay.appendChild(subMessage);
-    overlay.appendChild(backButton);
-
-    // Add to document
-    document.body.appendChild(overlay);
-  }
+   */
 
   /**
    * Resume the game by hiding the menu
@@ -592,11 +403,20 @@ export class Menu {
   }
 
   dispose(): void {
-    // Stop invader animation
-    this.stopInvaderBeatSync();
+    // Remove the styles when component is disposed
+    StyleManager.removeStyles("menu");
 
-    document.body.removeChild(this.container);
+    if (this.invaderAnimationInterval) {
+      clearInterval(this.invaderAnimationInterval);
+      this.invaderAnimationInterval = null;
+    }
+
     document.removeEventListener("keydown", this.handleKeyDown.bind(this));
+
+    if (this.container.parentNode) {
+      this.container.parentNode.removeChild(this.container);
+    }
+
     this.settings.dispose();
     this.highScores.dispose();
   }

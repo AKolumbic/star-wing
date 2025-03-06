@@ -1,4 +1,6 @@
 import { Logger } from "../utils/Logger";
+import { StyleManager } from "../styles/StyleManager";
+import { loadingScreenStyles } from "../styles/LoadingScreenStyles";
 
 export class LoadingScreen {
   private container!: HTMLDivElement;
@@ -86,34 +88,18 @@ export class LoadingScreen {
   private buildLines: string[] = this.generateBuildLines();
 
   constructor(private onComplete: () => void) {
-    // Check for mobile device first
-    this.detectMobileDevice();
-    this.createElements();
-    this.startBuildProcess();
-  }
+    // Apply styles
+    StyleManager.applyStyles("loadingScreen", loadingScreenStyles);
 
-  private detectMobileDevice(): void {
-    // Check for mobile device using user agent and screen size
-    const userAgent = navigator.userAgent.toLowerCase();
-    const isMobile =
-      /iphone|ipad|ipod|android|blackberry|mini|windows\sce|palm/i.test(
-        userAgent
+    // Check if we're on a mobile device
+    this.isMobileDevice =
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent
       );
-    const isTablet = /tablet|ipad|playbook|silk|android(?!.*mobi)/i.test(
-      userAgent
-    );
 
-    // Also check screen width as a fallback
-    const touchScreen =
-      "ontouchstart" in window || navigator.maxTouchPoints > 0;
-    const smallScreen = window.innerWidth < 768;
-
-    this.isMobileDevice = isMobile || isTablet || (touchScreen && smallScreen);
-
-    this.logger.info(
-      "Device detection: ",
-      this.isMobileDevice ? "Mobile device detected" : "Desktop device detected"
-    );
+    this.createElements();
+    this.logger.info("LoadingScreen: Initialized");
+    this.startBuildProcess();
   }
 
   private generateBuildLines(): string[] {
@@ -134,80 +120,29 @@ export class LoadingScreen {
   private createElements(): void {
     // Main container
     this.container = document.createElement("div");
-    this.container.style.position = "fixed";
-    this.container.style.top = "0";
-    this.container.style.left = "0";
-    this.container.style.width = "100%";
-    this.container.style.height = "100%";
-    this.container.style.backgroundColor = "#000";
-    this.container.style.zIndex = "1000";
-    this.container.style.display = "flex";
-    this.container.style.flexDirection = "column";
-    this.container.style.alignItems = "center";
-    this.container.style.justifyContent = "center";
+    this.container.className = "loading-screen-container";
 
-    // Terminal window - centered both horizontally and vertically
+    // Terminal window
     this.terminal = document.createElement("div");
-    this.terminal.style.position = "absolute";
-    this.terminal.style.left = "50%";
-    this.terminal.style.top = "50%";
-    this.terminal.style.transform = "translate(-50%, -50%)";
-    this.terminal.style.width = "600px";
-    this.terminal.style.maxWidth = "80%";
-    this.terminal.style.height = "300px";
-    this.terminal.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
-    this.terminal.style.border = "1px solid #33ff33";
-    this.terminal.style.borderRadius = "5px";
-    this.terminal.style.padding = "15px";
-    this.terminal.style.fontFamily = 'Courier, "Courier New", monospace';
-    this.terminal.style.color = "#33ff33";
-    this.terminal.style.fontSize = "14px";
-    this.terminal.style.overflow = "hidden";
-    this.terminal.style.boxShadow = "0 0 10px rgba(51, 255, 51, 0.5)";
+    this.terminal.className = "loading-terminal";
 
-    // Create an inner container for the text that can scroll
+    // Create an inner container for the text
     const terminalContent = document.createElement("div");
-    terminalContent.style.display = "flex";
-    terminalContent.style.flexDirection = "column-reverse"; // New lines at bottom
-    terminalContent.style.height = "100%";
-    terminalContent.style.overflowY = "hidden"; // No scroll bars but content can overflow
-    terminalContent.style.textAlign = "left";
-    terminalContent.style.fontFamily = 'Courier, "Courier New", monospace';
+    terminalContent.className = "terminal-content";
     this.terminal.appendChild(terminalContent);
 
     // Store reference to terminal content in the terminal element
     this.terminal.dataset.content = "true";
 
-    // Loading text below terminal - REMOVED
-    // Keeping the property but not creating or displaying the element
+    // Loading text (hidden)
     this.loadingText = document.createElement("div");
-    this.loadingText.style.display = "none"; // Hide it completely
+    this.loadingText.className = "loading-text";
 
-    // Only create execute button if not on mobile device
+    // Create the execute button (hidden initially)
     if (!this.isMobileDevice) {
-      // Execute button (hidden initially) - centered with glow
       this.executeButton = document.createElement("div");
-      this.executeButton.style.position = "absolute";
-      this.executeButton.style.top = "50%";
-      this.executeButton.style.left = "50%";
-      this.executeButton.style.transform = "translate(-50%, -50%)";
-      this.executeButton.style.padding = "15px 25px";
-      this.executeButton.style.backgroundColor = "#000";
-      this.executeButton.style.border = "2px solid #33ff33";
-      this.executeButton.style.borderRadius = "5px";
-      this.executeButton.style.fontFamily = 'Courier, "Courier New", monospace';
-      this.executeButton.style.color = "#33ff33";
-      this.executeButton.style.fontSize = "20px";
-      this.executeButton.style.cursor = "pointer";
-      this.executeButton.style.display = "none";
-      this.executeButton.style.boxShadow = "0 0 15px rgba(51, 255, 51, 0.7)";
-      this.executeButton.style.textAlign = "center";
-
-      // The base text for the button - will be updated with cursor
-      const baseButtonText = "> CLICK TO EXECUTE PROGRAM";
-      this.executeButton.textContent = baseButtonText + "█"; // Start with block cursor
-
-      // Add click handler
+      this.executeButton.className = "execute-button";
+      this.executeButton.textContent = "> CLICK TO EXECUTE PROGRAM";
       this.executeButton.addEventListener("click", () => {
         // Animate button press - flash green
         this.executeButton.style.backgroundColor = "rgba(51, 255, 51, 0.4)";
@@ -228,21 +163,23 @@ export class LoadingScreen {
       });
     }
 
-    // Add to DOM
+    // Error message element (hidden initially)
+    this.errorMessageElement = document.createElement("div");
+    this.errorMessageElement.className = "error-message";
+
+    // Add terminal to container first
     this.container.appendChild(this.terminal);
+
+    // Now add the button after the terminal so it appears on top in the stacking order
     if (!this.isMobileDevice) {
       this.container.appendChild(this.executeButton);
     }
-    document.body.appendChild(this.container);
 
-    // Start blinking ellipsis - REMOVED
-    // We don't need this interval anymore since the loading text is hidden
-    /* 
-    this.ellipsisInterval = window.setInterval(
-      () => this.updateEllipsis(),
-      500
-    );
-    */
+    // Add error message last
+    this.container.appendChild(this.errorMessageElement);
+
+    // Add to DOM
+    document.body.appendChild(this.container);
   }
 
   private startBuildProcess(): void {
@@ -316,16 +253,16 @@ export class LoadingScreen {
 
       // Add terminal cursor blinking effect to button text
       const baseButtonText = "> CLICK TO EXECUTE PROGRAM";
-      let cursorVisible = true;
+      this.executeButton.textContent = baseButtonText;
 
+      let cursorVisible = true;
       this.cursorBlinkInterval = window.setInterval(() => {
         cursorVisible = !cursorVisible;
         this.executeButton.textContent =
           baseButtonText + (cursorVisible ? "█" : " ");
       }, 530); // Slightly off from 500ms to create a more authentic feel
 
-      // Store intervals to clear on hide - removed glowInterval
-      // this.executeButton.dataset.glowInterval = String(glowInterval);
+      // Store interval to clear on hide
       this.executeButton.dataset.cursorInterval = String(
         this.cursorBlinkInterval
       );
@@ -412,5 +349,10 @@ export class LoadingScreen {
 
   public dispose(): void {
     this.hide();
+
+    // Remove styles
+    StyleManager.removeStyles("loadingScreen");
+
+    this.logger.info("LoadingScreen: Disposed");
   }
 }

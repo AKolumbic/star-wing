@@ -86,6 +86,7 @@ The codebase follows a modular architecture with clear separation of concerns:
 - **Entities**: Player ship, enemies, and environmental objects
 - **Weapons**: Weapon types, projectiles, and combat systems
 - **UI**: Menu systems and in-game HUD
+- **Styles**: Modular CSS styling system for UI components
 
 For detailed documentation on the architecture and implementation, see the [Source Code README](./src/README.md).
 

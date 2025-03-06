@@ -9,6 +9,7 @@ src/
 ├── audio/           # Audio system with modular architecture
 ├── core/            # Core game systems (game loop, scene, input)
 ├── entities/        # Game entities (player ship, asteroids)
+├── styles/          # UI styling system and component styles
 ├── ui/              # User interface components
 ├── utils/           # Utility functions and helpers
 ├── weapons/         # Weapon systems and projectiles
@@ -97,6 +98,23 @@ The weapon system implements:
 
 See [Weapons README](./weapons/README.md) for detailed documentation.
 
+## Styling System (`/styles`)
+
+A modular styling system that manages UI appearance:
+
+- **StyleManager.ts**: Central utility for applying and removing CSS styles
+- **Component styles**: Dedicated style modules for each UI component
+- **Index.ts**: Exports all style modules for easy imports
+
+The styling system implements:
+
+- Separation of styling from component logic
+- Consistent application of the retro terminal aesthetic
+- Clean management of style elements in the DOM
+- Simplified component styling with template strings
+
+See [Styles README](./styles/README.md) for detailed documentation.
+
 ## User Interface (`/ui`)
 
 UI components creating the game's distinctive retro terminal aesthetic:
@@ -112,6 +130,7 @@ The UI system implements:
 - Menu navigation and settings controls
 - In-game status displays
 - Responsive design for different screen sizes
+- Integration with the modular styling system
 
 See [UI README](./ui/README.md) for detailed documentation.
 
@@ -150,7 +169,13 @@ The Star Wing architecture follows these communication patterns:
    - User interactions with UI affect game systems
    - UI updates display game metrics and player status
 
-5. **Weapon-Entity Interaction**:
+5. **UI-Style Integration**:
+
+   - UI components apply styles through the StyleManager
+   - Style modules define the appearance of each UI component
+   - Styles are cleanly removed when components are disposed
+
+6. **Weapon-Entity Interaction**:
    - Weapons are attached to entities (primarily the player ship)
    - Projectiles interact with entities through collision detection
    - Weapon systems communicate with audio systems for sound effects
@@ -171,5 +196,6 @@ To add new features to Star Wing:
 1. **New Entities**: Add new classes to the entities directory
 2. **New Weapons**: Create new weapon types in the weapons/types directory
 3. **UI Components**: Add new UI elements to the UI directory
-4. **Audio Assets**: Add new audio files and update the audio management system
-5. **Background Effects**: Create new background types in the core/backgrounds directory
+4. **UI Styles**: Create new style modules in the styles directory
+5. **Audio Assets**: Add new audio files and update the audio management system
+6. **Background Effects**: Create new background types in the core/backgrounds directory

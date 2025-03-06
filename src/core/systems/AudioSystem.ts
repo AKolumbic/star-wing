@@ -69,6 +69,14 @@ export class AudioSystem implements GameSystem {
   }
 
   /**
+   * Transitions from menu music to game music with a smooth crossfade.
+   * Allows the current loop to complete before starting the new track.
+   */
+  transitionToGameMusic(): void {
+    this.audioManager.transitionToGameMusic();
+  }
+
+  /**
    * Sets the global volume.
    * @param volume Volume level from 0.0 to 1.0
    */

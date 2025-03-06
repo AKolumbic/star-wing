@@ -79,7 +79,40 @@ The UI system features:
 - Canvas-drawn elements for in-game HUD components
 - CSS animations for visual effects
 - Event-driven architecture for handling player interaction
+- Modular styling system using the StyleManager
 - Clean separation from game logic
+
+## Styling System
+
+UI components no longer contain their own styling code. Instead, they use the modular styling system:
+
+- Styles are defined in dedicated files in the `src/styles` directory
+- Components apply styles via the `StyleManager.applyStyles()` method
+- Styles are removed when components are disposed via `StyleManager.removeStyles()`
+- Style modules export template strings with CSS rules
+
+Example of UI component using the styling system:
+
+```typescript
+import { StyleManager } from "../styles/StyleManager";
+import { menuStyles } from "../styles/MenuStyles";
+
+export class Menu {
+  constructor() {
+    // Apply styles when component is created
+    StyleManager.applyStyles("menu", menuStyles);
+    // Component initialization...
+  }
+
+  dispose() {
+    // Remove styles when component is disposed
+    StyleManager.removeStyles("menu");
+    // Other cleanup...
+  }
+}
+```
+
+For more details on the styling system, see the [Styles README](../styles/README.md).
 
 ## Style Guide
 

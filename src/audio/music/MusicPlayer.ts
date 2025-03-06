@@ -5,6 +5,16 @@ import { Logger } from "../../utils/Logger";
 import { AudioContextManager } from "../core/AudioContextManager";
 import { BufferManager } from "../core/BufferManager";
 
+/**
+ * Interface for current audio source information
+ */
+export interface SourceInfo {
+  source: AudioBufferSourceNode;
+  startTime: number;
+  buffer: AudioBuffer;
+  id: string;
+}
+
 export class MusicPlayer {
   /** Context manager reference */
   private contextManager: AudioContextManager;
@@ -14,6 +24,9 @@ export class MusicPlayer {
 
   /** Active music sources */
   private activeSources: Map<string, AudioBufferSourceNode> = new Map();
+
+  /** Track start times for active sources */
+  private sourceStartTimes: Map<string, number> = new Map();
 
   /** Logger instance */
   private logger = Logger.getInstance();
@@ -49,10 +62,56 @@ export class MusicPlayer {
   }
 
   /**
+   * Returns information about the currently playing audio source
+   */
+  public getCurrentSourceInfo(): SourceInfo | null {
+    // Check if menu music is playing
+    if (this.activeSources.has("menuMusic")) {
+      const source = this.activeSources.get("menuMusic")!;
+      const startTime = this.sourceStartTimes.get("menuMusic") || 0;
+      const buffer = source.buffer;
+
+      if (buffer) {
+        return {
+          source,
+          startTime,
+          buffer,
+          id: "menuMusic",
+        };
+      }
+    }
+
+    // Check if game music is playing
+    if (this.activeSources.has("gameMusic")) {
+      const source = this.activeSources.get("gameMusic")!;
+      const startTime = this.sourceStartTimes.get("gameMusic") || 0;
+      const buffer = source.buffer;
+
+      if (buffer) {
+        return {
+          source,
+          startTime,
+          buffer,
+          id: "gameMusic",
+        };
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Checks if menu music is loaded
    */
   public isMenuMusicLoaded(): boolean {
     return this.bufferManager.hasBuffer("menuMusic");
+  }
+
+  /**
+   * Checks if game music is loaded
+   */
+  public isGameMusicLoaded(): boolean {
+    return this.bufferManager.hasBuffer("gameMusic");
   }
 
   /**
@@ -99,32 +158,84 @@ export class MusicPlayer {
       source.buffer = buffer;
       source.loop = true;
 
-      // Configure a precise loopEnd point for better looping
-      const bufferDuration = buffer.duration;
-      const loopEndTime = bufferDuration - 0.005; // 5ms before end
+      // Store the start time for tracking playback position
+      const startTime = this.contextManager.getCurrentTime();
+      this.sourceStartTimes.set("menuMusic", startTime);
 
-      // Only set if we're not cutting off too much
-      if (loopEndTime > bufferDuration * 0.98) {
-        source.loopEnd = loopEndTime;
-        this.logger.info(
-          `MusicPlayer: Set loop end at ${loopEndTime.toFixed(
-            4
-          )}s (buffer: ${bufferDuration.toFixed(4)}s)`
-        );
+      // Connect to audio graph and start
+      source.connect(this.contextManager.getMainGainNode());
+      source.start(0);
+
+      // Store the source for later reference
+      this.activeSources.set("menuMusic", source);
+
+      this.logger.info("MusicPlayer: Menu music started");
+    } catch (error) {
+      this.logger.error("MusicPlayer: Error playing menu music:", error);
+    }
+  }
+
+  /**
+   * Plays the game music
+   */
+  public playGameMusic(): void {
+    // Try to resume audio context if needed
+    this.contextManager.tryResume().catch((err) => {
+      this.logger.error("MusicPlayer: Error resuming audio context:", err);
+    });
+
+    // Check if the gameMusic buffer is already loaded
+    if (!this.bufferManager.hasBuffer("gameMusic")) {
+      this.logger.warn("MusicPlayer: Game music not loaded, cannot play yet");
+      return;
+    }
+
+    // Stop any existing game music first
+    if (this.activeSources.has("gameMusic")) {
+      // Only stop the game music, not all music
+      try {
+        const source = this.activeSources.get("gameMusic");
+        if (source) {
+          source.stop();
+          source.disconnect();
+          this.activeSources.delete("gameMusic");
+        }
+      } catch (error) {
+        // Ignore errors when stopping
+      }
+      setTimeout(() => this.playGameMusic(), 50); // Try again after cleanup
+      return;
+    }
+
+    try {
+      const buffer = this.bufferManager.getBuffer("gameMusic");
+      if (!buffer) {
+        this.logger.error("MusicPlayer: Game music buffer not found");
+        return;
       }
 
-      // Create a gain node for volume control with gentle ramping
-      const gainNode = this.contextManager.createGainNode();
+      // Create and configure the source node
+      const source = this.contextManager.createNode((ctx) =>
+        ctx.createBufferSource()
+      );
+      source.buffer = buffer;
+      source.loop = true;
 
-      // Start with zero gain and ramp up quickly to avoid clicks
-      const now = this.contextManager.getCurrentTime();
-      gainNode.gain.setValueAtTime(0, now);
+      // Store the start time for tracking playback position
+      const startTime = this.contextManager.getCurrentTime();
+      this.sourceStartTimes.set("gameMusic", startTime);
+
+      // Apply a gentle fade-in
+      const gainNode = this.contextManager.createNode((ctx) =>
+        ctx.createGain()
+      );
+      gainNode.gain.setValueAtTime(0, startTime);
       gainNode.gain.linearRampToValueAtTime(
-        this.contextManager.getMuteState() ? 0 : 0.15,
-        now + 0.1 // 100ms ramp
+        this.contextManager.getMuteState() ? 0 : 1,
+        startTime + 0.5
       );
 
-      // Connect the nodes
+      // Connect through the gain node
       source.connect(gainNode);
       gainNode.connect(this.contextManager.getMainGainNode());
 
@@ -132,17 +243,11 @@ export class MusicPlayer {
       source.start(0);
 
       // Store the source for later reference
-      this.activeSources.set("menuMusic", source);
+      this.activeSources.set("gameMusic", source);
 
-      // Set up cleanup when the sound stops
-      source.onended = () => {
-        this.activeSources.delete("menuMusic");
-        this.logger.info("MusicPlayer: Menu music ended");
-      };
-
-      this.logger.info("MusicPlayer: Started menu music playback");
+      this.logger.info("MusicPlayer: Game music started");
     } catch (error) {
-      this.logger.error("MusicPlayer: Error playing menu music:", error);
+      this.logger.error("MusicPlayer: Error playing game music:", error);
     }
   }
 
@@ -174,40 +279,45 @@ export class MusicPlayer {
               source.stop();
               source.disconnect();
               this.activeSources.delete(id);
+              this.sourceStartTimes.delete(id);
               this.logger.info(`MusicPlayer: ${id} stopped after fade-out`);
             } catch (error) {
               // Ignore errors when stopping
             }
-          }, fadeOutTime * 1000);
+          }, fadeOutTime * 1000 + 50);
         } else {
           // No gain nodes found, stop immediately
           source.stop();
           source.disconnect();
           this.activeSources.delete(id);
-          this.logger.info(
-            `MusicPlayer: ${id} stopped immediately (no gain nodes found)`
-          );
+          this.sourceStartTimes.delete(id);
+          this.logger.info(`MusicPlayer: ${id} stopped immediately`);
         }
       } catch (error) {
         this.logger.warn(`MusicPlayer: Error stopping ${id}:`, error);
-
-        // Fallback to immediate stop if error occurs
+        // Try to clean up anyway
         try {
-          source.stop();
           source.disconnect();
-        } catch {
-          // Ignore any errors during fallback stop
+        } catch (e) {
+          // Ignore additional errors
         }
         this.activeSources.delete(id);
+        this.sourceStartTimes.delete(id);
       }
     });
   }
 
   /**
-   * Disposes of the music player
+   * Cleans up all resources used by the music player.
    */
   public dispose(): void {
+    this.logger.info("MusicPlayer: Disposing resources");
+
+    // Stop all active sources
     this.stop(0);
+
+    // Clear all collections
     this.activeSources.clear();
+    this.sourceStartTimes.clear();
   }
 }

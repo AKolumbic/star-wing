@@ -9,6 +9,10 @@ import { MusicPlayer } from "./music/MusicPlayer";
 import { SoundEffectPlayer } from "./effects/SoundEffectPlayer";
 import { ProceduralMusicGenerator } from "./music/ProceduralMusicGenerator";
 
+// Music asset paths
+const MENU_MUSIC_PATH = "/assets/audio/star-wing_menu-loop.mp3";
+const GAME_MUSIC_PATH = "/assets/audio/star-wing_game-loop.mp3";
+
 export class AudioManager {
   // Core audio infrastructure
   private contextManager: AudioContextManager;
@@ -22,6 +26,7 @@ export class AudioManager {
   // State tracking
   private isInitialized: boolean = false;
   private isPlaying: boolean = false;
+  private currentMusic: string = "";
 
   // Logging
   private logger = Logger.getInstance();
@@ -75,11 +80,12 @@ export class AudioManager {
       this.initialize();
     }
 
-    if (this.isPlaying) {
+    if (this.isPlaying && this.currentMusic === "menuMusic") {
       return;
     }
 
     this.isPlaying = true;
+    this.currentMusic = "menuMusic";
 
     if (useProceduralAudio) {
       this.proceduralMusic.startMenuMusic();
@@ -89,11 +95,115 @@ export class AudioManager {
   }
 
   /**
+   * Transitions from menu music to game music with a smooth crossfade.
+   * This ensures a cohesive, never-ending soundtrack by timing the transition
+   * to occur at natural loop points in the music.
+   */
+  public transitionToGameMusic(): void {
+    if (!this.isInitialized) {
+      this.initialize();
+    }
+
+    // If we're already playing the game music, don't do anything
+    if (this.currentMusic === "gameMusic") {
+      return;
+    }
+
+    this.logger.info(
+      "AudioManager: Transitioning from menu music to game music"
+    );
+
+    // Preload the game music if it's not already loaded
+    if (!this.bufferManager.hasBuffer("gameMusic")) {
+      this.logger.info("AudioManager: Preloading game music");
+
+      // Define the full URL for the game music
+      const baseUrl = window.location.origin;
+      const fullUrl = `${baseUrl}${GAME_MUSIC_PATH}`;
+
+      this.bufferManager
+        .loadAudioBuffer(fullUrl, "gameMusic")
+        .then(() => {
+          this.logger.info("AudioManager: Game music loaded successfully");
+          this._executeGameMusicTransition();
+        })
+        .catch((error) => {
+          this.logger.error("AudioManager: Failed to load game music:", error);
+          // Fallback to procedural music if loading fails
+          this.proceduralMusic.startGameMusic();
+        });
+    } else {
+      // Game music is already loaded, proceed with transition
+      this._executeGameMusicTransition();
+    }
+  }
+
+  /**
+   * Private method to handle the actual transition to game music
+   * once the audio buffer is loaded.
+   */
+  private _executeGameMusicTransition(): void {
+    // If using procedural music, switch to game pattern
+    if (this.proceduralMusic.isActive()) {
+      this.proceduralMusic.transitionToGameMusic();
+      this.currentMusic = "gameMusic";
+      return;
+    }
+
+    // For sampled music, schedule the transition
+    const currentSourceInfo = this.musicPlayer.getCurrentSourceInfo();
+
+    if (currentSourceInfo && currentSourceInfo.buffer) {
+      // Get information about the current playback position
+      const { source, startTime, buffer } = currentSourceInfo;
+      const currentTime = this.contextManager.getCurrentTime();
+      const playbackTime = currentTime - startTime;
+
+      // Calculate time until the end of the current loop
+      const duration = buffer.duration;
+      const timeUntilEnd = duration - (playbackTime % duration);
+
+      this.logger.info(
+        `AudioManager: Current playback position: ${playbackTime.toFixed(
+          2
+        )}s, time until loop end: ${timeUntilEnd.toFixed(2)}s`
+      );
+
+      // Schedule the transition to occur at the end of the current loop
+      // Subtract a small amount of time to ensure smooth transition
+      const transitionBuffer = 0.1; // 100ms buffer for smoother transition
+
+      setTimeout(() => {
+        this.logger.info("AudioManager: Executing transition to game music");
+        this.musicPlayer.stop(0.5); // Fade out over 0.5 seconds
+
+        // Start game music after a short delay to allow the fade out
+        setTimeout(() => {
+          this.musicPlayer.playGameMusic();
+          this.currentMusic = "gameMusic";
+        }, 400); // Wait slightly less than the fade out time
+      }, (timeUntilEnd - transitionBuffer) * 1000);
+    } else {
+      // If we can't determine the current playback position, do a simple crossfade
+      this.logger.info(
+        "AudioManager: No active music source, doing immediate transition"
+      );
+      this.musicPlayer.stop(0.5);
+
+      setTimeout(() => {
+        this.musicPlayer.playGameMusic();
+        this.currentMusic = "gameMusic";
+      }, 400);
+    }
+  }
+
+  /**
    * Stops all music playback.
    * @param fadeOutTime Optional fade-out time in seconds
    */
   public stopMusic(fadeOutTime: number = 0.1): void {
     this.isPlaying = false;
+    this.currentMusic = "";
     this.musicPlayer.stop(fadeOutTime);
     this.proceduralMusic.stop();
   }

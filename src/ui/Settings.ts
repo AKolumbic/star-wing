@@ -1,185 +1,28 @@
 import { Game } from "../core/Game";
+import { Logger } from "../utils/Logger";
+import { StyleManager } from "../styles/StyleManager";
+import { settingsStyles } from "../styles/SettingsStyles";
 
 export class Settings {
   private container: HTMLDivElement;
   private isVisible: boolean = false;
   private game: Game;
   private onCloseCallback: (() => void) | null = null;
+  private logger = Logger.getInstance();
 
   constructor(game: Game) {
     this.game = game;
     this.container = document.createElement("div");
     this.container.className = "terminal-overlay";
-    this.setupStyles();
+
+    // Apply styles
+    StyleManager.applyStyles("settings", settingsStyles);
+
     this.setupSettings();
     this.hide(); // Initially hidden
 
     // Add keyboard event listener for ESC key
     document.addEventListener("keydown", this.handleKeyDown.bind(this));
-  }
-
-  private setupStyles(): void {
-    const style = document.createElement("style");
-    style.textContent = `
-      .settings-container {
-        position: relative;
-        width: calc(100% - 100px);
-        max-width: 800px;
-        height: calc(100% - 100px);
-        background-color: rgba(0, 0, 0, 0.9);
-        border: 2px solid #33ff33;
-        border-radius: 5px;
-        padding: 20px;
-        color: #33ff33;
-        font-family: 'PressStart2P', monospace;
-        display: flex;
-        flex-direction: column;
-        box-shadow: 0 0 20px rgba(51, 255, 51, 0.3);
-      }
-
-      .settings-header {
-        text-align: center;
-        margin-bottom: 20px;
-        font-size: 24px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #33ff33;
-      }
-
-      .settings-section {
-        margin-bottom: 30px;
-      }
-
-      .settings-section-title {
-        font-size: 18px;
-        margin-bottom: 15px;
-        text-transform: uppercase;
-        position: relative;
-      }
-
-      .settings-section-title::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        bottom: -5px;
-        width: 50px;
-        height: 2px;
-        background-color: #33ff33;
-      }
-
-      .settings-option {
-        display: flex;
-        align-items: center;
-        margin-bottom: 15px;
-        font-size: 14px;
-      }
-
-      .settings-label {
-        flex: 1;
-      }
-
-      .settings-toggle {
-        width: 60px;
-        height: 30px;
-        background-color: #111;
-        border: 2px solid #33ff33;
-        border-radius: 15px;
-        position: relative;
-        cursor: pointer;
-      }
-
-      .settings-toggle.active::after {
-        left: 30px;
-      }
-
-      .settings-toggle::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 26px;
-        height: 26px;
-        background-color: #33ff33;
-        border-radius: 50%;
-        transition: left 0.2s;
-      }
-      
-      .volume-slider-container {
-        display: flex;
-        flex-direction: column;
-        margin-top: 10px;
-      }
-      
-      .volume-slider {
-        -webkit-appearance: none;
-        width: 100%;
-        height: 20px;
-        background: #111;
-        border: 2px solid #33ff33;
-        border-radius: 10px;
-        margin-top: 10px;
-        overflow: hidden;
-      }
-      
-      .volume-slider::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        width: 20px;
-        height: 20px;
-        background: #33ff33;
-        border-radius: 50%;
-        cursor: pointer;
-        box-shadow: -100vw 0 0 100vw rgba(51, 255, 51, 0.2);
-      }
-      
-      .volume-slider::-moz-range-thumb {
-        width: 20px;
-        height: 20px;
-        background: #33ff33;
-        border-radius: 50%;
-        cursor: pointer;
-        box-shadow: -100vw 0 0 100vw rgba(51, 255, 51, 0.2);
-      }
-      
-      .volume-value {
-        margin-top: 5px;
-        text-align: center;
-        font-size: 12px;
-      }
-
-      .settings-back-button {
-        cursor: pointer;
-        background-color: #000;
-        color: #33ff33;
-        border: 2px solid #33ff33;
-        padding: 10px 20px;
-        font-family: 'PressStart2P', monospace;
-        margin-top: auto;
-        align-self: center;
-        transition: background-color 0.2s;
-      }
-
-      .settings-back-button:hover {
-        background-color: rgba(51, 255, 51, 0.2);
-      }
-
-      /* Digital scan line effect */
-      .settings-container::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(
-          rgba(18, 16, 16, 0) 50%, 
-          rgba(0, 0, 0, 0.25) 50%
-        );
-        background-size: 100% 4px;
-        z-index: 1005;
-        pointer-events: none;
-        opacity: 0.3;
-      }
-    `;
-    document.head.appendChild(style);
   }
 
   private setupSettings(): void {
@@ -337,8 +180,16 @@ export class Settings {
   }
 
   dispose(): void {
+    // Remove styles
+    StyleManager.removeStyles("settings");
+
     document.removeEventListener("keydown", this.handleKeyDown.bind(this));
-    document.body.removeChild(this.container);
+
+    if (this.container.parentNode) {
+      this.container.parentNode.removeChild(this.container);
+    }
+
+    this.logger.info("Settings: Disposed");
   }
 
   public setOnCloseCallback(callback: () => void): void {

@@ -258,4 +258,50 @@ export class BufferManager {
     this.audioBufferCache.clear();
     this.logger.info("BufferManager: Disposed all audio buffers");
   }
+
+  /**
+   * Loads an audio buffer from a URL
+   * @param url URL of the audio file
+   * @param id Optional identifier for the buffer
+   * @returns Promise that resolves with the decoding buffer
+   */
+  public loadAudioBuffer(url: string, id?: string): Promise<AudioBuffer> {
+    // If we already have this buffer, return it
+    if (id && this.audioBufferCache.has(id)) {
+      return Promise.resolve(this.audioBufferCache.get(id)!);
+    }
+
+    this.logger.info(`BufferManager: Loading audio buffer from ${url}`);
+
+    return new Promise<AudioBuffer>((resolve, reject) => {
+      fetch(url)
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP error, status = ${response.status}`);
+          }
+          return response.arrayBuffer();
+        })
+        .then((arrayBuffer) => {
+          const audioContext = this.contextManager.getContext();
+          return audioContext.decodeAudioData(arrayBuffer);
+        })
+        .then((audioBuffer) => {
+          // Store the buffer if an ID was provided
+          if (id) {
+            this.audioBufferCache.set(id, audioBuffer);
+            this.logger.info(
+              `BufferManager: Stored audio buffer with ID "${id}"`
+            );
+          }
+          resolve(audioBuffer);
+        })
+        .catch((error) => {
+          this.logger.error(
+            `BufferManager: Error loading audio from ${url}:`,
+            error
+          );
+          reject(error);
+        });
+    });
+  }
 }
