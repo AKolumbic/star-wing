@@ -92,13 +92,13 @@ export class Scene {
   private lastAsteroidSpawnTime: number = 0;
 
   /** Minimum time between asteroid spawns (in milliseconds) */
-  private asteroidSpawnInterval: number = 5000; // 5 seconds initially
+  private asteroidSpawnInterval: number = 3250; // Reduced from 5000 (by 35%)
 
   /** Collection of active asteroids in the scene */
   private asteroids: Asteroid[] = [];
 
   /** Maximum number of asteroids allowed at once */
-  private maxAsteroids: number = 15;
+  private maxAsteroids: number = 20;
 
   /** Maximum horizontal distance from center (full width = 2800) */
   private horizontalLimit: number = 1400;
@@ -749,10 +749,10 @@ export class Scene {
       this.spawnAsteroid();
       this.lastAsteroidSpawnTime = currentTime;
 
-      // Spawn asteroids more frequently (min 1 second)
+      // Spawn asteroids more frequently (min 650ms, reduced from 1000ms)
       this.asteroidSpawnInterval = Math.max(
-        1000, // Reduced from 2000 - faster minimum spawn time
-        3000 - (this.currentZone - 1) * 500 // Reduced from 5000 - faster initial spawn time
+        650, // Reduced from 1000 by 35% - faster minimum spawn time
+        1950 - (this.currentZone - 1) * 325 // Reduced from 3000 by 35% - faster initial spawn time with same reduction per zone
       );
     }
   }
@@ -788,8 +788,8 @@ export class Scene {
       .subVectors(targetPos, asteroidPosition)
       .normalize();
 
-    // Randomize asteroid properties
-    const speed = 300 + Math.random() * 150; // Double speed: 300-450 units per second (was 150-250)
+    // Randomize asteroid properties - speed increased by 35%
+    const speed = (300 + Math.random() * 150) * 1.35; // Increased by 35% (was 300-450)
     const size = 20 + Math.random() * 30; // 20-50 units radius
     const damage = (10 + Math.floor(Math.random() * 20)) * 2; // 20-60 damage (doubled from 10-30)
 
@@ -903,8 +903,8 @@ export class Scene {
 
     // Reset asteroid spawn timer and settings
     this.lastAsteroidSpawnTime = 0;
-    this.asteroidSpawnInterval = 3000; // Reset to initial spawn interval (matches the new faster default)
-    this.maxAsteroids = 15; // Reset to the new higher limit
+    this.asteroidSpawnInterval = 3250; // Reset to initial spawn interval (updated to new 35% faster value)
+    this.maxAsteroids = 20; // Reset to the new higher limit
 
     // Reset player ship if it exists
     if (this.playerShip) {
