@@ -69,13 +69,17 @@ export class AudioManager {
   /**
    * Starts playing the menu music.
    * @param useProceduralAudio Force using procedural audio instead of MP3 (for devMode)
+   * @param forceRestart If true, will force restart even if already playing
    */
-  public playMenuThump(useProceduralAudio: boolean = false): void {
+  public playMenuThump(
+    useProceduralAudio: boolean = false,
+    forceRestart: boolean = false
+  ): void {
     if (!this.isInitialized) {
       this.initialize();
     }
 
-    if (this.isPlaying) {
+    if (this.isPlaying && !forceRestart) {
       return;
     }
 
@@ -84,16 +88,22 @@ export class AudioManager {
     if (useProceduralAudio) {
       this.proceduralMusic.startMenuMusic();
     } else {
-      this.musicPlayer.playMenuMusic();
+      this.musicPlayer.playMenuMusic(forceRestart);
     }
   }
 
   /**
    * Stops all music playback.
    * @param fadeOutTime Optional fade-out time in seconds
+   * @param preservePlayingFlag If true, don't reset the isPlaying flag (used for temporary stops before restarting)
    */
-  public stopMusic(fadeOutTime: number = 0.1): void {
-    this.isPlaying = false;
+  public stopMusic(
+    fadeOutTime: number = 0.1,
+    preservePlayingFlag: boolean = false
+  ): void {
+    if (!preservePlayingFlag) {
+      this.isPlaying = false;
+    }
     this.musicPlayer.stop(fadeOutTime);
     this.proceduralMusic.stop();
   }
@@ -124,15 +134,100 @@ export class AudioManager {
    * Toggles audio mute state.
    */
   public toggleMute(): void {
+    const wasMuted = this.contextManager.getMuteState();
     this.contextManager.toggleMute();
+    const isNowMuted = this.contextManager.getMuteState();
 
-    // If we're now unmuted and music should be playing, restart it
-    if (!this.contextManager.getMuteState() && this.isPlaying) {
-      if (this.musicPlayer.isMenuMusicLoaded()) {
-        this.musicPlayer.playMenuMusic();
-      } else {
-        this.proceduralMusic.startMenuMusic();
+    // If we're unmuting and music should be playing
+    if (wasMuted && !isNowMuted) {
+      this.logger.info(
+        `AudioManager: Unmuting - isPlaying flag is ${this.isPlaying}`
+      );
+
+      // If we don't currently have the playing flag set, set it now
+      // This handles cases where the user toggles mute after the music stopped
+      if (!this.isPlaying) {
+        this.logger.info(
+          "AudioManager: Music wasn't playing, setting flag to true"
+        );
+        this.isPlaying = true;
       }
+
+      // First ensure any existing music is fully stopped, but preserve the isPlaying flag
+      this.stopMusic(0.05, true);
+
+      // Make sure volume is set to a non-zero value
+      if (this.getVolume() <= 0.01) {
+        this.logger.info(
+          "AudioManager: Volume was near zero, setting to default"
+        );
+        this.setVolume(0.25);
+      }
+
+      this.logger.info(
+        `AudioManager: Music flag is now ${
+          this.isPlaying
+        }, volume is ${this.getVolume()} - will restart after delay`
+      );
+
+      // Force clear the WebAudio nodes to avoid any lingering connections
+      this.forceResetAudioNodes();
+
+      // Then restart with a slightly longer delay to avoid race conditions
+      setTimeout(() => {
+        const currentMuteState = this.contextManager.getMuteState();
+        this.logger.info(
+          `AudioManager: After delay - muted=${currentMuteState}, isPlaying=${this.isPlaying}`
+        );
+
+        if (!currentMuteState && this.isPlaying) {
+          this.logger.info("AudioManager: Restarting music after unmute");
+          // Use playMenuThump with forceRestart to ensure clean restart
+          this.playMenuThump(false, true);
+        } else {
+          this.logger.warn(
+            `AudioManager: Not restarting music - conditions not met`
+          );
+        }
+      }, 250); // Increased delay to 250ms to ensure clean transition
+    }
+  }
+
+  /**
+   * Forces a reset of audio nodes to ensure clean state
+   * @private
+   */
+  private forceResetAudioNodes(): void {
+    try {
+      // Get the main gain node
+      const mainGain = this.contextManager.getMainGainNode();
+
+      // Disconnect and reconnect to ensure clean state
+      try {
+        mainGain.disconnect();
+      } catch (err) {
+        // Ignore - might not be connected
+      }
+
+      // Reset the gain value directly
+      const storedVolume = this.getVolume();
+      const isMuted = this.getMuteState();
+      const volume = isMuted ? 0 : Math.max(0.25, storedVolume) * 0.6;
+
+      // Apply volume immediately
+      mainGain.gain.value = volume;
+
+      // Reconnect to destination
+      mainGain.connect(this.contextManager.getContext().destination);
+
+      this.logger.info(
+        `AudioManager: Force reset audio nodes and set volume to ${volume}`
+      );
+    } catch (err) {
+      this.logger.error(
+        "AudioManager: Error during force reset of audio nodes:",
+        err
+      );
     }
   }
 
