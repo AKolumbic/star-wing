@@ -409,9 +409,46 @@ export class Menu {
       return;
     }
 
-    this.logger.info("Showing in development screen instead of starting game");
+    this.logger.info("Starting a new game sequence");
     this.hide();
-    this.showDevelopmentScreen();
+
+    // Get important system references
+    const uiSystem = this.game.getUISystem();
+    const scene = this.game.getSceneSystem().getScene();
+    const input = this.game.getInputSystem().getInput();
+
+    // Ensure input is set on scene
+    scene.setInput(input);
+    this.logger.info("Setting input on scene for ship controls");
+
+    // 1. Start with the text crawl
+    uiSystem.showTextCrawl(() => {
+      this.logger.info("Text crawl complete, initiating hyperspace transition");
+
+      // 2. After text crawl completes, start hyperspace transition
+      scene.transitionHyperspace(true, 2.0).then(() => {
+        this.logger.info("Hyperspace transition complete, initializing ship");
+
+        // 3. Initialize the player ship before starting entry animation
+        scene
+          .initPlayerShip()
+          .then(() => {
+            this.logger.info("Ship initialized, starting ship entry sequence");
+
+            // 4. After ship is initialized, start ship entry
+            scene.startShipEntry(() => {
+              this.logger.info("Ship entry complete, game is now active");
+
+              // 5. Finally, start the game and show HUD
+              this.game.start();
+              uiSystem.showGameHUD();
+            });
+          })
+          .catch((error) => {
+            this.logger.error("Failed to initialize ship:", error);
+          });
+      });
+    });
   }
 
   /**

@@ -941,9 +941,12 @@ export class Ship {
    * @param deltaTime Time elapsed since the last frame in seconds
    */
   private handleInput(deltaTime: number): void {
-    // Arcade-style movement with instant response and digital feeling
-    const moveSpeed = 8.0; // Faster movement for arcade feel
-    // const maxSpeed = 8.0; // Higher max speed
+    // Skip input handling if not player controlled or during entry animation
+    if (!this.playerControlled || this.playingEntryAnimation) {
+      return;
+    }
+
+    const moveSpeed = 6.8; // Reduced by 15% from 8.0 for smoother handling
 
     // Digital-style input response (full speed or nothing)
     let moveX = 0;

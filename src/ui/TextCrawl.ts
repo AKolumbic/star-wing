@@ -350,7 +350,7 @@ export class TextCrawl {
   private executeCallback(): void {
     if (this.onCompleteCallback) {
       this.logger.info(
-        "TextCrawl: Preparing to execute callback with 2-second delay"
+        "TextCrawl: Preparing to execute callback with 1-second delay"
       );
 
       // Save callback to a local variable to avoid null reference later
@@ -358,11 +358,11 @@ export class TextCrawl {
       // Clear the callback reference immediately to prevent double execution
       this.onCompleteCallback = null;
 
-      // Add a 2-second delay before executing the callback
+      // Add a 1-second delay before executing the callback (reduced from 2 seconds)
       setTimeout(() => {
         this.logger.info("TextCrawl: Executing callback after delay");
         callback(); // Using local variable that we know is non-null
-      }, 2000);
+      }, 1000);
     }
     this.logger.info("TextCrawl: Finished cleanup after animation");
   }
