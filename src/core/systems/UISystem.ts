@@ -5,6 +5,7 @@ import { LoadingScreen } from "../../ui/LoadingScreen";
 import { TerminalBorder } from "../../ui/TerminalBorder";
 import { TextCrawl } from "../../ui/TextCrawl";
 import { GameHUD } from "../../ui/GameHUD";
+import { GameOverScreen } from "../../ui/GameOverScreen";
 import { Logger } from "../../utils/Logger";
 
 /**
@@ -26,6 +27,9 @@ export class UISystem implements GameSystem {
 
   /** In-game HUD component */
   private gameHUD: GameHUD;
+
+  /** Game over screen component */
+  private gameOverScreen: GameOverScreen;
 
   /** Reference to the main game for accessing game state */
   private game: Game;
@@ -49,6 +53,7 @@ export class UISystem implements GameSystem {
     this.terminalBorder = TerminalBorder.getInstance();
     this.textCrawl = new TextCrawl(this.game);
     this.gameHUD = new GameHUD(this.game);
+    this.gameOverScreen = new GameOverScreen(this.game);
 
     // The loading screen is created later when needed
 
@@ -80,6 +85,8 @@ export class UISystem implements GameSystem {
    * Cleans up UI resources.
    */
   dispose(): void {
+    this.logger.info("Disposing UI system");
+
     if (this.menu && typeof this.menu.dispose === "function") {
       this.menu.dispose();
     }
@@ -104,6 +111,13 @@ export class UISystem implements GameSystem {
 
     if (this.gameHUD && typeof this.gameHUD.dispose === "function") {
       this.gameHUD.dispose();
+    }
+
+    if (
+      this.gameOverScreen &&
+      typeof this.gameOverScreen.dispose === "function"
+    ) {
+      this.gameOverScreen.dispose();
     }
 
     // Remove escape key handler
@@ -323,5 +337,41 @@ export class UISystem implements GameSystem {
    */
   getMenu(): Menu {
     return this.menu;
+  }
+
+  /**
+   * Shows the game over screen.
+   */
+  showGameOver(): void {
+    this.hideGameHUD();
+    this.gameOverScreen.show();
+  }
+
+  /**
+   * Hides the game over screen.
+   */
+  hideGameOver(): void {
+    this.gameOverScreen.hide();
+  }
+
+  /**
+   * Restarts the game after game over.
+   * Handles all the UI changes needed when restarting a game.
+   */
+  restartGame(): void {
+    this.logger.info("Restarting game from game over screen");
+
+    // Hide the game over screen
+    this.hideGameOver();
+
+    // Get the scene and reset it
+    const scene = this.game.getSceneSystem().getScene();
+    scene.resetGame();
+
+    // Show the game HUD
+    setTimeout(() => {
+      this.showGameHUD();
+      this.logger.info("Game HUD shown after restart");
+    }, 1000); // Give time for ship entry animation
   }
 }
