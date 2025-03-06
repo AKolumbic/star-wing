@@ -53,13 +53,13 @@ For more efficient development workflow, Star Wing includes a developer mode tha
 To enable dev mode, simply add `?dev` to the URL:
 
 ```bash
-http://localhost:5173/?dev
+http://localhost:3000/?dev
 ```
 
 If you want to enable audio in dev mode (to hear the procedural music), you can add the `enableDevAudio` parameter:
 
 ```bash
-http://localhost:5173/?dev&enableDevAudio
+http://localhost:3000/?dev&enableDevAudio
 ```
 
 You can also toggle audio during development by using the browser console:

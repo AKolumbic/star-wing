@@ -21,27 +21,17 @@ export class AudioSystem implements GameSystem {
    * @returns A promise that resolves when initialization is complete
    */
   async init(): Promise<void> {
-    // Initialize the audio manager
-    this.audioManager.initialize();
-
-    // Preload the menu music
     try {
-      // Use a relative path instead of absolute path
-      // Remove the leading slash so it's relative to base URL
-      const menuMusicFile = "assets/audio/star-wing_menu-loop.mp3";
-      const menuMusicId = "menuMusic";
+      // Initialize the audio manager
+      this.audioManager.initialize();
 
-      // Log the full URL for debugging
-      const fullUrl = new URL(menuMusicFile, window.location.origin).href;
-      console.log("Loading menu music from:", fullUrl);
-
-      // Load the menu music in advance
-      await this.audioManager.loadAudioSample(menuMusicFile, menuMusicId);
+      // Use the new preloading function that handles optimization
+      await this.audioManager.preloadEssentialAudio();
 
       return Promise.resolve();
     } catch (error) {
-      console.error("Failed to preload menu music:", error);
-      // Continue even if preloading fails
+      console.error("Failed to initialize audio system:", error);
+      // Continue even if initialization fails
       return Promise.resolve();
     }
   }

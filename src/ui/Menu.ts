@@ -259,7 +259,7 @@ export class Menu {
 
     // Create link instead of just text
     const copyrightLink = document.createElement("a");
-    copyrightLink.href = "https://www.drosshole.com";
+    copyrightLink.href = "https://www.github.com/akolumbic";
     copyrightLink.textContent = "© 2025 DROSSHOLE";
     copyrightLink.style.color = "#fff"; // Keep same color as before
     copyrightLink.style.textDecoration = "none"; // No underline by default
@@ -392,10 +392,10 @@ export class Menu {
   }
 
   /**
-   * Start the game
+   * Starts a new game.
+   * Shows the text crawl, then hyperspace transition, then ship entry.
    */
   private startGame(): void {
-    // Safety check - if we're in game mode, we should be resuming, not starting a new game
     if (this.inGameMode) {
       this.logger.warn(
         "Attempted to start a new game while already in-game. Resuming instead."
@@ -409,64 +409,108 @@ export class Menu {
       return;
     }
 
-    this.logger.info("Starting game sequence...");
+    this.logger.info("Showing in development screen instead of starting game");
     this.hide();
-    this.logger.info("Menu hidden");
+    this.showDevelopmentScreen();
+  }
 
-    // Get required systems
-    const scene = this.game.getSceneSystem().getScene();
-    const input = this.game.getInputSystem().getInput();
-    const uiSystem = this.game.getUISystem();
+  /**
+   * Displays a screen indicating the game is still in development.
+   */
+  private showDevelopmentScreen(): void {
+    // Create overlay container
+    const overlay = document.createElement("div");
+    overlay.className = "dev-screen-overlay";
+    overlay.style.position = "fixed";
+    overlay.style.top = "0";
+    overlay.style.left = "0";
+    overlay.style.width = "100%";
+    overlay.style.height = "100%";
+    overlay.style.display = "flex";
+    overlay.style.flexDirection = "column";
+    overlay.style.justifyContent = "center";
+    overlay.style.alignItems = "center";
+    overlay.style.backgroundColor = "rgba(0, 0, 0, 0.9)";
+    overlay.style.zIndex = "1000";
+    overlay.style.padding = "2rem";
+    overlay.style.textAlign = "center";
+    overlay.style.fontFamily = "'Press Start 2P', monospace";
+    overlay.style.color = "#33ff99";
 
-    // Ensure audio context is activated for weapon sounds
-    try {
-      this.game.getAudioManager().playTestTone();
-      this.logger.info("Audio context activated for weapon sounds");
-    } catch (error) {
-      this.logger.warn("Could not activate audio context:", error);
-    }
+    // Create heading
+    const heading = document.createElement("h1");
+    heading.textContent = "IN DEVELOPMENT";
+    heading.style.fontSize = "3rem";
+    heading.style.marginBottom = "2rem";
+    heading.style.textShadow = "0 0 10px #33ff99";
+    heading.style.animation = "pulse 2s infinite";
 
-    // Initialize required systems before showing text crawl
-    scene.setInput(input);
-    this.logger.info("Input set on scene");
+    // Create message
+    const message = document.createElement("p");
+    message.textContent =
+      "This portion of Star Wing is still under construction.";
+    message.style.fontSize = "1.2rem";
+    message.style.marginBottom = "1.5rem";
+    message.style.maxWidth = "600px";
 
-    // Show text crawl as first step in sequence
-    this.logger.info("Showing text crawl");
-    uiSystem.showTextCrawl(() => {
-      // After text crawl completes, immediately start hyperspace
-      this.logger.info("Text crawl complete, starting hyperspace transition");
+    // Create secondary message
+    const subMessage = document.createElement("p");
+    subMessage.textContent =
+      "Check back soon for updates as development continues!";
+    subMessage.style.fontSize = "1rem";
+    subMessage.style.marginBottom = "3rem";
+    subMessage.style.maxWidth = "600px";
 
-      // Transition to hyperspace
-      scene
-        .transitionHyperspace(true, 2.0)
-        .then(() => {
-          // Wait for a moment to enjoy the hyperspace effect
-          this.logger.info(
-            "Hyperspace transition begun, setting up ship entry"
-          );
-          setTimeout(() => {
-            // Initialize player ship
-            scene
-              .initPlayerShip()
-              .then(() => {
-                this.logger.info("Ship initialized successfully");
+    // Create back button
+    const backButton = document.createElement("button");
+    backButton.textContent = "RETURN TO MAIN MENU";
+    backButton.style.padding = "1rem 2rem";
+    backButton.style.backgroundColor = "transparent";
+    backButton.style.border = "2px solid #33ff99";
+    backButton.style.borderRadius = "4px";
+    backButton.style.color = "#33ff99";
+    backButton.style.fontSize = "1rem";
+    backButton.style.fontFamily = "'Press Start 2P', monospace";
+    backButton.style.cursor = "pointer";
+    backButton.style.transition = "all 0.3s ease";
+    backButton.style.outline = "none";
 
-                // Once the game is starting, show the HUD
-                uiSystem.showGameHUD();
-
-                // Begin the ship entry animation
-                this.logger.info("Starting ship entry animation");
-                scene.startShipEntry();
-              })
-              .catch((error) => {
-                this.logger.error("Failed to initialize ship:", error);
-              });
-          }, 500);
-        })
-        .catch((error) => {
-          this.logger.error("Failed to transition to hyperspace:", error);
-        });
+    // Hover effect
+    backButton.addEventListener("mouseover", () => {
+      backButton.style.backgroundColor = "#33ff99";
+      backButton.style.color = "#000";
     });
+
+    backButton.addEventListener("mouseout", () => {
+      backButton.style.backgroundColor = "transparent";
+      backButton.style.color = "#33ff99";
+    });
+
+    // Click handler
+    backButton.addEventListener("click", () => {
+      document.body.removeChild(overlay);
+      this.show();
+    });
+
+    // Add pulse animation
+    const style = document.createElement("style");
+    style.textContent = `
+      @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Append elements to overlay
+    overlay.appendChild(heading);
+    overlay.appendChild(message);
+    overlay.appendChild(subMessage);
+    overlay.appendChild(backButton);
+
+    // Add to document
+    document.body.appendChild(overlay);
   }
 
   /**
