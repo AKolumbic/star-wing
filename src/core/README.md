@@ -93,9 +93,12 @@ Specialized adapters that implement the GameSystem interface:
 
 #### AudioSystem
 
-- Controls game sound and music
-- Manages volume settings
-- Provides the interface to AudioManager
+- Controls game sound and music through the modular audio architecture
+- Interfaces with the AudioManager facade class
+- Preloads essential audio assets during initialization
+- Manages audio settings persistence and volume controls
+- Provides access to music playback and sound effect functionality
+- See `/src/audio/README.md` for detailed documentation on the audio architecture
 
 #### UISystem
 
@@ -130,6 +133,7 @@ The core systems are designed with performance as a priority:
 - Optimized input handling to avoid performance bottlenecks
 - Frame timing and delta calculations for smooth animations
 - Performance metrics tracking for debugging
+- Audio resource management to minimize memory usage
 
 ## Error Handling
 
@@ -144,7 +148,7 @@ Robust error handling is implemented throughout the core systems:
 
 - **Three.js**: For 3D rendering (Scene.ts)
 - **Browser DOM API**: For input handling (Input.ts)
-- **Web Audio API**: Through AudioManager for sound (referenced in AudioSystem)
+- **Web Audio API**: Through the modular audio architecture (referenced in AudioSystem)
 - **UI Components**: Through Menu, LoadingScreen, etc. (referenced in UISystem)
 
 ## Background System
