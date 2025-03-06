@@ -401,7 +401,7 @@ export class Game {
     // If we just unmuted, make sure music is playing
     if (!isMuted && !audioManager.isAudioPlaying()) {
       this.logger.info("DEV MODE: Restarting procedural audio");
-      this.audioSystem.playMenuThump(true);
+      this.audioSystem.playMenuThump(true, true);
     }
   }
 

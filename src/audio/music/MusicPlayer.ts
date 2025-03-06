@@ -56,9 +56,10 @@ export class MusicPlayer {
   }
 
   /**
-   * Plays the menu music
+   * Plays the menu music loop
+   * @param forceRestart If true, will force restart even if already playing
    */
-  public playMenuMusic(): void {
+  public playMenuMusic(forceRestart: boolean = false): void {
     // Try to resume audio context if needed
     this.contextManager.tryResume().catch((err) => {
       this.logger.error("MusicPlayer: Error resuming audio context:", err);
@@ -70,7 +71,7 @@ export class MusicPlayer {
       this.bufferManager
         .preloadEssentials()
         .then(() => {
-          this.playMenuMusic(); // Try again after preloading
+          this.playMenuMusic(forceRestart); // Try again after preloading
         })
         .catch((err) => {
           this.logger.error("MusicPlayer: Error preloading menu music:", err);
@@ -78,11 +79,22 @@ export class MusicPlayer {
       return;
     }
 
-    // Stop any existing menu music first
-    if (this.activeSources.has("menuMusic")) {
+    // Stop any existing menu music first if it's playing, unless we're forcing a restart
+    if (this.activeSources.has("menuMusic") && !forceRestart) {
+      this.logger.info("MusicPlayer: Music already playing, stopping first");
       this.stop(0.1); // Short fade-out for transition
-      setTimeout(() => this.playMenuMusic(), 150); // Try again after fade-out
+      setTimeout(() => this.playMenuMusic(true), 150); // Try again after fade-out with force flag
       return;
+    }
+
+    // If we're forcing a restart and there are active sources, stop them first
+    if (forceRestart && this.activeSources.has("menuMusic")) {
+      this.logger.info(
+        "MusicPlayer: Force-restarting music, stopping existing sources first"
+      );
+      this.stop(0.05);
+      // Clear out the map to ensure we don't think music is still playing
+      this.activeSources.clear();
     }
 
     try {
@@ -116,17 +128,53 @@ export class MusicPlayer {
       // Create a gain node for volume control with gentle ramping
       const gainNode = this.contextManager.createGainNode();
 
-      // Start with zero gain and ramp up quickly to avoid clicks
+      // Get appropriate volume based on mute state and stored volume
+      const isMuted = this.contextManager.getMuteState();
+      const storedVolume = this.contextManager.getVolume();
+      // Use a much higher base value to ensure it's audible
+      const baseVolume = isMuted ? 0 : Math.max(0.5, storedVolume * 0.8);
+
+      this.logger.info(
+        `MusicPlayer: Setting initial gain to ${baseVolume} (muted=${isMuted}, storedVolume=${storedVolume})`
+      );
+
+      // Set the gain value directly first to ensure it's applied
+      gainNode.gain.value = 0;
+
+      // Then do the ramping for smooth transition
       const now = this.contextManager.getCurrentTime();
       gainNode.gain.setValueAtTime(0, now);
       gainNode.gain.linearRampToValueAtTime(
-        this.contextManager.getMuteState() ? 0 : 0.15,
+        baseVolume,
         now + 0.1 // 100ms ramp
       );
 
-      // Connect the nodes
+      // Connect the nodes - ensure gain node is directly connected to destination
       source.connect(gainNode);
-      gainNode.connect(this.contextManager.getMainGainNode());
+
+      // Force a disconnect/reconnect of the main gain node to ensure proper connection
+      const mainGain = this.contextManager.getMainGainNode();
+      try {
+        // Try to disconnect (may throw if not connected)
+        mainGain.disconnect();
+      } catch (e) {
+        // Ignore disconnect errors
+      }
+
+      // Set mainGain value directly to ensure it's applied
+      if (!isMuted) {
+        mainGain.gain.value = Math.max(0.4, storedVolume * 0.6);
+        this.logger.info(
+          `MusicPlayer: Force set main gain to ${mainGain.gain.value}`
+        );
+      }
+
+      // Connect our source's gain node to the main gain node
+      gainNode.connect(mainGain);
+
+      // Connect main gain to destination
+      mainGain.connect(this.contextManager.getContext().destination);
+      this.logger.info("MusicPlayer: Established direct audio connection path");
 
       // Start playback
       source.start(0);

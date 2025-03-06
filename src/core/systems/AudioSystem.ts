@@ -63,9 +63,13 @@ export class AudioSystem implements GameSystem {
   /**
    * Plays the menu background music.
    * @param useProceduralAudio Force using procedural audio instead of MP3 (for devMode)
+   * @param forceRestart If true, will force restart even if already playing
    */
-  playMenuThump(useProceduralAudio: boolean = false): void {
-    this.audioManager.playMenuThump(useProceduralAudio);
+  playMenuThump(
+    useProceduralAudio: boolean = false,
+    forceRestart: boolean = false
+  ): void {
+    this.audioManager.playMenuThump(useProceduralAudio, forceRestart);
   }
 
   /**

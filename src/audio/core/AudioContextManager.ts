@@ -174,14 +174,49 @@ export class AudioContextManager {
    */
   public toggleMute(): void {
     this.isMuted = !this.isMuted;
-    const volume = this.isMuted ? 0 : this.getVolume() * 0.6;
 
-    // Set gain on main gain node with smooth transition
-    this.mainGainNode.gain.setTargetAtTime(
-      volume,
-      this.audioContext.currentTime,
-      0.01
+    // Get the stored volume - ensure it's not zero
+    const storedVolume = Math.max(this.getVolume(), 0.25);
+    const volume = this.isMuted ? 0 : storedVolume * 0.6;
+
+    this.logger.info(
+      `AudioContextManager: Setting volume to ${volume} (isMuted=${this.isMuted}, storedVolume=${storedVolume})`
     );
+
+    // Use immediate value setting for more reliable volume change
+    const now = this.audioContext.currentTime;
+
+    // Cancel any scheduled values to ensure clean state
+    try {
+      this.mainGainNode.gain.cancelScheduledValues(now);
+    } catch (err) {
+      this.logger.warn("Error canceling scheduled values:", err);
+    }
+
+    // Set an immediate value then ramp quickly to target
+    this.mainGainNode.gain.setValueAtTime(this.mainGainNode.gain.value, now);
+
+    // Use exponentialRampToValueAtTime for more natural volume changes
+    // But we need to avoid zero for exponential ramps
+    if (volume > 0.001) {
+      this.mainGainNode.gain.exponentialRampToValueAtTime(
+        volume,
+        now + 0.05 // 50ms ramp
+      );
+    } else {
+      this.mainGainNode.gain.linearRampToValueAtTime(
+        volume,
+        now + 0.05 // 50ms ramp
+      );
+    }
+
+    // Ensure connection to destination is established
+    try {
+      this.mainGainNode.disconnect();
+    } catch (err) {
+      // May not be connected, that's okay
+    }
+    this.mainGainNode.connect(this.audioContext.destination);
 
     // Store mute state in localStorage
     localStorage.setItem("starWing_muted", this.isMuted.toString());

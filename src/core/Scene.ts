@@ -98,7 +98,7 @@ export class Scene {
   private asteroids: Asteroid[] = [];
 
   /** Maximum number of asteroids allowed at once */
-  private maxAsteroids: number = 10;
+  private maxAsteroids: number = 15;
 
   /** Maximum horizontal distance from center (full width = 2800) */
   private horizontalLimit: number = 1400;
@@ -749,10 +749,10 @@ export class Scene {
       this.spawnAsteroid();
       this.lastAsteroidSpawnTime = currentTime;
 
-      // Gradually decrease spawn interval as the game progresses (min 2 seconds)
+      // Spawn asteroids more frequently (min 1 second)
       this.asteroidSpawnInterval = Math.max(
-        2000,
-        5000 - (this.currentZone - 1) * 500
+        1000, // Reduced from 2000 - faster minimum spawn time
+        3000 - (this.currentZone - 1) * 500 // Reduced from 5000 - faster initial spawn time
       );
     }
   }
@@ -779,9 +779,9 @@ export class Scene {
 
     // Direction vector pointing toward the player's general area
     const targetPos = new THREE.Vector3(
-      playerPos.x + (Math.random() * 400 - 200), // Add some randomness
-      playerPos.y + (Math.random() * 400 - 200),
-      playerPos.z + 200 // Aim past the player a bit
+      playerPos.x + (Math.random() * 200 - 100), // Reduced randomness for better targeting
+      playerPos.y + (Math.random() * 200 - 100), // Reduced randomness for better targeting
+      playerPos.z + 100 // Aim closer to the player's position
     );
 
     const direction = new THREE.Vector3()
@@ -789,9 +789,9 @@ export class Scene {
       .normalize();
 
     // Randomize asteroid properties
-    const speed = 150 + Math.random() * 100; // 150-250 units per second
+    const speed = 300 + Math.random() * 150; // Double speed: 300-450 units per second (was 150-250)
     const size = 20 + Math.random() * 30; // 20-50 units radius
-    const damage = 10 + Math.floor(Math.random() * 20); // 10-30 damage
+    const damage = (10 + Math.floor(Math.random() * 20)) * 2; // 20-60 damage (doubled from 10-30)
 
     // Create and add the asteroid
     const asteroid = new Asteroid(
@@ -872,15 +872,78 @@ export class Scene {
   private handleShipDestruction(): void {
     this.logger.info("Player ship destroyed! Game over.");
 
-    // For now, just stop the game
+    // Stop the game
     this.setGameActive(false);
 
-    // TODO: Add game over screen and explosion effect
+    // Add dramatic pause before showing game over screen
+    setTimeout(() => {
+      // Show game over screen if UI system is available
+      if (this.game) {
+        this.game.getUISystem().showGameOver();
+      }
+    }, 1000);
+  }
 
-    // Notify the game if available
-    if (this.game) {
-      // Call game over method when implemented
-      // this.game.handleGameOver();
+  /**
+   * Resets the game state to start a new game.
+   * This is called when the player chooses to restart after game over.
+   */
+  resetGame(): void {
+    this.logger.info("Resetting game state for a new game");
+
+    // Reset game state
+    this.setGameActive(false);
+
+    // Clear all existing asteroids
+    this.clearAllAsteroids();
+
+    // Reset game score and progress
+    this.score = 0;
+    this.currentWave = 1;
+
+    // Reset asteroid spawn timer and settings
+    this.lastAsteroidSpawnTime = 0;
+    this.asteroidSpawnInterval = 3000; // Reset to initial spawn interval (matches the new faster default)
+    this.maxAsteroids = 15; // Reset to the new higher limit
+
+    // Reset player ship if it exists
+    if (this.playerShip) {
+      // Reset health and shields
+      this.playerShip.setHealth(100);
+      this.playerShip.setShield(100);
+
+      // Reset position
+      this.playerShip.enterScene(() => {
+        this.logger.info("Ship entry complete after reset");
+        this.setGameActive(true);
+      });
+    } else {
+      // If ship doesn't exist, initialize it
+      this.initPlayerShip()
+        .then(() => {
+          this.startShipEntry(() => {
+            this.logger.info("Ship entry complete after init in reset");
+            this.setGameActive(true);
+          });
+        })
+        .catch((error) => {
+          this.logger.error("Failed to initialize ship during reset:", error);
+        });
     }
+  }
+
+  /**
+   * Clears all asteroids from the scene.
+   */
+  private clearAllAsteroids(): void {
+    this.logger.info(`Clearing all asteroids (${this.asteroids.length})`);
+
+    // Remove each asteroid from the scene
+    for (const asteroid of this.asteroids) {
+      asteroid.dispose();
+    }
+
+    // Empty the asteroids array
+    this.asteroids = [];
   }
 }

@@ -946,7 +946,7 @@ export class Ship {
       return;
     }
 
-    const moveSpeed = 6.8; // Reduced by 15% from 8.0 for smoother handling
+    const moveSpeed = 5;
 
     // Digital-style input response (full speed or nothing)
     let moveX = 0;
