@@ -815,7 +815,7 @@ export class Scene {
   }
 
   /**
-   * Checks for collisions between the player ship and asteroids.
+   * Checks for collisions between game objects.
    */
   private checkCollisions(): void {
     if (!this.playerShip) return;
@@ -829,13 +829,105 @@ export class Scene {
       30 // Ship hitbox radius (estimated from box)
     );
 
-    // Check each asteroid for collision with the ship
-    this.asteroids.forEach((asteroid) => {
-      if (!asteroid.isActive()) return;
+    // Get weapon system and projectiles, if available
+    const weaponSystem = this.playerShip.getWeaponSystem();
+    let projectiles: any[] = [];
+
+    if (weaponSystem) {
+      // Get primary and secondary weapons
+      const primaryWeapon = weaponSystem.getPrimaryWeapon();
+      const secondaryWeapon = weaponSystem.getSecondaryWeapon();
+
+      // Get projectiles from weapons using the getProjectiles method
+      if (primaryWeapon) {
+        projectiles = projectiles.concat(primaryWeapon.getProjectiles());
+      }
+
+      if (secondaryWeapon) {
+        projectiles = projectiles.concat(secondaryWeapon.getProjectiles());
+      }
+    }
+
+    // Get the UI system to send combat log messages
+    const uiSystem = this.game ? this.game.getUISystem() : null;
+
+    // Check each asteroid for collision with the ship and projectiles
+    this.asteroids = this.asteroids.filter((asteroid) => {
+      if (!asteroid.isActive()) return false;
 
       const asteroidHitbox = asteroid.getHitbox();
+      let asteroidDestroyed = false;
 
-      // Check if the bounding spheres intersect
+      // Check for collisions with projectiles
+      if (projectiles.length > 0) {
+        for (const projectile of projectiles) {
+          // Skip inactive projectiles
+          if (!projectile.getIsActive()) continue;
+
+          // Get projectile hitbox
+          const projectileHitbox = projectile.getHitbox();
+
+          // Check for collision
+          if (projectileHitbox.intersectsSphere(asteroidHitbox)) {
+            // Collision detected!
+            this.logger.info("Projectile hit asteroid!");
+
+            // Apply damage and check if asteroid is destroyed
+            const damage = projectile.handleCollision();
+
+            // Handle asteroid destruction
+            asteroid.handleCollision();
+            asteroidDestroyed = true;
+
+            // Add score for destroying asteroid
+            // Use the asteroid's size property for scoring
+            const asteroidSize = asteroid.getSize();
+            const scoreValue = Math.floor(30 + asteroidSize * 0.5); // Larger asteroids worth more
+            this.addScore(scoreValue);
+
+            // Add a combat log message via the UI system
+            if (uiSystem) {
+              const sizeDescription =
+                asteroidSize > 40
+                  ? "large"
+                  : asteroidSize > 25
+                  ? "medium"
+                  : "small";
+              const pointsText = scoreValue > 0 ? ` (+${scoreValue} pts)` : "";
+
+              const logMessage = `${sizeDescription.toUpperCase()} ASTEROID DESTROYED${pointsText}`;
+              // Only log important events like large asteroids
+              if (sizeDescription === "large") {
+                this.logger.info(
+                  `Player destroyed ${sizeDescription} asteroid (+${scoreValue} pts)`
+                );
+              }
+
+              // Use the new UISystem method to add combat log messages
+              uiSystem.addCombatLogMessage(logMessage, "asteroid-destroyed");
+            } else {
+              this.logger.warn("Cannot add combat log - uiSystem is null");
+            }
+
+            // Play sound effect
+            if (this.game) {
+              try {
+                // Use asteroid collision sound instead, with small intensity
+                this.game.getAudioManager().playAsteroidCollisionSound("small");
+              } catch (error) {
+                this.logger.warn("Failed to play explosion sound:", error);
+              }
+            }
+
+            break; // Once asteroid is destroyed, no need to check other projectiles
+          }
+        }
+      }
+
+      // If asteroid already destroyed by projectile, no need to check ship collision
+      if (asteroidDestroyed) return false;
+
+      // Check if the ship collides with the asteroid
       if (shipBoundingSphere.intersectsSphere(asteroidHitbox)) {
         // Collision detected!
         this.logger.info("Collision detected between ship and asteroid!");
@@ -855,6 +947,15 @@ export class Scene {
         const damage = asteroid.getDamage();
         const isDestroyed = this.playerShip!.takeDamage(damage);
 
+        // Add a combat log message for the ship taking damage
+        if (uiSystem) {
+          // Use the new UISystem method for damage messages
+          uiSystem.addCombatLogMessage(
+            `SHIP TOOK ${damage} DAMAGE FROM ASTEROID IMPACT!`,
+            "damage-taken"
+          );
+        }
+
         // Handle asteroid collision
         asteroid.handleCollision();
 
@@ -862,8 +963,17 @@ export class Scene {
         if (isDestroyed) {
           this.handleShipDestruction();
         }
+
+        return false; // Remove asteroid after collision
       }
+
+      return !asteroidDestroyed; // Keep asteroid if not destroyed
     });
+
+    // Check if player has reached 500 points to complete Zone 1
+    if (this.score >= 500 && this.currentZone === 1) {
+      this.completeCurrentZone();
+    }
   }
 
   /**
@@ -945,5 +1055,66 @@ export class Scene {
 
     // Empty the asteroids array
     this.asteroids = [];
+  }
+
+  /**
+   * Completes the current zone and progresses to the next zone.
+   * Called when the player reaches the point threshold (500 points for Zone 1).
+   */
+  completeCurrentZone(): void {
+    this.logger.info(`Completing Zone ${this.currentZone}`);
+
+    // Increment the zone
+    this.currentZone++;
+
+    // Reset wave to 1 for the new zone
+    this.currentWave = 1;
+
+    // Clear all asteroids
+    this.clearAllAsteroids();
+
+    // Reset asteroid spawn timer with faster intervals for the new zone
+    this.lastAsteroidSpawnTime = 0;
+
+    // Increase difficulty for the next zone
+    this.maxAsteroids = Math.min(30, this.maxAsteroids + 5); // Increase max asteroids
+
+    // Play a sound effect if available
+    if (this.game && this.game.getAudioManager()) {
+      try {
+        // Use whatever audio method is available
+        this.logger.info(
+          "Zone completed - playing success sound would go here"
+        );
+        // Uncomment when audio method is available:
+        // this.game.getAudioManager().playMenuSound("select");
+      } catch (error) {
+        this.logger.warn("Failed to play zone completion sound:", error);
+      }
+    }
+
+    // Send message to the HUD system via the game's UI system
+    if (this.game && this.game.getUISystem()) {
+      // Get the GameHUD via the UI system
+      const uiSystem = this.game.getUISystem();
+
+      // Show a "Zone Cleared" message in the combat log
+      uiSystem.addCombatLogMessage(
+        `ZONE ${this.currentZone - 1} CLEARED!`,
+        "zone-cleared"
+      );
+
+      // Update the HUD values to reflect new zone
+      uiSystem.updateHUDData(
+        this.playerShip ? this.playerShip.getHealth() : 100,
+        this.playerShip ? this.playerShip.getMaxHealth() : 100,
+        this.playerShip ? this.playerShip.getShield() : 100,
+        this.playerShip ? this.playerShip.getMaxShield() : 100,
+        this.score,
+        this.currentZone,
+        this.currentWave,
+        this.totalWaves
+      );
+    }
   }
 }

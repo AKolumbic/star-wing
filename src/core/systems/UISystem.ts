@@ -374,4 +374,25 @@ export class UISystem implements GameSystem {
       this.logger.info("Game HUD shown after restart");
     }, 1000); // Give time for ship entry animation
   }
+
+  /**
+   * Adds a combat log message to the game HUD.
+   * @param message The message to display in the combat log
+   * @param className Optional CSS class to apply to the message
+   */
+  addCombatLogMessage(message: string, className?: string): void {
+    // Simplified logging
+    if (message.includes("CLEARED") || message.includes("SYSTEMS ONLINE")) {
+      this.logger.info(`UISystem: ${message}`);
+    }
+
+    if (!this.gameHUD) {
+      this.logger.error(
+        "UISystem: Cannot add combat log message - gameHUD is null"
+      );
+      return;
+    }
+
+    this.gameHUD.addCombatLogMessage(message, className);
+  }
 }

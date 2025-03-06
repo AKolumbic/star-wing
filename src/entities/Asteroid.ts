@@ -210,6 +210,14 @@ export class Asteroid {
   }
 
   /**
+   * Gets the size (radius) of the asteroid.
+   * @returns The asteroid's size
+   */
+  getSize(): number {
+    return this.size;
+  }
+
+  /**
    * Gets whether the asteroid is active.
    * @returns Whether the asteroid is active
    */
