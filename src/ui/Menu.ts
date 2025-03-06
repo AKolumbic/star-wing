@@ -246,83 +246,74 @@ export class Menu {
   }
 
   /**
-   * Starts a new game.
-   * Shows the text crawl, then hyperspace transition, then ship entry.
+   * Start the game when the user clicks the start button
    */
   private startGame(): void {
-    if (this.inGameMode) {
-      this.logger.warn(
-        "Attempted to start a new game while already in-game. Resuming instead."
-      );
-      this.resumeGame();
-      return;
-    }
-
+    // If the menu is not visible, we can't start the game
     if (!this.isVisible) {
       this.logger.info("Menu is not visible, cannot start game");
       return;
     }
 
-    // Transition menu music to game music for a smooth experience
-    this.game.getAudioSystem().transitionToGameMusic();
+    this.logger.info("Menu: Starting game");
 
-    this.logger.info("Starting game");
-    this.hide();
+    // Play a test tone to verify audio is working
+    try {
+      this.logger.info("AUDIO-DEBUG: Playing test tone before game start");
+      const audioManager = this.game.getAudioSystem().getAudioManager();
+      audioManager.playTestTone();
+    } catch (e) {
+      this.logger.error("AUDIO-DEBUG: Error playing test tone:", e);
+    }
 
-    /* Development screen disabled but kept for future use
-    this.logger.info("Showing in development screen instead of starting game");
+    // Transition music immediately
+    setTimeout(() => {
+      this.logger.info("AUDIO-DEBUG: Transitioning to game music");
+      this.game.getAudioSystem().playGameMusicImmediately();
+
+      // Start the hyperspace effect
+      const scene = this.game.getSceneSystem().getScene();
+      scene.transitionHyperspace(true, 2.0);
+      this.logger.info("AUDIO-DEBUG: Started hyperspace effect");
+
+      // After music transition, show the text crawl
+      setTimeout(() => {
+        // Play another test tone to verify audio still works
+        try {
+          this.logger.info(
+            "AUDIO-DEBUG: Playing test tone after music transition"
+          );
+          const audioManager = this.game.getAudioSystem().getAudioManager();
+          audioManager.playTestTone();
+        } catch (e) {
+          this.logger.error("AUDIO-DEBUG: Error playing second test tone:", e);
+        }
+
+        // Play the text crawl
+        this.logger.info("Showing text crawl");
+        this.game.getUISystem().showTextCrawl(() => {
+          this.logger.info("Text crawl complete, game ready to begin");
+          // Try to start game music again after text crawl if needed
+          try {
+            this.logger.info("AUDIO-DEBUG: Final audio check after text crawl");
+            const audioManager = this.game.getAudioSystem().getAudioManager();
+            audioManager.playTestTone();
+            // Re-trigger game music if it's not playing
+            setTimeout(() => {
+              this.game.getAudioSystem().playGameMusicImmediately();
+            }, 500);
+          } catch (e) {
+            this.logger.error("AUDIO-DEBUG: Error in final audio check:", e);
+          }
+
+          // this.game.startGame();
+        });
+      }, 1000);
+    }, 100);
+
+    // Hide the menu
     this.hide();
-    this.showDevelopmentScreen();
-    */
   }
-
-  /**
-   * Displays a screen indicating the game is still in development.
-   * Currently disabled but kept for future use.
-   */
-  /* 
-  private showDevelopmentScreen(): void {
-    // Create overlay container
-    const overlay = document.createElement("div");
-    overlay.className = "dev-screen-overlay";
-    overlay.style.position = "fixed";
-    overlay.style.top = "0";
-    overlay.style.left = "0";
-    overlay.style.width = "100%";
-    overlay.style.height = "100%";
-    overlay.style.display = "flex";
-    overlay.style.flexDirection = "column";
-    overlay.style.justifyContent = "center";
-    overlay.style.alignItems = "center";
-    overlay.style.backgroundColor = "rgba(0, 0, 0, 0.9)";
-    overlay.style.zIndex = "1000";
-    overlay.style.padding = "2rem";
-    overlay.style.textAlign = "center";
-    overlay.style.fontFamily = "'Press Start 2P', monospace";
-    overlay.style.color = "#33ff99";
-
-    // Create heading
-    const heading = document.createElement("h1");
-    heading.textContent = "IN DEVELOPMENT";
-    heading.style.fontSize = "3rem";
-    heading.style.marginBottom = "2rem";
-    heading.style.textShadow = "0 0 10px #33ff99";
-    heading.style.animation = "pulse 2s infinite";
-
-    // Create message
-    const message = document.createElement("p");
-    message.textContent =
-      "This portion of Star Wing is still under construction.";
-    message.style.fontSize = "1.2rem";
-    message.style.marginBottom = "1.5rem";
-    message.style.maxWidth = "600px";
-
-    // Create secondary message
-    const subMessage = document.createElement("p");
-    subMessage.textContent =
-      "Check back soon for updates as development continues!";
-    subMessage.style.fontSize = "1rem";
-   */
 
   /**
    * Resume the game by hiding the menu

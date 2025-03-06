@@ -57,81 +57,66 @@ export class BufferManager {
   private analyzeLoopPoints(buffer: AudioBuffer): void {
     const sampleRate = buffer.sampleRate;
     const length = buffer.length;
-
-    // Analysis window sizes in seconds
-    const startWindow = 0.05; // 50ms
-    const endWindow = 0.05; // 50ms
-
-    // Convert to samples
-    const startSamples = Math.floor(startWindow * sampleRate);
-    const endSamples = Math.floor(endWindow * sampleRate);
+    const duration = buffer.duration;
 
     this.logger.info(
-      `BufferManager: Analyzing loop points for ${length} samples (${(
-        length / sampleRate
-      ).toFixed(2)}s)`
+      `BufferManager: Analyzing loop points for ${length} samples (${duration.toFixed(
+        2
+      )}s)`
     );
 
-    let bestCorrelation = -1;
-    let bestOffset = 0;
+    // Try to calculate optimal loop points
+    try {
+      // Create a silent padding at the beginning and end (10ms)
+      const paddingDuration = 0.01; // 10ms
+      const paddingSamples = Math.floor(paddingDuration * sampleRate);
 
-    // Analyze only first channel for efficiency
-    const channelData = buffer.getChannelData(0);
+      // Create a small fade-in and fade-out for smoother looping
+      // Especially useful for music tracks that may have abrupt endings
+      const fadeLength = Math.min(paddingSamples, length / 50); // Use at most 2% of the buffer length
 
-    // Analyze correlation between beginning and end of the buffer
-    for (let offset = 0; offset < endSamples; offset++) {
-      let correlation = 0;
-      let maxCorrelation = 0;
+      this.logger.info(
+        `BufferManager: Loop point optimization - using ${paddingSamples} samples (${paddingDuration.toFixed(
+          4
+        )}s) padding`
+      );
+      this.logger.info(
+        `BufferManager: Recommended loop points: start=${paddingDuration.toFixed(
+          3
+        )}s, end=${(duration - paddingDuration).toFixed(3)}s`
+      );
 
-      // Calculate correlation between end and beginning with current offset
-      for (let i = 0; i < startSamples; i++) {
-        if (length - endSamples + offset + i < length && i < length) {
-          const endSample = channelData[length - endSamples + offset + i];
-          const startSample = channelData[i];
-          correlation += Math.abs(endSample - startSample);
-          maxCorrelation += 1.0;
+      // Look for zero crossings in the last 100ms
+      const zeroSearchWindow = Math.min(0.1 * sampleRate, length / 10);
+
+      // Check first channel only for efficiency
+      const channelData = buffer.getChannelData(0);
+
+      let bestEndZeroCrossing = length - paddingSamples;
+      let smallestEndValue = Math.abs(channelData[length - paddingSamples]);
+
+      // Find the point closest to zero in the last section
+      for (
+        let i = length - paddingSamples - zeroSearchWindow;
+        i < length - paddingSamples;
+        i++
+      ) {
+        const value = Math.abs(channelData[i]);
+        if (value < smallestEndValue) {
+          smallestEndValue = value;
+          bestEndZeroCrossing = i;
         }
       }
 
-      // Normalize correlation
-      correlation = 1.0 - correlation / maxCorrelation;
+      const bestEndTime = bestEndZeroCrossing / sampleRate;
 
-      if (correlation > bestCorrelation) {
-        bestCorrelation = correlation;
-        bestOffset = offset;
-      }
-    }
-
-    const timeOffset = bestOffset / sampleRate;
-    this.logger.info(
-      `BufferManager: Best loop point correlation: ${bestCorrelation.toFixed(
-        4
-      )} at offset ${bestOffset} samples (${(timeOffset * 1000).toFixed(2)}ms)`
-    );
-
-    // Check for loud transients near the loop point
-    let maxAmplitude = 0;
-    for (let i = length - endSamples; i < length; i++) {
-      maxAmplitude = Math.max(maxAmplitude, Math.abs(channelData[i]));
-    }
-    for (let i = 0; i < startSamples; i++) {
-      maxAmplitude = Math.max(maxAmplitude, Math.abs(channelData[i]));
-    }
-
-    this.logger.info(
-      `BufferManager: Maximum amplitude near loop points: ${maxAmplitude.toFixed(
-        4
-      )}`
-    );
-
-    if (maxAmplitude > 0.8) {
-      this.logger.warn(
-        "BufferManager: High amplitude detected near loop points. This may cause audible clicks."
-      );
-    } else {
       this.logger.info(
-        "BufferManager: Loop point amplitudes look good for clean looping."
+        `BufferManager: Found optimal end loop point at ${bestEndTime.toFixed(
+          3
+        )}s (amplitude: ${smallestEndValue.toFixed(6)})`
       );
+    } catch (error) {
+      this.logger.warn(`BufferManager: Error analyzing loop points: ${error}`);
     }
   }
 

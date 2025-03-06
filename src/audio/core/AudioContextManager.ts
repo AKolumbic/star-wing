@@ -130,6 +130,19 @@ export class AudioContextManager {
    * Gets the main gain node
    */
   public getMainGainNode(): GainNode {
+    if (!this.mainGainNode) {
+      this.logger.error(
+        "AUDIO-DEBUG: Attempted to get main gain node but none exists"
+      );
+
+      // Try to recreate it
+      if (this.audioContext) {
+        this.logger.info("AUDIO-DEBUG: Attempting to recreate main gain node");
+        this.mainGainNode = this.audioContext.createGain();
+        this.mainGainNode.gain.value = this.isMuted ? 0 : 1;
+        this.mainGainNode.connect(this.audioContext.destination);
+      }
+    }
     return this.mainGainNode;
   }
 
@@ -204,21 +217,59 @@ export class AudioContextManager {
   public async tryResume(): Promise<boolean> {
     if (!this.audioContext) return false;
 
-    if (this.audioContext.state === "suspended") {
-      try {
-        await this.audioContext.resume();
-        this.logger.info("AudioContextManager: AudioContext resumed manually");
-        return true;
-      } catch (error) {
-        this.logger.error(
-          "AudioContextManager: Failed to resume AudioContext:",
-          error
-        );
-        return false;
-      }
+    // Log current state before attempting resume
+    this.logger.info(
+      `AUDIO-DEBUG: Audio context state before resume: ${this.audioContext.state}`
+    );
+
+    // Already running? Great!
+    if (this.audioContext.state === "running") {
+      this.logger.info(
+        "AUDIO-DEBUG: Audio context already running, no need to resume"
+      );
+      return true;
     }
 
-    return this.audioContext.state === "running";
+    // Try to resume
+    try {
+      this.logger.info(
+        "AUDIO-DEBUG: Attempting to resume suspended audio context..."
+      );
+      await this.audioContext.resume();
+
+      // Check if resume was successful
+      const success = String(this.audioContext.state) === "running";
+      this.logger.info(
+        `AUDIO-DEBUG: Resume ${
+          success ? "succeeded" : "failed"
+        }, context state: ${this.audioContext.state}`
+      );
+
+      // Check main gain node connection
+      if (this.mainGainNode) {
+        try {
+          this.logger.info(
+            `AUDIO-DEBUG: Main gain node value: ${this.mainGainNode.gain.value}`
+          );
+          // Force reconnection to ensure it's properly connected
+          this.mainGainNode.disconnect();
+          this.mainGainNode.connect(this.audioContext.destination);
+          this.logger.info(
+            "AUDIO-DEBUG: Reconnected main gain node after resume"
+          );
+        } catch (e) {
+          this.logger.error(
+            "AUDIO-DEBUG: Error reconnecting main gain node:",
+            e
+          );
+        }
+      }
+
+      return success;
+    } catch (error) {
+      this.logger.error("AUDIO-DEBUG: Error resuming audio context:", error);
+      return false;
+    }
   }
 
   /**

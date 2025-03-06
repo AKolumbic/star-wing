@@ -61,6 +61,14 @@ export class AudioSystem implements GameSystem {
   }
 
   /**
+   * Gets the current type of music being played.
+   * @returns The current music type (e.g., "menuMusic", "gameMusic", or "")
+   */
+  getCurrentMusic(): string {
+    return this.audioManager.getCurrentMusic();
+  }
+
+  /**
    * Plays the menu background music.
    * @param useProceduralAudio Force using procedural audio instead of MP3 (for devMode)
    */
@@ -97,5 +105,12 @@ export class AudioSystem implements GameSystem {
    */
   toggleMute(): void {
     this.audioManager.toggleMute();
+  }
+
+  /**
+   * Plays game music immediately without waiting for menu music to finish.
+   */
+  playGameMusicImmediately(): void {
+    this.audioManager.playGameMusicImmediately();
   }
 }

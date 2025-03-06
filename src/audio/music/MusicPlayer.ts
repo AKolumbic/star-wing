@@ -16,17 +16,20 @@ export interface SourceInfo {
 }
 
 export class MusicPlayer {
-  /** Context manager reference */
+  /** Audio context manager */
   private contextManager: AudioContextManager;
 
-  /** Buffer manager reference */
+  /** Buffer manager */
   private bufferManager: BufferManager;
 
-  /** Active music sources */
-  private activeSources: Map<string, AudioBufferSourceNode> = new Map();
+  /** Map of active audio sources */
+  private activeSources = new Map<string, AudioBufferSourceNode>();
 
-  /** Track start times for active sources */
-  private sourceStartTimes: Map<string, number> = new Map();
+  /** Map of source start times */
+  private sourceStartTimes = new Map<string, number>();
+
+  /** Map of gain nodes for each source */
+  private gainNodes = new Map<string, GainNode>();
 
   /** Logger instance */
   private logger = Logger.getInstance();
@@ -115,6 +118,158 @@ export class MusicPlayer {
   }
 
   /**
+   * Creates a perfectly looping AudioBufferSourceNode
+   * @param bufferId The buffer ID to use
+   * @param sourceId The source ID to use for tracking in activeSources
+   * @param fadeIn Should we fade in?
+   * @returns true if successful, false if failed
+   */
+  private createLoopingMusicSource(
+    bufferId: string,
+    sourceId: string,
+    fadeIn = false
+  ): boolean {
+    this.logger.info(
+      `AUDIO-DEBUG: createLoopingMusicSource - bufferId: ${bufferId}, sourceId: ${sourceId}, fadeIn: ${fadeIn}`
+    );
+
+    try {
+      // Try to resume the audio context first
+      const contextState = this.contextManager.getContext().state;
+      this.logger.info(
+        `AUDIO-DEBUG: Audio context state before resume: ${contextState}`
+      );
+
+      if (contextState !== "running") {
+        this.logger.info(
+          "AUDIO-DEBUG: Audio context not running, attempting to resume..."
+        );
+        // Try to resume synchronously first
+        this.contextManager.getContext().resume();
+      }
+
+      const buffer = this.bufferManager.getBuffer(bufferId);
+      if (!buffer) {
+        this.logger.error(`AUDIO-DEBUG: Buffer "${bufferId}" not found`);
+        return false;
+      }
+
+      this.logger.info(
+        `AUDIO-DEBUG: Buffer found for "${bufferId}", duration: ${buffer.duration.toFixed(
+          2
+        )}s`
+      );
+
+      // Create a new source
+      const source = this.contextManager.getContext().createBufferSource();
+      source.buffer = buffer;
+
+      // Get the main gain node
+      const mainGainNode = this.contextManager.getMainGainNode();
+      if (!mainGainNode) {
+        this.logger.error(
+          "AUDIO-DEBUG: Main gain node is null from context manager"
+        );
+        return false;
+      }
+
+      this.logger.info(
+        `AUDIO-DEBUG: Main gain node value: ${mainGainNode.gain.value}`
+      );
+
+      // Create a gain node for this source
+      const gainNode = this.contextManager.getContext().createGain();
+      gainNode.gain.value = fadeIn ? 0 : 1;
+
+      // Set loop points (skip first and last 10ms to avoid clicks)
+      const loopStartTime = 0.01; // 10ms from start
+      const loopEndTime = buffer.duration - 0.01; // 10ms from end
+
+      source.loop = true;
+      source.loopStart = loopStartTime;
+      source.loopEnd = loopEndTime;
+
+      this.logger.info(
+        `AUDIO-DEBUG: Setting loop points - start: ${loopStartTime.toFixed(
+          3
+        )}s, end: ${loopEndTime.toFixed(3)}s`
+      );
+
+      // Connect nodes
+      try {
+        source.connect(gainNode);
+        this.logger.info("AUDIO-DEBUG: Connected source to gain node");
+      } catch (e) {
+        this.logger.error(
+          "AUDIO-DEBUG: Error connecting source to gain node:",
+          e
+        );
+        return false;
+      }
+
+      try {
+        gainNode.connect(mainGainNode);
+        this.logger.info("AUDIO-DEBUG: Connected gain node to main gain node");
+      } catch (e) {
+        this.logger.error(
+          "AUDIO-DEBUG: Error connecting gain node to main gain node:",
+          e
+        );
+        return false;
+      }
+
+      // Check if main gain node is connected to destination
+      try {
+        // Verify the main gain node is connected to the destination
+        const destination = this.contextManager.getContext().destination;
+
+        // Force reconnection to ensure it's connected
+        mainGainNode.disconnect();
+        mainGainNode.connect(destination);
+        this.logger.info(
+          "AUDIO-DEBUG: Reconnected main gain node to destination"
+        );
+      } catch (e) {
+        this.logger.error(
+          "AUDIO-DEBUG: Error with main gain node connection:",
+          e
+        );
+      }
+
+      // Start playback
+      source.start();
+      this.logger.info(`AUDIO-DEBUG: Source started playing for "${sourceId}"`);
+
+      // Fade in if needed
+      if (fadeIn) {
+        const now = this.contextManager.getContext().currentTime;
+        gainNode.gain.setValueAtTime(0, now);
+        gainNode.gain.linearRampToValueAtTime(1, now + 1.0);
+        this.logger.info("AUDIO-DEBUG: Fade-in applied over 1 second");
+      }
+
+      // Store in active sources
+      this.activeSources.set(sourceId, source);
+      this.gainNodes.set(sourceId, gainNode);
+
+      // Check context state after everything
+      this.logger.info(
+        `AUDIO-DEBUG: Audio context state after setup: ${
+          this.contextManager.getContext().state
+        }`
+      );
+
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `AUDIO-DEBUG: Error in createLoopingMusicSource:`,
+        error
+      );
+      return false;
+    }
+  }
+
+  /**
    * Plays the menu music
    */
   public playMenuMusic(): void {
@@ -144,54 +299,48 @@ export class MusicPlayer {
       return;
     }
 
-    try {
-      const buffer = this.bufferManager.getBuffer("menuMusic");
-      if (!buffer) {
-        this.logger.error("MusicPlayer: Menu music buffer not found");
-        return;
-      }
-
-      // Create and configure the source node
-      const source = this.contextManager.createNode((ctx) =>
-        ctx.createBufferSource()
-      );
-      source.buffer = buffer;
-      source.loop = true;
-
-      // Store the start time for tracking playback position
-      const startTime = this.contextManager.getCurrentTime();
-      this.sourceStartTimes.set("menuMusic", startTime);
-
-      // Connect to audio graph and start
-      source.connect(this.contextManager.getMainGainNode());
-      source.start(0);
-
-      // Store the source for later reference
-      this.activeSources.set("menuMusic", source);
-
-      this.logger.info("MusicPlayer: Menu music started");
-    } catch (error) {
-      this.logger.error("MusicPlayer: Error playing menu music:", error);
-    }
+    // Create a perfectly looping source
+    this.createLoopingMusicSource("menuMusic", "menuMusic");
   }
 
   /**
    * Plays the game music
    */
   public playGameMusic(): void {
+    // Log diagnostic information
+    this.logger.info("AUDIO-DEBUG: playGameMusic called");
+
     // Try to resume audio context if needed
-    this.contextManager.tryResume().catch((err) => {
-      this.logger.error("MusicPlayer: Error resuming audio context:", err);
-    });
+    this.contextManager
+      .tryResume()
+      .then((resumed) => {
+        this.logger.info(
+          `AUDIO-DEBUG: Audio context resume attempt: ${
+            resumed ? "successful" : "failed"
+          }`
+        );
+        this.logger.info(
+          `AUDIO-DEBUG: Audio context state: ${
+            this.contextManager.getContext().state
+          }`
+        );
+      })
+      .catch((err) => {
+        this.logger.error("MusicPlayer: Error resuming audio context:", err);
+      });
 
     // Check if the gameMusic buffer is already loaded
-    if (!this.bufferManager.hasBuffer("gameMusic")) {
+    const hasGameMusic = this.bufferManager.hasBuffer("gameMusic");
+    this.logger.info(`AUDIO-DEBUG: Game music buffer loaded: ${hasGameMusic}`);
+
+    if (!hasGameMusic) {
       this.logger.warn("MusicPlayer: Game music not loaded, cannot play yet");
       return;
     }
 
     // Stop any existing game music first
     if (this.activeSources.has("gameMusic")) {
+      this.logger.info("AUDIO-DEBUG: Stopping existing game music source");
       // Only stop the game music, not all music
       try {
         const source = this.activeSources.get("gameMusic");
@@ -199,56 +348,37 @@ export class MusicPlayer {
           source.stop();
           source.disconnect();
           this.activeSources.delete("gameMusic");
+          this.logger.info(
+            "AUDIO-DEBUG: Successfully stopped and disconnected existing game music source"
+          );
         }
       } catch (error) {
         // Ignore errors when stopping
+        this.logger.error(
+          "AUDIO-DEBUG: Error stopping existing game music:",
+          error
+        );
       }
-      setTimeout(() => this.playGameMusic(), 50); // Try again after cleanup
+      setTimeout(() => {
+        this.logger.info(
+          "AUDIO-DEBUG: Retrying game music playback after cleanup"
+        );
+        this.playGameMusic();
+      }, 50); // Try again after cleanup
       return;
     }
 
-    try {
-      const buffer = this.bufferManager.getBuffer("gameMusic");
-      if (!buffer) {
-        this.logger.error("MusicPlayer: Game music buffer not found");
-        return;
-      }
-
-      // Create and configure the source node
-      const source = this.contextManager.createNode((ctx) =>
-        ctx.createBufferSource()
-      );
-      source.buffer = buffer;
-      source.loop = true;
-
-      // Store the start time for tracking playback position
-      const startTime = this.contextManager.getCurrentTime();
-      this.sourceStartTimes.set("gameMusic", startTime);
-
-      // Apply a gentle fade-in
-      const gainNode = this.contextManager.createNode((ctx) =>
-        ctx.createGain()
-      );
-      gainNode.gain.setValueAtTime(0, startTime);
-      gainNode.gain.linearRampToValueAtTime(
-        this.contextManager.getMuteState() ? 0 : 1,
-        startTime + 0.5
-      );
-
-      // Connect through the gain node
-      source.connect(gainNode);
-      gainNode.connect(this.contextManager.getMainGainNode());
-
-      // Start playback
-      source.start(0);
-
-      // Store the source for later reference
-      this.activeSources.set("gameMusic", source);
-
-      this.logger.info("MusicPlayer: Game music started");
-    } catch (error) {
-      this.logger.error("MusicPlayer: Error playing game music:", error);
-    }
+    // Create a perfectly looping source with fade-in
+    const success = this.createLoopingMusicSource(
+      "gameMusic",
+      "gameMusic",
+      true
+    );
+    this.logger.info(
+      `AUDIO-DEBUG: createLoopingMusicSource result: ${
+        success ? "success" : "failure"
+      }`
+    );
   }
 
   /**

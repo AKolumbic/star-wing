@@ -65,10 +65,78 @@ export class AudioManager {
   }
 
   /**
-   * Plays a simple test tone to verify audio is working.
+   * Plays a short test tone to verify that audio is working
+   * This is useful for debugging audio context issues
    */
   public playTestTone(): void {
-    this.sfxPlayer.playTestTone();
+    this.logger.info("AUDIO-DEBUG: Playing test tone to verify audio system");
+
+    try {
+      if (!this.contextManager) {
+        this.logger.error(
+          "AUDIO-DEBUG: Cannot play test tone - context manager not initialized"
+        );
+        return;
+      }
+
+      // Get current context state
+      const context = this.contextManager.getContext();
+      const contextState = context.state;
+      this.logger.info(
+        `AUDIO-DEBUG: Audio context state before test tone: ${contextState}`
+      );
+
+      // Try to resume the context if needed
+      if (contextState !== "running") {
+        this.logger.info(
+          "AUDIO-DEBUG: Attempting to resume context for test tone"
+        );
+        context.resume().then(() => {
+          this.logger.info(
+            `AUDIO-DEBUG: Context resumed result: ${context.state}`
+          );
+        });
+      }
+
+      // Create oscillator
+      const oscillator = context.createOscillator();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(440, context.currentTime); // 440 Hz = A4
+
+      // Create gain node for volume control
+      const gainNode = context.createGain();
+      gainNode.gain.setValueAtTime(0, context.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.2, context.currentTime + 0.01); // Quick fade in
+      gainNode.gain.linearRampToValueAtTime(0, context.currentTime + 0.3); // Fade out
+
+      // Connect to the main gain node
+      const mainGain = this.contextManager.getMainGainNode();
+      this.logger.info(
+        `AUDIO-DEBUG: Main gain value before test tone: ${mainGain.gain.value}`
+      );
+
+      // Connect the nodes
+      oscillator.connect(gainNode);
+      gainNode.connect(mainGain);
+
+      // Play the tone
+      oscillator.start(context.currentTime);
+      oscillator.stop(context.currentTime + 0.3); // 300ms duration
+
+      this.logger.info("AUDIO-DEBUG: Test tone started");
+
+      // Check again after tone plays
+      setTimeout(() => {
+        this.logger.info(
+          `AUDIO-DEBUG: Context state after test tone: ${context.state}`
+        );
+        this.logger.info(
+          `AUDIO-DEBUG: Main gain value after test tone: ${mainGain.gain.value}`
+        );
+      }, 400);
+    } catch (error) {
+      this.logger.error("AUDIO-DEBUG: Error playing test tone:", error);
+    }
   }
 
   /**
@@ -95,23 +163,32 @@ export class AudioManager {
   }
 
   /**
-   * Transitions from menu music to game music with a smooth crossfade.
-   * This ensures a cohesive, never-ending soundtrack by timing the transition
-   * to occur at natural loop points in the music.
+   * Transitions from menu music to game music.
+   * This preloads the game music track and allows the current
+   * loop to finish before starting the new track for a seamless sound.
    */
   public transitionToGameMusic(): void {
     if (!this.isInitialized) {
-      this.initialize();
-    }
-
-    // If we're already playing the game music, don't do anything
-    if (this.currentMusic === "gameMusic") {
+      this.logger.warn(
+        "AudioManager: Cannot transition to game music - not initialized"
+      );
       return;
     }
 
-    this.logger.info(
-      "AudioManager: Transitioning from menu music to game music"
-    );
+    // If we're already playing the game music, don't transition again
+    if (this.currentMusic === "gameMusic") {
+      this.logger.info(
+        "AudioManager: Already playing game music, no transition needed"
+      );
+
+      // But ensure game music is actually playing
+      if (!this.isPlaying) {
+        this.logger.info("AudioManager: Restarting game music");
+        this.musicPlayer.playGameMusic();
+        this.isPlaying = true;
+      }
+      return;
+    }
 
     // Preload the game music if it's not already loaded
     if (!this.bufferManager.hasBuffer("gameMusic")) {
@@ -341,5 +418,172 @@ export class AudioManager {
     this.proceduralMusic.dispose();
     this.bufferManager.dispose();
     this.contextManager.dispose();
+    this.isInitialized = false;
+    this.currentMusic = "";
+  }
+
+  /**
+   * Gets the current type of music being played.
+   * @returns The current music type (e.g., "menuMusic", "gameMusic", or "")
+   */
+  public getCurrentMusic(): string {
+    return this.currentMusic;
+  }
+
+  /**
+   * Plays the game music immediately without waiting for any existing music to finish
+   */
+  public playGameMusicImmediately(): void {
+    this.logger.info(
+      "AUDIO-DEBUG: AudioManager.playGameMusicImmediately() called"
+    );
+
+    // Initialize if necessary
+    if (!this.isInitialized) {
+      this.logger.info(
+        "AUDIO-DEBUG: Audio manager not initialized, initializing now"
+      );
+      this.initialize();
+    }
+
+    // Try to resume the audio context
+    this.tryResumeAudioContext().then((resumed) => {
+      this.logger.info(
+        `AUDIO-DEBUG: Audio context resume result: ${
+          resumed ? "success" : "failure"
+        }`
+      );
+
+      // Get current context state
+      const contextState = this.contextManager.getContext().state;
+      this.logger.info(
+        `AUDIO-DEBUG: Audio context state after resume attempt: ${contextState}`
+      );
+
+      // Check if we can play audio
+      if (contextState !== "running") {
+        this.logger.error(
+          "AUDIO-DEBUG: Audio context is not running after resume attempt"
+        );
+      }
+    });
+
+    // Stop any currently playing music with a short fade-out
+    this.stopMusic(0.1);
+
+    // Ensure main gain node is connected
+    try {
+      const mainGain = this.contextManager.getMainGainNode();
+      if (mainGain) {
+        this.logger.info(
+          `AUDIO-DEBUG: Main gain node value: ${mainGain.gain.value}`
+        );
+
+        // Force reconnection
+        mainGain.disconnect();
+        mainGain.connect(this.contextManager.getContext().destination);
+        this.logger.info(
+          "AUDIO-DEBUG: Reconnected main gain node to destination"
+        );
+      } else {
+        this.logger.error("AUDIO-DEBUG: Main gain node is null");
+      }
+    } catch (e) {
+      this.logger.error("AUDIO-DEBUG: Error with main gain node:", e);
+    }
+
+    // Check if procedural music is enabled
+    if (this.proceduralMusic) {
+      this.logger.info("AUDIO-DEBUG: Procedural music is enabled");
+      if (this.proceduralMusic) {
+        try {
+          this.logger.info("AUDIO-DEBUG: Starting procedural generator");
+          this.proceduralMusic.startGameMusic();
+        } catch (e) {
+          this.logger.error(
+            "AUDIO-DEBUG: Error starting procedural generator:",
+            e
+          );
+        }
+      }
+    } else {
+      this.logger.info(
+        "AUDIO-DEBUG: Procedural music is disabled, loading game music"
+      );
+
+      // Make sure game music is loaded
+      if (!this.bufferManager.hasBuffer("gameMusic")) {
+        this.logger.info("AUDIO-DEBUG: Game music not loaded, loading now");
+
+        // Construct full URL
+        const baseUrl = window.location.origin;
+        const fullUrl = `${baseUrl}${GAME_MUSIC_PATH}`;
+        this.logger.info(`AUDIO-DEBUG: Loading game music from: ${fullUrl}`);
+
+        // Load the game music
+        this.bufferManager
+          .loadAudioBuffer(fullUrl, "gameMusic")
+          .then(() => {
+            this.logger.info("AUDIO-DEBUG: Game music loaded successfully");
+
+            // Short timeout to ensure context is in good state
+            setTimeout(() => {
+              this.logger.info("AUDIO-DEBUG: Playing game music after loading");
+
+              // Reconnect nodes one more time for safety
+              try {
+                const mainGain = this.contextManager.getMainGainNode();
+                if (mainGain) {
+                  mainGain.disconnect();
+                  mainGain.connect(
+                    this.contextManager.getContext().destination
+                  );
+                  this.logger.info(
+                    "AUDIO-DEBUG: Reconnected main gain node before playing"
+                  );
+                }
+              } catch (e) {
+                this.logger.error(
+                  "AUDIO-DEBUG: Error reconnecting before play:",
+                  e
+                );
+              }
+
+              // Now play the music
+              if (this.musicPlayer) {
+                this.musicPlayer.playGameMusic();
+                this.isPlaying = true;
+                this.currentMusic = "gameMusic";
+              }
+            }, 150);
+          })
+          .catch((error) => {
+            this.logger.error("AUDIO-DEBUG: Error loading game music:", error);
+
+            // Fall back to procedural if available
+            if (this.proceduralMusic) {
+              this.logger.info("AUDIO-DEBUG: Falling back to procedural music");
+              this.proceduralMusic.startGameMusic();
+              this.isPlaying = true;
+              this.currentMusic = "gameMusic";
+            }
+          });
+      } else {
+        // Game music is already loaded
+        this.logger.info("AUDIO-DEBUG: Game music already loaded, playing now");
+
+        // Short timeout to ensure context is in good state
+        setTimeout(() => {
+          if (this.musicPlayer) {
+            this.logger.info("AUDIO-DEBUG: Playing game music immediately");
+            this.musicPlayer.playGameMusic();
+            this.isPlaying = true;
+            this.currentMusic = "gameMusic";
+          } else {
+            this.logger.error("AUDIO-DEBUG: Music player not initialized");
+          }
+        }, 150);
+      }
+    }
   }
 }
