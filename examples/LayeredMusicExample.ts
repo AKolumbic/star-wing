@@ -50,8 +50,14 @@ export class LayeredMusicExample {
    * (Note: In level 1, this happens automatically after 5 seconds)
    */
   public addMenuMusicLayer(): void {
-    console.log("Adding menu music layer...");
-    this.audioManager.addMusicLayer("menuMusic", 0.4, 2.0);
+    console.log("Adding menu music layer at reduced volume...");
+    this.audioManager.addMusicLayer("menuMusic", 0.07, 2.0);
+
+    // Ensure game music is at full volume
+    setTimeout(() => {
+      this.audioManager.setLayerVolume("gameMusic", 1.0, 0.5);
+      console.log("Set game music to full volume");
+    }, 200);
   }
 
   /**
@@ -95,20 +101,20 @@ async function example() {
   // Start base game music
   example.startBaseMusic();
 
-  // After 10 seconds, manually add the menu music layer
+  // After 10 seconds, manually add the menu music layer at reduced volume
   // (This would normally happen automatically for level 1)
   setTimeout(() => {
     example.addMenuMusicLayer();
   }, 10000);
 
-  // After 20 seconds, increase the menu music layer volume
+  // After 20 seconds, slightly increase the menu music layer volume (but still keep it low)
   setTimeout(() => {
-    example.adjustLayerVolume("menuMusic", 0.7);
+    example.adjustLayerVolume("menuMusic", 0.1); // Increase slightly but keep below 10%
   }, 20000);
 
-  // After 30 seconds, decrease the base game music volume
+  // After 30 seconds, ensure game music stays at full volume
   setTimeout(() => {
-    example.adjustLayerVolume("gameMusic", 0.3);
+    example.adjustLayerVolume("gameMusic", 1.0);
   }, 30000);
 
   // After 40 seconds, remove the menu music layer

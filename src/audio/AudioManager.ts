@@ -236,36 +236,25 @@ export class AudioManager {
 
           if (this.bufferManager.hasBuffer("menuMusic")) {
             this.logger.debug(
-              "AudioManager: About to add menu music layer at volume 0.8"
+              "AudioManager: About to add menu music layer at reduced volume (5-10%)"
             );
 
-            // Use high volume and fast fade-in for second layer
-            const layerVolume = 0.8;
+            // Use low volume (5-10%) for menu music layer during gameplay
+            const menuLayerVolume = 0.07; // 7% volume - in the 5-10% range requested
             const success = this.musicPlayer.addMusicLayer(
               "menuMusic",
-              layerVolume,
+              menuLayerVolume,
               0.5
             ); // Ultra-fast fade-in (0.5s)
             this.logger.debug(`AudioManager: Add layer result: ${success}`);
 
-            // Force another volume verification after adding the layer
+            // Ensure game music is at full volume
             setTimeout(() => {
-              this.logger.info(
-                `AudioManager: Volume after adding layer - master: ${this.contextManager.getVolume()}, muted: ${this.contextManager.getMuteState()}`
+              this.musicPlayer.setLayerVolume("gameMusic", 1.0, 0.5);
+              this.logger.debug(
+                "AudioManager: Set game music layer to full volume"
               );
-              this.logger.info(
-                `AudioManager: Audio context state after adding layer: ${
-                  this.contextManager.getContext().state
-                }`
-              );
-
-              // Log the main gain node value
-              this.logger.info(
-                `AudioManager: Main gain node value: ${
-                  this.contextManager.getMainGainNode().gain.value
-                }`
-              );
-            }, 300);
+            }, 200); // Small delay to ensure both operations aren't competing
           } else {
             this.logger.error(
               "AudioManager: Menu music not found in buffer manager!"
@@ -579,7 +568,7 @@ export class AudioManager {
    * Test function to diagnose layered music issues
    * @param menuLayerVolume Volume to use for the menu music layer (0.0 to 1.0)
    */
-  public testLayeredMusic(menuLayerVolume: number = 0.8): void {
+  public testLayeredMusic(menuLayerVolume: number = 0.07): void {
     this.logger.info("=== LAYERED MUSIC TEST ===");
     this.logger.info(
       `Audio context state: ${this.contextManager.getContext().state}`
@@ -600,10 +589,10 @@ export class AudioManager {
       const success = this.musicPlayer.startLayeredMusic("gameMusic", 0.5);
       this.logger.info(`Game music start result: ${success}`);
 
-      // After 3 seconds, add the menu music layer at higher volume
+      // After 3 seconds, add the menu music layer at reduced volume
       setTimeout(() => {
         this.logger.info(
-          `Adding menu music layer at volume ${menuLayerVolume}`
+          `Adding menu music layer at reduced volume ${menuLayerVolume}`
         );
         const layerSuccess = this.musicPlayer.addMusicLayer(
           "menuMusic",
@@ -611,6 +600,12 @@ export class AudioManager {
           1.0
         );
         this.logger.info(`Add layer result: ${layerSuccess}`);
+
+        // Ensure game music is at full volume
+        setTimeout(() => {
+          this.musicPlayer.setLayerVolume("gameMusic", 1.0, 0.5);
+          this.logger.info("Set game music layer to full volume");
+        }, 200);
       }, 3000);
     }, 1000);
   }

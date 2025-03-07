@@ -15,8 +15,8 @@ The layered music system allows:
 
 For the first level implementation, we use two audio tracks:
 
-- `assets/audio/star-wing_game-loop.mp3` - The base game music track
-- `assets/audio/star-wing_menu-loop.mp3` - The menu music (used as a layer in level 1)
+- `assets/audio/star-wing_game-loop.mp3` - The base game music track (plays at full volume)
+- `assets/audio/star-wing_menu-loop.mp3` - The menu music (used as a subtle background layer at 5-10% volume)
 
 **Important:** For proper synchronization, all music tracks must:
 
@@ -40,23 +40,30 @@ audioManager.playLevelMusic("level1");
 
 When playing level 1 music, the system will:
 
-1. Start playing the base game track
-2. Automatically add the menu music as a layer after 5 seconds
+1. Start playing the base game track at full volume
+2. Automatically add the menu music as a subtle background layer (5-10% volume)
 
 ## Advanced Usage
 
 ### Manually Adding Layers
 
 ```typescript
-// Add a music layer with 50% volume and 1-second fade-in
-audioManager.addMusicLayer("trackId", 0.5, 1.0);
+// Add a music layer with specified volume and 1-second fade-in
+// For menu music during gameplay, use low volume (0.07 = 7%)
+audioManager.addMusicLayer("menuMusic", 0.07, 1.0);
+
+// For game music, use full volume
+audioManager.addMusicLayer("gameMusic", 1.0, 1.0);
 ```
 
 ### Adjusting Layer Volume
 
 ```typescript
-// Adjust a layer's volume to 30% with a 0.5-second fade
-audioManager.setLayerVolume("trackId", 0.3, 0.5);
+// Adjust menu music layer to low volume with a 0.5-second fade
+audioManager.setLayerVolume("menuMusic", 0.07, 0.5);
+
+// Ensure game music is at full volume
+audioManager.setLayerVolume("gameMusic", 1.0, 0.5);
 ```
 
 ### Removing Layers
