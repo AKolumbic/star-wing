@@ -1013,8 +1013,8 @@ export class Scene {
 
     // Reset asteroid spawn timer and settings
     this.lastAsteroidSpawnTime = 0;
-    this.asteroidSpawnInterval = 3250; // Reset to initial spawn interval (updated to new 35% faster value)
-    this.maxAsteroids = 20; // Reset to the new higher limit
+    this.asteroidSpawnInterval = 3250;
+    this.maxAsteroids = 20;
 
     // Reset player ship if it exists
     if (this.playerShip) {
@@ -1022,10 +1022,15 @@ export class Scene {
       this.playerShip.setHealth(100);
       this.playerShip.setShield(100);
 
-      // Reset position
-      this.playerShip.enterScene(() => {
+      // Force ship to entry start position and reset velocity
+      this.playerShip.resetPosition();
+
+      // Start entry animation with proper callback to restore game state
+      this.startShipEntry(() => {
         this.logger.info("Ship entry complete after reset");
         this.setGameActive(true);
+        // Use skipCallback to prevent recursion
+        this.playerShip?.setPlayerControlled(true, true);
       });
     } else {
       // If ship doesn't exist, initialize it
@@ -1034,6 +1039,8 @@ export class Scene {
           this.startShipEntry(() => {
             this.logger.info("Ship entry complete after init in reset");
             this.setGameActive(true);
+            // Use skipCallback to prevent recursion
+            this.playerShip?.setPlayerControlled(true, true);
           });
         })
         .catch((error) => {

@@ -61,7 +61,7 @@ export class LaserCannon extends Weapon {
     const projectileProps: ProjectileProps = {
       damage: this.props.damage,
       speed: this.props.projectileSpeed || 400,
-      lifetime: 2.0, // 2 seconds of flight time
+      lifetime: 4.0, // 4 seconds of flight time (increased from 2.0)
       color: this.props.projectileColor,
       category: WeaponCategory.ENERGY,
       scale: (this.props.scale || 1.0) + (this.props.upgradeLevel || 0) * 0.1, // Base scale plus upgrade bonus
