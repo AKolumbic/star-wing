@@ -169,6 +169,13 @@ export class UISystem implements GameSystem {
    */
   showMenu(): void {
     this.gameActive = false;
+
+    // Clean up the player ship when returning to main menu
+    if (this.game) {
+      const scene = this.game.getSceneSystem().getScene();
+      scene.cleanupPlayerShip();
+    }
+
     this.menu.showMainMenu();
 
     // Hide the HUD when menu is shown

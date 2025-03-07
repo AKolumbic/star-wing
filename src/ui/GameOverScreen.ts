@@ -230,6 +230,10 @@ export class GameOverScreen {
     this.logger.info("Game Over: Return to main menu requested");
     this.hide();
 
+    // Clean up the player ship before transitioning to main menu
+    const scene = this.game.getSceneSystem().getScene();
+    scene.cleanupPlayerShip();
+
     // Wait for fade out before showing menu
     setTimeout(() => {
       this.game.getUISystem().showMenu();

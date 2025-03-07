@@ -342,6 +342,12 @@ export class Scene {
    * Removes event listeners and disposes of Three.js objects.
    */
   dispose(): void {
+    // Stop the animation loop if it's running
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+
     // Remove event listeners
     window.removeEventListener("resize", this.onWindowResize.bind(this));
 
@@ -349,10 +355,7 @@ export class Scene {
     this.backgroundManager.dispose();
 
     // Clean up the player ship
-    if (this.playerShip) {
-      this.playerShip.dispose();
-      this.playerShip = null;
-    }
+    this.cleanupPlayerShip();
 
     // Clean up asteroids
     this.asteroids.forEach((asteroid) => {
@@ -390,6 +393,13 @@ export class Scene {
 
     // Remove debug controls if they exist
     this.removeDebugControls();
+
+    // Reset game state
+    this.gameActive = false;
+    this.score = 0;
+    this.currentWave = 1;
+
+    this.logger.info("Scene successfully disposed");
   }
 
   /**
@@ -982,16 +992,22 @@ export class Scene {
   private handleShipDestruction(): void {
     this.logger.info("Player ship destroyed! Game over.");
 
-    // Stop the game
-    this.setGameActive(false);
+    // Transition out of hyperspace
+    this.backgroundManager.transitionHyperspace(false, 1.0);
 
-    // Add dramatic pause before showing game over screen
+    // Keep game active for a short period to let asteroids and projectiles finish moving
     setTimeout(() => {
-      // Show game over screen if UI system is available
-      if (this.game) {
-        this.game.getUISystem().showGameOver();
-      }
-    }, 1000);
+      // Stop the game
+      this.setGameActive(false);
+
+      // Add dramatic pause before showing game over screen
+      setTimeout(() => {
+        // Show game over screen if UI system is available
+        if (this.game) {
+          this.game.getUISystem().showGameOver();
+        }
+      }, 1000);
+    }, 2000); // Keep game active for 2 seconds after ship destruction
   }
 
   /**
@@ -1122,6 +1138,22 @@ export class Scene {
         this.currentWave,
         this.totalWaves
       );
+    }
+  }
+
+  /**
+   * Cleans up the player ship, disposing resources and removing it from the scene.
+   * This should be called when returning to the main menu.
+   */
+  cleanupPlayerShip(): void {
+    this.logger.info("Cleaning up player ship");
+
+    if (this.playerShip) {
+      // Dispose of the ship resources
+      this.playerShip.dispose();
+
+      // Clear the reference
+      this.playerShip = null;
     }
   }
 }
