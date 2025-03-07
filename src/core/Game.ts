@@ -83,6 +83,15 @@ export class Game {
       this.uiSystem
     );
 
+    // If in dev mode, add the performance overlay system.
+    if (this.devMode) {
+      import("../systems/DevPerformanceSystem").then(
+        ({ DevPerformanceSystem }) => {
+          this.systems.push(new DevPerformanceSystem());
+        }
+      );
+    }
+
     // Create the game loop with all systems
     this.gameLoop = new GameLoop(this.systems);
 
