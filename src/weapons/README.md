@@ -16,6 +16,7 @@ This directory includes:
   - `RapidFireGun.ts` - Ballistic weapon with high fire rate
   - `MissileLauncher.ts` - Explosive weapon that fires homing missiles
   - `GravityBeam.ts` - Special weapon that affects enemy movement
+  - `PlasmaCannon.ts` - Advanced energy weapon with damage over time
 
 ## Weapon Architecture
 
@@ -29,6 +30,7 @@ The `Weapon` abstract class provides the foundation for all weapons with:
 - **State Management**: Tracking firing status, cooldown timers, and ammo
 - **Lifecycle Methods**: Update, fire, and dispose functionality
 - **Abstract Methods**: Requiring specific implementations to define firing behavior
+- **Visual Effects**: Methods for generating appropriate weapon effects
 
 ### Projectile System
 
@@ -37,6 +39,7 @@ The `Projectile` class represents the bullets, lasers, or missiles fired by weap
 - **Physics**: Handles movement, collision detection, and lifetime management
 - **Visual Effects**: Renders the projectile with appropriate models and effects
 - **Impact Logic**: Manages what happens when projectiles hit targets
+- **Pool Management**: Efficient reuse of projectile objects for performance
 
 ### Weapon Categories
 
@@ -85,6 +88,15 @@ A special weapon that manipulates enemy movement:
 - Ability to pull enemies towards the player or push them away
 - Purple beam with distortion visual effects
 
+### PlasmaCannon
+
+An advanced energy weapon with unique properties:
+
+- Medium-high damage with damage-over-time effect
+- Moderate fire rate with high energy cost
+- Teal-colored plasma projectiles with particle trails
+- Ability to penetrate multiple targets
+
 ## WeaponSystem
 
 The `WeaponSystem` class manages all aspects of weapons in the game:
@@ -94,6 +106,7 @@ The `WeaponSystem` class manages all aspects of weapons in the game:
 - **Firing Logic**: Processes player input to trigger appropriate weapons
 - **Upgrade Path**: Manages weapon improvements and modifications
 - **UI Integration**: Communicates with UI systems to display weapon status
+- **Audio Integration**: Coordinates with the audio system for weapon sounds
 
 ## Usage
 
@@ -129,6 +142,11 @@ if (input.isPrimaryFiring()) {
 if (input.isSecondaryFiring()) {
   weaponSystem.fireSecondary(shipPosition, aimDirection);
 }
+
+// Switch weapon type
+if (input.isKeyJustPressed("1")) {
+  weaponSystem.switchToWeaponSlot(0);
+}
 ```
 
 ### Creating Custom Weapons
@@ -161,7 +179,40 @@ export class PlasmaCannon extends Weapon {
   }
 
   protected onFire(position: THREE.Vector3, direction: THREE.Vector3): boolean {
-    // Implement firing logic here
+    // Create projectile
+    const projectile = this.createProjectile(position, direction);
+
+    // Add damage-over-time property
+    projectile.setDamageOverTime(5, 3); // 5 damage per second for 3 seconds
+
+    // Add penetration capability
+    projectile.setPenetration(true, 3); // Can penetrate up to 3 targets
+
+    // Play sound effect
+    this.playFireSound();
+
+    return true;
+  }
+}
+```
+
+## Audio Integration
+
+The weapon system integrates closely with the audio system:
+
+```typescript
+// In a weapon class
+protected playFireSound() {
+  const audioManager = AudioManager.getInstance();
+
+  switch (this.category) {
+    case WeaponCategory.ENERGY:
+      audioManager.playLaserSound("energy");
+      break;
+    case WeaponCategory.BALLISTIC:
+      audioManager.playLaserSound("ballistic");
+      break;
+    // Other categories...
   }
 }
 ```
@@ -175,3 +226,4 @@ Planned enhancements to the weapon system include:
 - **Charge Mechanics**: Implement charge-up weapons with variable power
 - **Weapon Combinations**: Allow certain weapons to be combined for special effects
 - **Heat Management**: More complex cooling and overheating mechanics
+- **Elemental Effects**: Add elemental properties to weapons for different combat scenarios

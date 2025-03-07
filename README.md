@@ -8,10 +8,11 @@ Star Wing is a web-based 3D space shooter that combines classic arcade gameplay 
 
 ## Tech Stack
 
-- **Three.js**: 3D graphics and rendering
+- **Three.js**: 3D graphics and rendering (v0.162.0)
 - **TypeScript**: Type-safe JavaScript
 - **Vite**: Build tool and development server
 - **Web Audio API**: Audio management and synthesis
+- **Howler.js**: Additional audio support for complex soundscapes
 - **GSAP**: UI animations and transitions
 
 ## Development Setup
@@ -39,6 +40,18 @@ npm run dev
 
 ```bash
 npm run build
+```
+
+5. Preview the production build:
+
+```bash
+npm run preview
+```
+
+6. Run tests:
+
+```bash
+npm test
 ```
 
 ## Development Mode
@@ -86,6 +99,7 @@ The codebase follows a modular architecture with clear separation of concerns:
 - **Entities**: Player ship, enemies, and environmental objects
 - **Weapons**: Weapon types, projectiles, and combat systems
 - **UI**: Menu systems and in-game HUD
+- **Utils**: Utility functions and helper classes
 
 For detailed documentation on the architecture and implementation, see the [Source Code README](./src/README.md).
 

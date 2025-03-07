@@ -58,7 +58,7 @@ A sophisticated modular audio system that handles:
 - Volume controls and settings persistence
 - Optimized buffer management and memory usage
 
-The audio system follows a modular architecture with specialized components for different audio functions.
+The audio system follows a modular architecture with specialized components for different audio functions, leveraging both the Web Audio API and Howler.js.
 
 See [Audio System README](./audio/README.md) for detailed documentation.
 
@@ -112,6 +112,7 @@ The UI system implements:
 - Menu navigation and settings controls
 - In-game status displays
 - Responsive design for different screen sizes
+- GSAP-powered animations for smooth transitions
 
 See [UI README](./ui/README.md) for detailed documentation.
 
@@ -163,6 +164,7 @@ The Star Wing codebase supports efficient development through:
 - **Performance Monitoring**: Built-in metrics for optimization
 - **Logging System**: Comprehensive logging for debugging
 - **Component Isolation**: Systems can be tested independently
+- **Testing**: Unit tests with Vitest for key components
 
 ## Extending the Codebase
 

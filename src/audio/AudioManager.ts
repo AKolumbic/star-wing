@@ -23,8 +23,14 @@ export class AudioManager {
   private isInitialized: boolean = false;
   private isPlaying: boolean = false;
 
+  // Layered music state tracking
+  private layeredMusicActive: boolean = false;
+
   // Logging
   private logger = Logger.getInstance();
+
+  // Singleton instance
+  private static instance: AudioManager;
 
   constructor() {
     this.logger.info(
@@ -42,6 +48,16 @@ export class AudioManager {
       this.bufferManager
     );
     this.proceduralMusic = new ProceduralMusicGenerator(this.contextManager);
+  }
+
+  /**
+   * Gets the singleton instance of the AudioManager
+   */
+  public static getInstance(): AudioManager {
+    if (!AudioManager.instance) {
+      AudioManager.instance = new AudioManager();
+    }
+    return AudioManager.instance;
   }
 
   /**
@@ -93,6 +109,235 @@ export class AudioManager {
   }
 
   /**
+   * Preloads the music track for the specified level
+   * @param levelId The level identifier
+   * @returns A promise that resolves when loading is complete
+   */
+  public async preloadLevelMusic(levelId: string): Promise<void> {
+    try {
+      this.logger.info(`AudioManager: Preloading music for level ${levelId}`);
+
+      // Load the base game track
+      if (!this.bufferManager.hasBuffer("gameMusic")) {
+        await this.bufferManager.loadAudioSample(
+          "assets/audio/star-wing_game-loop.mp3",
+          "gameMusic",
+          true
+        );
+      }
+
+      // Load additional layered tracks
+      if (
+        levelId === "level1" &&
+        !this.bufferManager.hasBuffer("level1Layer")
+      ) {
+        // This is the same as the menu music - reuse it for layering in level 1
+        if (!this.bufferManager.hasBuffer("menuMusic")) {
+          await this.bufferManager.loadAudioSample(
+            "assets/audio/star-wing_menu-loop.mp3",
+            "menuMusic",
+            true
+          );
+        }
+      }
+
+      // Additional level-specific tracks could be loaded here based on levelId
+
+      this.logger.info(
+        `AudioManager: Successfully preloaded music for level ${levelId}`
+      );
+    } catch (error) {
+      this.logger.error(
+        `AudioManager: Error preloading level music for ${levelId}:`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Starts playing layered music for a level
+   * @param levelId The level identifier
+   */
+  public playLevelMusic(levelId: string): void {
+    this.logger.info(`AudioManager: Starting level music for ${levelId}`);
+    this.logger.debug(
+      `AudioManager: Game music loaded: ${this.bufferManager.hasBuffer(
+        "gameMusic"
+      )}`
+    );
+    this.logger.debug(
+      `AudioManager: Menu music loaded: ${this.bufferManager.hasBuffer(
+        "menuMusic"
+      )}`
+    );
+
+    // Log volume settings before starting
+    this.logger.info(
+      `AudioManager: Current volume settings - master: ${this.contextManager.getVolume()}, muted: ${this.contextManager.getMuteState()}`
+    );
+
+    // Use a shorter fade-out for smoother transition
+    this.stopMusic(0.3);
+
+    // Start the base game track
+    if (!this.bufferManager.hasBuffer("gameMusic")) {
+      this.logger.warn("AudioManager: Game music not loaded, preloading now");
+      this.bufferManager
+        .loadAudioSample(
+          "assets/audio/star-wing_game-loop.mp3",
+          "gameMusic",
+          true
+        )
+        .then(() => {
+          this.playLevelMusic(levelId); // Try again after loading
+        })
+        .catch((err) => {
+          this.logger.error("AudioManager: Error loading game music:", err);
+        });
+      return;
+    }
+
+    // Start the base music layer
+    const success = this.musicPlayer.startLayeredMusic("gameMusic", 1.0);
+    this.logger.debug(
+      `AudioManager: Started game music base layer, success: ${success}`
+    );
+
+    if (success) {
+      this.layeredMusicActive = true;
+
+      // Add level-specific layers
+      if (levelId === "level1") {
+        // For level 1, add the menu music as a layer after a SHORT delay (1 second instead of 5)
+        setTimeout(() => {
+          this.logger.debug(
+            "AudioManager: 1-second timer fired for adding menu layer"
+          );
+          this.logger.info(
+            `AudioManager: Volume before adding layer - master: ${this.contextManager.getVolume()}, muted: ${this.contextManager.getMuteState()}`
+          );
+
+          // Force an audio context resume
+          this.contextManager
+            .tryResume()
+            .then(() => {
+              this.logger.info(
+                `AudioManager: Audio context resumed, state: ${
+                  this.contextManager.getContext().state
+                }`
+              );
+            })
+            .catch((err) => {
+              this.logger.error(
+                `AudioManager: Error resuming audio context: ${err}`
+              );
+            });
+
+          if (this.bufferManager.hasBuffer("menuMusic")) {
+            this.logger.debug(
+              "AudioManager: About to add menu music layer at volume 0.8"
+            );
+
+            // Increase volume of second layer substantially for better audibility
+            const layerVolume = 0.8; // Increased from 0.6 to 0.8
+            const success = this.musicPlayer.addMusicLayer(
+              "menuMusic",
+              layerVolume,
+              1.0
+            );
+            this.logger.debug(`AudioManager: Add layer result: ${success}`);
+
+            // Force another volume verification after adding the layer
+            setTimeout(() => {
+              this.logger.info(
+                `AudioManager: Volume after adding layer - master: ${this.contextManager.getVolume()}, muted: ${this.contextManager.getMuteState()}`
+              );
+              this.logger.info(
+                `AudioManager: Audio context state after adding layer: ${
+                  this.contextManager.getContext().state
+                }`
+              );
+
+              // Log the main gain node value
+              this.logger.info(
+                `AudioManager: Main gain node value: ${
+                  this.contextManager.getMainGainNode().gain.value
+                }`
+              );
+            }, 500);
+          } else {
+            this.logger.error(
+              "AudioManager: Menu music not found in buffer manager!"
+            );
+          }
+        }, 1000); // Wait 1 second before adding the layer (was 5 seconds)
+      }
+    }
+  }
+
+  /**
+   * Adds an additional music layer to the currently playing layered music
+   * @param trackId The ID of the track to add as a layer
+   * @param volume Initial volume for the layer (0.0 to 1.0)
+   * @param fadeTime Time in seconds to fade in the layer
+   * @returns True if the layer was successfully added
+   */
+  public addMusicLayer(
+    trackId: string,
+    volume: number = 0.5,
+    fadeTime: number = 1.0
+  ): boolean {
+    if (!this.layeredMusicActive) {
+      this.logger.warn(
+        "AudioManager: Cannot add layer - layered music is not active"
+      );
+      return false;
+    }
+
+    return this.musicPlayer.addMusicLayer(trackId, volume, fadeTime);
+  }
+
+  /**
+   * Adjusts the volume of a specific music layer
+   * @param trackId The ID of the layer to adjust
+   * @param volume New volume (0.0 to 1.0)
+   * @param fadeTime Time in seconds to fade to the new volume
+   * @returns True if the adjustment was successful
+   */
+  public setLayerVolume(
+    trackId: string,
+    volume: number,
+    fadeTime: number = 0.5
+  ): boolean {
+    if (!this.layeredMusicActive) {
+      this.logger.warn(
+        "AudioManager: Cannot adjust layer - layered music is not active"
+      );
+      return false;
+    }
+
+    return this.musicPlayer.setLayerVolume(trackId, volume, fadeTime);
+  }
+
+  /**
+   * Removes a music layer with a fade-out
+   * @param trackId The ID of the layer to remove
+   * @param fadeTime Time in seconds to fade out
+   * @returns True if the layer was successfully removed
+   */
+  public removeMusicLayer(trackId: string, fadeTime: number = 1.0): boolean {
+    if (!this.layeredMusicActive) {
+      this.logger.warn(
+        "AudioManager: Cannot remove layer - layered music is not active"
+      );
+      return false;
+    }
+
+    return this.musicPlayer.removeMusicLayer(trackId, fadeTime);
+  }
+
+  /**
    * Stops all music playback.
    * @param fadeOutTime Optional fade-out time in seconds
    * @param preservePlayingFlag If true, don't reset the isPlaying flag (used for temporary stops before restarting)
@@ -104,6 +349,7 @@ export class AudioManager {
     if (!preservePlayingFlag) {
       this.isPlaying = false;
     }
+    this.layeredMusicActive = false;
     this.musicPlayer.stop(fadeOutTime);
     this.proceduralMusic.stop();
   }
@@ -321,10 +567,51 @@ export class AudioManager {
    */
   public dispose(): void {
     this.stopMusic();
+    this.layeredMusicActive = false;
     this.musicPlayer.dispose();
     this.sfxPlayer.dispose();
     this.proceduralMusic.dispose();
     this.bufferManager.dispose();
     this.contextManager.dispose();
+  }
+
+  /**
+   * Test function to diagnose layered music issues
+   * @param menuLayerVolume Volume to use for the menu music layer (0.0 to 1.0)
+   */
+  public testLayeredMusic(menuLayerVolume: number = 0.8): void {
+    this.logger.info("=== LAYERED MUSIC TEST ===");
+    this.logger.info(
+      `Audio context state: ${this.contextManager.getContext().state}`
+    );
+    this.logger.info(`Mute state: ${this.contextManager.getMuteState()}`);
+    this.logger.info(`Master volume: ${this.contextManager.getVolume()}`);
+    this.logger.info(
+      `Loaded buffers: ${this.bufferManager.getBufferIds().join(", ")}`
+    );
+
+    // Stop any current music
+    this.stopMusic(0.1);
+    this.logger.info("Stopped all music");
+
+    // Start with just the game music
+    setTimeout(() => {
+      this.logger.info("Starting game music layer");
+      const success = this.musicPlayer.startLayeredMusic("gameMusic", 0.5);
+      this.logger.info(`Game music start result: ${success}`);
+
+      // After 3 seconds, add the menu music layer at higher volume
+      setTimeout(() => {
+        this.logger.info(
+          `Adding menu music layer at volume ${menuLayerVolume}`
+        );
+        const layerSuccess = this.musicPlayer.addMusicLayer(
+          "menuMusic",
+          menuLayerVolume,
+          1.0
+        );
+        this.logger.info(`Add layer result: ${layerSuccess}`);
+      }, 3000);
+    }, 1000);
   }
 }

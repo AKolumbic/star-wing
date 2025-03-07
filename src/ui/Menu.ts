@@ -439,6 +439,11 @@ export class Menu {
             scene.startShipEntry(() => {
               this.logger.info("Ship entry complete, game is now active");
 
+              // Start layered music for level 1
+              const audioManager = this.game.getAudioManager();
+              this.logger.info("Starting layered music for level 1");
+              audioManager.playLevelMusic("level1");
+
               // 5. Finally, start the game and show HUD
               this.game.start();
               uiSystem.showGameHUD();

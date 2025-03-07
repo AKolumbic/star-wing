@@ -14,6 +14,7 @@ The core systems implement a modular architecture with the following structure:
 2. **System Interface** - `GameSystem.ts` defines the common interface for all subsystems
 3. **Game Loop Manager** - `GameLoop.ts` manages the update/render cycle independently
 4. **System Adapters** - Specialized adapters in the `systems/` directory wrap core functionality
+5. **Performance Monitoring** - `PerformanceMonitor.ts` tracks game metrics and optimizes performance
 
 ## Key Components
 
@@ -26,6 +27,7 @@ The central controller for the entire game.
 - Maintains references to all major system components
 - Delegates game loop management to the GameLoop class
 - Provides dev mode options including audio control
+- Manages state transitions between game phases (menu, gameplay, etc.)
 
 ```typescript
 // Basic usage
@@ -41,6 +43,9 @@ const game = new Game("gameCanvas", true, true);
 
 // Toggle audio in dev mode via console
 game.toggleDevModeAudio();
+
+// Ensure audio can start playing (useful for mobile browsers)
+game.ensureAudioCanPlay();
 ```
 
 **Development Mode Parameters:**
@@ -73,6 +78,7 @@ Dedicated class that manages the game loop timing and updates.
 - Updates all systems in sequence each frame
 - Tracks performance metrics
 - Supports pre-update and post-update hooks
+- Implements frame throttling for performance optimization
 
 ### System Adapters
 
@@ -84,12 +90,15 @@ Specialized adapters that implement the GameSystem interface:
 - Manages Three.js integration
 - Coordinates the modular background system
 - Handles visual effects and scene composition
+- Manages adaptive quality settings based on performance
 
 #### InputSystem
 
 - Manages keyboard and mouse input
 - Provides methods to query input state
 - Handles event binding and cleanup
+- Supports key binding customization
+- Implements touch controls for mobile devices
 
 #### AudioSystem
 
@@ -98,6 +107,7 @@ Specialized adapters that implement the GameSystem interface:
 - Preloads essential audio assets during initialization
 - Manages audio settings persistence and volume controls
 - Provides access to music playback and sound effect functionality
+- Integrates with Howler.js for complex audio scenarios
 - See `/src/audio/README.md` for detailed documentation on the audio architecture
 
 #### UISystem
@@ -105,6 +115,8 @@ Specialized adapters that implement the GameSystem interface:
 - Coordinates UI components including menus and overlays
 - Manages loading screen and terminal border
 - Handles UI state and transitions
+- Implements retro terminal styling using GSAP for animations
+- Manages responsive design adjustments
 
 ## Utility Classes
 
@@ -112,9 +124,19 @@ Specialized adapters that implement the GameSystem interface:
 
 Tracks performance metrics like FPS and frame timing.
 
+- Measures frame time, update time, and render time separately
+- Provides adaptive quality settings based on performance
+- Logs performance warnings when frame rate drops
+- Implements memory usage tracking
+
 ### UIUtils
 
 Provides utility methods for UI operations like error message display.
+
+- Standardized error message formatting
+- Modal dialog creation
+- Loading indicators
+- Terminal-style text effects
 
 ## Design Patterns
 
@@ -124,6 +146,8 @@ The core systems implement several key design patterns:
 2. **Adapter Pattern**: System adapters wrap existing classes with a consistent interface
 3. **Observer Pattern**: Event-based communication between systems without tight coupling
 4. **Facade Pattern**: Game class provides a simplified interface to complex subsystems
+5. **Singleton Pattern**: Used for manager classes that need global access
+6. **State Pattern**: Manages game state transitions and behaviors
 
 ## Performance Considerations
 
@@ -134,6 +158,8 @@ The core systems are designed with performance as a priority:
 - Frame timing and delta calculations for smooth animations
 - Performance metrics tracking for debugging
 - Audio resource management to minimize memory usage
+- Adaptive quality settings that adjust based on device capabilities
+- Object pooling for frequently created/destroyed objects
 
 ## Error Handling
 
@@ -143,12 +169,15 @@ Robust error handling is implemented throughout the core systems:
 - Comprehensive resource cleanup to prevent memory leaks
 - Console logging for development debugging
 - User-facing error displays for critical failures
+- Error recovery mechanisms for non-critical failures
 
 ## Dependencies
 
 - **Three.js**: For 3D rendering (Scene.ts)
 - **Browser DOM API**: For input handling (Input.ts)
 - **Web Audio API**: Through the modular audio architecture (referenced in AudioSystem)
+- **Howler.js**: For advanced audio capabilities
+- **GSAP**: For animations and transitions
 - **UI Components**: Through Menu, LoadingScreen, etc. (referenced in UISystem)
 
 ## Background System
@@ -172,12 +201,14 @@ Central manager that handles background state and transitions:
    - Configurable star density and speed
    - Parallax scrolling effect
    - Optimized particle management
+   - Adaptive quality based on performance
 
 2. **HyperspaceBackground**
    - Hyperspace travel effect
    - Dynamic light streaks
    - Configurable speed and intensity
    - Smooth transition handling
+   - Particle-based visual effects
 
 ### Design Features
 
@@ -186,3 +217,13 @@ Central manager that handles background state and transitions:
 - Performance-optimized rendering
 - Seamless integration with Three.js scene graph
 - Independent update cycles for each background type
+- Adaptive quality settings for performance optimization
+
+## Testing
+
+The core systems include tests to verify functionality:
+
+- Unit tests for individual components
+- Integration tests for system interactions
+- Performance benchmarking for optimization
+- Mock objects for isolating component tests

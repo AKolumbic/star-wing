@@ -141,23 +141,44 @@ export class AudioContextManager {
   }
 
   /**
-   * Sets the master volume level
+   * Sets the main volume level and stores it in local storage
    */
   public setVolume(volume: number): void {
     // Clamp volume between 0 and 1
     const clampedVolume = Math.max(0, Math.min(1, volume));
 
+    this.logger.info(
+      `AudioContextManager: Setting volume to ${clampedVolume} (from input: ${volume})`
+    );
+
     // If not muted, apply the volume directly
     if (!this.isMuted) {
+      // Note the 0.6 scaling factor here
+      const scaledVolume = clampedVolume * 0.6;
+      this.logger.info(
+        `AudioContextManager: Applying scaled volume of ${scaledVolume} (scale factor: 0.6)`
+      );
+
       this.mainGainNode.gain.setTargetAtTime(
-        clampedVolume * 0.6,
+        scaledVolume,
         this.audioContext.currentTime,
         0.01
       ); // Smoother transition
+
+      this.logger.info(
+        `AudioContextManager: Main gain node value after setting: ${this.mainGainNode.gain.value}`
+      );
+    } else {
+      this.logger.info(
+        `AudioContextManager: Volume change not applied because audio is muted`
+      );
     }
 
     // Store the volume setting for when unmuted
     localStorage.setItem("starWing_volume", clampedVolume.toString());
+    this.logger.info(
+      `AudioContextManager: Volume setting saved to localStorage: ${clampedVolume}`
+    );
   }
 
   /**
@@ -166,7 +187,11 @@ export class AudioContextManager {
   public getVolume(): number {
     // Get volume from localStorage or use default (0.25 = 25%)
     const storedVolume = localStorage.getItem("starWing_volume");
-    return storedVolume ? parseFloat(storedVolume) : 0.25;
+    const volume = storedVolume ? parseFloat(storedVolume) : 0.25;
+    this.logger.debug(
+      `AudioContextManager: Retrieved volume from localStorage: ${volume}`
+    );
+    return volume;
   }
 
   /**
