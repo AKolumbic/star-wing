@@ -177,8 +177,8 @@ export class AudioManager {
       `AudioManager: Current volume settings - master: ${this.contextManager.getVolume()}, muted: ${this.contextManager.getMuteState()}`
     );
 
-    // Use a shorter fade-out for smoother transition
-    this.stopMusic(0.3);
+    // Use an ultra-short fade-out for near-seamless transition
+    this.stopMusic(0.1, true); // Use true to preserve isPlaying flag for seamless transition
 
     // Start the base game track
     if (!this.bufferManager.hasBuffer("gameMusic")) {
@@ -198,8 +198,8 @@ export class AudioManager {
       return;
     }
 
-    // Start the base music layer
-    const success = this.musicPlayer.startLayeredMusic("gameMusic", 1.0);
+    // Start the base music layer immediately
+    const success = this.musicPlayer.startLayeredMusic("gameMusic", 2.0); // Sync with 2.0s hyperspace transition
     this.logger.debug(
       `AudioManager: Started game music base layer, success: ${success}`
     );
@@ -209,10 +209,10 @@ export class AudioManager {
 
       // Add level-specific layers
       if (levelId === "level1") {
-        // For level 1, add the menu music as a layer after a SHORT delay (1 second instead of 5)
+        // For level 1, add the menu music as a layer after an ULTRA-SHORT delay (0.3 seconds)
         setTimeout(() => {
           this.logger.debug(
-            "AudioManager: 1-second timer fired for adding menu layer"
+            "AudioManager: 0.3-second timer fired for adding menu layer"
           );
           this.logger.info(
             `AudioManager: Volume before adding layer - master: ${this.contextManager.getVolume()}, muted: ${this.contextManager.getMuteState()}`
@@ -239,13 +239,13 @@ export class AudioManager {
               "AudioManager: About to add menu music layer at volume 0.8"
             );
 
-            // Increase volume of second layer substantially for better audibility
-            const layerVolume = 0.8; // Increased from 0.6 to 0.8
+            // Use high volume and fast fade-in for second layer
+            const layerVolume = 0.8;
             const success = this.musicPlayer.addMusicLayer(
               "menuMusic",
               layerVolume,
-              1.0
-            );
+              0.5
+            ); // Ultra-fast fade-in (0.5s)
             this.logger.debug(`AudioManager: Add layer result: ${success}`);
 
             // Force another volume verification after adding the layer
@@ -265,13 +265,13 @@ export class AudioManager {
                   this.contextManager.getMainGainNode().gain.value
                 }`
               );
-            }, 500);
+            }, 300);
           } else {
             this.logger.error(
               "AudioManager: Menu music not found in buffer manager!"
             );
           }
-        }, 1000); // Wait 1 second before adding the layer (was 5 seconds)
+        }, 300); // Ultra-short 0.3 second delay (was 1 second)
       }
     }
   }

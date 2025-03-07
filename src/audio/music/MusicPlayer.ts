@@ -240,7 +240,7 @@ export class MusicPlayer {
       `MusicPlayer: Initial audio state - master volume: ${masterVolume}, muted: ${isMuted}, context: ${audioContextState}`
     );
 
-    // Clean up any existing layered music
+    // Use gentle cleanup for existing music to avoid abrupt transitions
     this.stopLayeredMusic(0.1);
 
     // Try to resume audio context if needed
@@ -336,15 +336,30 @@ export class MusicPlayer {
         `MusicPlayer: Volume calculation - storedVolume: ${storedVolume}, multiplier: 0.8, minimum enforced: 0.5`
       );
 
-      // Set initial gain
-      gainNode.gain.value = 0;
+      // Start with a small non-zero value for smoother fade-in
+      const initialGain = 0.02;
+      gainNode.gain.value = initialGain;
 
-      // Fade in
+      // Fade in with a smoother curve
       const now = this.contextManager.getCurrentTime();
-      gainNode.gain.setValueAtTime(0, now);
+
+      // Use 3-stage fade for more musical transition:
+      // 1. Quick attack (initial 10% of fade time)
+      const attackTime = fadeInTime * 0.1;
+      gainNode.gain.setValueAtTime(initialGain, now);
+      gainNode.gain.linearRampToValueAtTime(baseVolume * 0.2, now + attackTime);
+
+      // 2. Main fade in (next 70% of fade time)
+      gainNode.gain.linearRampToValueAtTime(
+        baseVolume * 0.9,
+        now + fadeInTime * 0.8
+      );
+
+      // 3. Final polish (last 20% of fade time)
       gainNode.gain.linearRampToValueAtTime(baseVolume, now + fadeInTime);
+
       this.logger.debug(
-        `MusicPlayer: Gain node will ramp from 0 to ${baseVolume} over ${fadeInTime}s`
+        `MusicPlayer: Using enhanced 3-stage fade-in for base track over ${fadeInTime}s`
       );
 
       // Connect to audio graph - CRITICAL: Use the mainGain variable we verified earlier
@@ -565,7 +580,7 @@ export class MusicPlayer {
       );
 
       // Set initial gain - start at a small non-zero value for smoother crossfade
-      const initialGain = 0.01; // Small initial value instead of 0
+      const initialGain = 0.02; // Small initial value instead of 0
       gainNode.gain.value = initialGain;
 
       // Calculate time since layered music started
@@ -587,13 +602,27 @@ export class MusicPlayer {
         `MusicPlayer: Position in loop: ${positionInLoop.toFixed(2)}s`
       );
 
-      // Start with slight attack to avoid clicks - more musical transition
-      const attackTime = 0.05; // 50ms attack
+      // Use 3-stage fade for more musical transition:
+      // 1. Quick attack (initial 10% of fade time)
+      const attackTime = fadeInTime * 0.1;
       gainNode.gain.setValueAtTime(initialGain, now);
-      gainNode.gain.linearRampToValueAtTime(initialGain * 2, now + attackTime);
+      gainNode.gain.linearRampToValueAtTime(
+        finalVolume * 0.2,
+        now + attackTime
+      );
 
-      // Then do the main fade up
+      // 2. Main fade in (next 70% of fade time)
+      gainNode.gain.linearRampToValueAtTime(
+        finalVolume * 0.9,
+        now + fadeInTime * 0.8
+      );
+
+      // 3. Final polish (last 20% of fade time)
       gainNode.gain.linearRampToValueAtTime(finalVolume, now + fadeInTime);
+
+      this.logger.debug(
+        `MusicPlayer: Using enhanced 3-stage fade-in for layer over ${fadeInTime}s`
+      );
 
       // Connect nodes
       source.connect(gainNode);
