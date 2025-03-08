@@ -36,6 +36,12 @@ npm install
 npm run dev
 ```
 
+For MCP enabled dev tools, enter in a different terminal:
+
+```bash
+npx @agentdeskai/browser-tools-server
+```
+
 4. Build for production:
 
 ```bash
