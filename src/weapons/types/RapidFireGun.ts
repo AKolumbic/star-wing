@@ -32,6 +32,14 @@ export class RapidFireGun extends Weapon {
   }
 
   /**
+   * Gets all active projectiles for this weapon
+   * @returns Array of active projectiles
+   */
+  getProjectiles(): Projectile[] {
+    return this.projectiles;
+  }
+
+  /**
    * Updates all active projectiles and removes inactive ones
    * @param deltaTime Time elapsed since last update
    */

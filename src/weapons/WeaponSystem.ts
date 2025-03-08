@@ -123,6 +123,23 @@ export class WeaponSystem implements GameSystem {
   }
 
   /**
+   * Updates only projectiles without allowing new ones to be fired.
+   * Used when the ship is destroyed but projectiles should continue moving.
+   * @param deltaTime Time elapsed since last update
+   */
+  updateProjectilesOnly(deltaTime: number): void {
+    // Update primary weapon projectiles
+    if (this.primaryWeapon) {
+      this.primaryWeapon.update(deltaTime);
+    }
+
+    // Update secondary weapon projectiles
+    if (this.secondaryWeapon) {
+      this.secondaryWeapon.update(deltaTime);
+    }
+  }
+
+  /**
    * Fires the primary weapon
    * @param position The position to fire from
    * @param direction The direction to fire in

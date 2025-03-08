@@ -31,10 +31,10 @@ src/
 The core systems form the backbone of the game architecture:
 
 - **Game.ts**: Central controller that coordinates all systems and provides the main API
-- **GameLoop.ts**: Manages the game loop timing and delta calculations
+- **GameLoop.ts**: Manages the game loop timing, delta calculations, and pause functionality
 - **GameSystem.ts**: Interface for all game subsystems
 - **PerformanceMonitor.ts**: Tracks and reports performance metrics
-- **Scene.ts**: Handles Three.js scene management
+- **Scene.ts**: Handles Three.js scene management and entity interactions
 - **Input.ts**: Processes raw input events
 
 The core directory also includes specialized systems:
@@ -45,6 +45,7 @@ The core directory also includes specialized systems:
   - **InputSystem**: Manages game input
   - **AudioSystem**: Interfaces with the audio management
   - **UISystem**: Coordinates UI components
+  - **DevPerformanceSystem**: Monitors performance metrics in development mode
 
 See [Core Systems README](./core/README.md) for detailed documentation.
 
@@ -57,8 +58,9 @@ A sophisticated modular audio system that handles:
 - Sound effect playback with spatial positioning
 - Volume controls and settings persistence
 - Optimized buffer management and memory usage
+- Proper music transitions between menu and gameplay
 
-The audio system follows a modular architecture with specialized components for different audio functions.
+The audio system follows a modular architecture with specialized components for different audio functions, leveraging both the Web Audio API and Howler.js.
 
 See [Audio System README](./audio/README.md) for detailed documentation.
 
@@ -76,6 +78,7 @@ The entity system handles:
 - Movement and physics
 - Health and damage systems
 - Visual effects
+- Continuation of motion after player ship destruction
 
 See [Entities README](./entities/README.md) for detailed documentation.
 
@@ -104,14 +107,19 @@ UI components creating the game's distinctive retro terminal aesthetic:
 - **LoadingScreen.ts**: Initial loading screen
 - **Menu.ts**: Game menus and settings
 - **TerminalBorder.ts**: Decorative terminal border
-- **GameHUD.ts**: In-game heads-up display
+- **GameHUD.ts**: In-game heads-up display with tactical radar
+- **GameOverScreen.ts**: Game over notification
+- **ZoneComplete.ts**: Zone completion notification
+- **Settings.ts**: Game settings panel
 
 The UI system implements:
 
 - Retro terminal styling with scan lines and glitch effects
 - Menu navigation and settings controls
-- In-game status displays
+- In-game status displays and tactical radar
 - Responsive design for different screen sizes
+- GSAP-powered animations for smooth transitions
+- Proper pause functionality during menu display
 
 See [UI README](./ui/README.md) for detailed documentation.
 
@@ -121,6 +129,7 @@ Helper utilities for common operations:
 
 - **Logger.ts**: Standardized logging system
 - **UIUtils.ts**: Helper functions for UI operations
+- **DevPerformanceOverlay.ts**: Development performance monitoring
 
 ## Component Interactions
 
@@ -129,7 +138,7 @@ The Star Wing architecture follows these communication patterns:
 1. **Core Game Coordination**:
 
    - `Game` class initializes and coordinates all systems
-   - `GameLoop` manages frame updates for all components
+   - `GameLoop` manages frame updates and pause functionality for all components
    - All major systems implement the `GameSystem` interface
 
 2. **Entity-System Communication**:
@@ -137,11 +146,13 @@ The Star Wing architecture follows these communication patterns:
    - Entities update based on the game loop's delta time
    - Entities interact with systems through well-defined interfaces
    - Entity positions affect rendering, audio positioning, and collision detection
+   - Entities continue moving after ship destruction until off-screen
 
 3. **Audio-Game Integration**:
 
    - `AudioSystem` provides a bridge between the game and audio components
    - Game events trigger appropriate audio responses
+   - Audio smoothly transitions between menu and gameplay
    - Audio settings are persisted across game sessions
 
 4. **UI-Game Communication**:
@@ -149,6 +160,7 @@ The Star Wing architecture follows these communication patterns:
    - UI components respond to game state changes
    - User interactions with UI affect game systems
    - UI updates display game metrics and player status
+   - HUD provides tactical information through enhanced radar
 
 5. **Weapon-Entity Interaction**:
    - Weapons are attached to entities (primarily the player ship)
@@ -163,6 +175,7 @@ The Star Wing codebase supports efficient development through:
 - **Performance Monitoring**: Built-in metrics for optimization
 - **Logging System**: Comprehensive logging for debugging
 - **Component Isolation**: Systems can be tested independently
+- **Testing**: Unit tests with Vitest for key components
 
 ## Extending the Codebase
 

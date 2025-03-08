@@ -7,7 +7,7 @@ export class Menu {
   private container: HTMLDivElement;
   private isVisible: boolean = true;
   private currentSelection: number = 0;
-  private menuOptions: string[] = ["START GAME", "SETTINGS", "HIGH SCORES"];
+  private menuOptions: string[] = ["START GAME", "SETTINGS"];
   private inGameMode: boolean = false; // Flag to track if menu is shown during gameplay
   private settings: Settings;
   private highScores: HighScores;
@@ -246,8 +246,6 @@ export class Menu {
           this.startGame();
         } else if (option === "SETTINGS") {
           this.showSettings();
-        } else if (option === "HIGH SCORES") {
-          this.showHighScores();
         }
       });
       menuSection.appendChild(menuOption);
@@ -259,7 +257,7 @@ export class Menu {
 
     // Create link instead of just text
     const copyrightLink = document.createElement("a");
-    copyrightLink.href = "https://www.github.com/akolumbic";
+    copyrightLink.href = "https://www.github.com/akolumbic/star-wing";
     copyrightLink.textContent = "© 2025 DROSSHOLE";
     copyrightLink.style.color = "#fff"; // Keep same color as before
     copyrightLink.style.textDecoration = "none"; // No underline by default
@@ -352,9 +350,6 @@ export class Menu {
       case 1: // SETTINGS
         this.showSettings();
         break;
-      case 2: // HIGH SCORES
-        this.showHighScores();
-        break;
       default:
         this.logger.warn("Unknown menu option selected");
     }
@@ -409,9 +404,51 @@ export class Menu {
       return;
     }
 
-    this.logger.info("Showing in development screen instead of starting game");
+    this.logger.info("Starting a new game sequence");
     this.hide();
-    this.showDevelopmentScreen();
+
+    // Get important system references
+    const uiSystem = this.game.getUISystem();
+    const scene = this.game.getSceneSystem().getScene();
+    const input = this.game.getInputSystem().getInput();
+
+    // Ensure input is set on scene
+    scene.setInput(input);
+    this.logger.info("Setting input on scene for ship controls");
+
+    // 1. Start with the text crawl
+    uiSystem.showTextCrawl(() => {
+      this.logger.info("Text crawl complete, initiating hyperspace transition");
+
+      // 2. After text crawl completes, start hyperspace transition
+      scene.transitionHyperspace(true, 2.0).then(() => {
+        this.logger.info("Hyperspace transition complete, initializing ship");
+
+        // 3. Initialize the player ship before starting entry animation
+        scene
+          .initPlayerShip()
+          .then(() => {
+            this.logger.info("Ship initialized, starting ship entry sequence");
+
+            // 4. After ship is initialized, start ship entry
+            scene.startShipEntry(() => {
+              this.logger.info("Ship entry complete, game is now active");
+
+              // Start layered music for level 1
+              const audioManager = this.game.getAudioManager();
+              this.logger.info("Starting layered music for level 1");
+              audioManager.playLevelMusic("level1");
+
+              // 5. Finally, start the game and show HUD
+              this.game.start();
+              uiSystem.showGameHUD();
+            });
+          })
+          .catch((error) => {
+            this.logger.error("Failed to initialize ship:", error);
+          });
+      });
+    });
   }
 
   /**
@@ -534,17 +571,6 @@ export class Menu {
 
     // Set up a callback to restore the menu when settings are closed
     this.settings.setOnCloseCallback(() => {
-      this.container.style.display = "flex";
-    });
-  }
-
-  private showHighScores(): void {
-    // Hide the menu container but stay "active" logically
-    this.container.style.display = "none";
-    this.highScores.show();
-
-    // Set up a callback to restore the menu when high scores are closed
-    this.highScores.setOnCloseCallback(() => {
       this.container.style.display = "flex";
     });
   }

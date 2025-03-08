@@ -5,6 +5,7 @@ export class Settings {
   private isVisible: boolean = false;
   private game: Game;
   private onCloseCallback: (() => void) | null = null;
+  private musicToggle: HTMLDivElement | null = null;
 
   constructor(game: Game) {
     this.game = game;
@@ -205,9 +206,15 @@ export class Settings {
     const controlsInfo = document.createElement("div");
     controlsInfo.style.marginTop = "15px";
     controlsInfo.innerHTML = `
-      <div>ARROW KEYS: Move ship</div>
-      <div>SPACE: Fire weapons</div>
-      <div>ESC: Pause game</div>
+      <div style="margin-bottom: 8px;"><strong>Movement:</strong></div>
+      <div>W / UP ARROW: Move Up</div>
+      <div>S / DOWN ARROW: Move Down</div>
+      <div>A / LEFT ARROW: Move Left</div>
+      <div>D / RIGHT ARROW: Move Right</div>
+      <div style="margin-top: 15px; margin-bottom: 8px;"><strong>Combat:</strong></div>
+      <div>LEFT MOUSE BUTTON: Fire Primary Weapon</div>
+      <div style="margin-top: 15px; margin-bottom: 8px;"><strong>Game Controls:</strong></div>
+      <div>ESC: Pause / In-game Menu</div>
     `;
     controlsSection.appendChild(controlsInfo);
 
@@ -231,16 +238,16 @@ export class Settings {
     musicLabel.textContent = "Music";
     musicOption.appendChild(musicLabel);
 
-    const musicToggle = document.createElement("div");
-    musicToggle.className =
+    this.musicToggle = document.createElement("div");
+    this.musicToggle.className =
       "settings-toggle" +
       (!this.game.getAudioManager().getMuteState() ? " active" : "");
-    musicToggle.addEventListener("click", () => {
+    this.musicToggle.addEventListener("click", () => {
       this.game.getAudioManager().toggleMute();
-      musicToggle.classList.toggle("active");
+      this.syncMusicToggleState();
     });
 
-    musicOption.appendChild(musicToggle);
+    musicOption.appendChild(this.musicToggle);
     audioSection.appendChild(musicOption);
 
     // Volume slider
@@ -312,6 +319,10 @@ export class Settings {
   show(): void {
     this.container.style.display = "flex";
     this.isVisible = true;
+
+    // Always sync the music toggle state when showing settings
+    // This ensures the UI matches the actual audio state
+    this.syncMusicToggleState();
   }
 
   hide(): void {
@@ -343,5 +354,20 @@ export class Settings {
 
   public setOnCloseCallback(callback: () => void): void {
     this.onCloseCallback = callback;
+  }
+
+  /**
+   * Synchronizes the music toggle state with the actual mute state
+   */
+  private syncMusicToggleState(): void {
+    if (this.musicToggle) {
+      const isMuted = this.game.getAudioManager().getMuteState();
+      // Remove the active class first
+      this.musicToggle.classList.remove("active");
+      // Then add it only if not muted
+      if (!isMuted) {
+        this.musicToggle.classList.add("active");
+      }
+    }
   }
 }

@@ -10,6 +10,7 @@ export class LoadingScreen {
   private cursorBlinkInterval!: number;
   private isMobileDevice: boolean = false;
   private logger = Logger.getInstance();
+  private keydownListener: (e: KeyboardEvent) => void;
 
   // Fixed initial build messages
   private initialBuildMessages: string[] = [
@@ -90,6 +91,10 @@ export class LoadingScreen {
     this.detectMobileDevice();
     this.createElements();
     this.startBuildProcess();
+
+    // Add keyboard event listener for Escape key
+    this.keydownListener = this.handleKeyDown.bind(this);
+    document.addEventListener("keydown", this.keydownListener);
   }
 
   private detectMobileDevice(): void {
@@ -385,6 +390,49 @@ export class LoadingScreen {
     this.errorMessageElement.dataset.blinkInterval = String(blinkInterval);
   }
 
+  private handleKeyDown(event: KeyboardEvent): void {
+    // Check if Escape key was pressed
+    if (event.key === "Escape") {
+      this.logger.info("Escape key pressed, skipping loading animation");
+
+      // Skip the animation and show execute button
+      this.skipLoadingAnimation();
+    }
+  }
+
+  private skipLoadingAnimation(): void {
+    // Only process if we're not on a mobile device
+    if (this.isMobileDevice) return;
+
+    // Get terminal content div
+    const terminalContent = this.terminal.firstChild as HTMLDivElement;
+
+    // Clear current terminal content
+    while (terminalContent.firstChild) {
+      terminalContent.removeChild(terminalContent.firstChild);
+    }
+
+    // Add all build lines at once with [DONE] status
+    this.buildLines.forEach((text) => {
+      const line = document.createElement("div");
+      line.style.marginBottom = "8px";
+      line.style.whiteSpace = "nowrap";
+      line.style.overflow = "hidden";
+      line.style.textAlign = "left";
+      line.textContent = `> ${text} [DONE]`;
+
+      // Add line to the terminal content
+      if (terminalContent.firstChild) {
+        terminalContent.insertBefore(line, terminalContent.firstChild);
+      } else {
+        terminalContent.appendChild(line);
+      }
+    });
+
+    // Show execute button immediately
+    this.showExecuteButton();
+  }
+
   /**
    * Hides the loading screen and cleans up resources.
    */
@@ -403,6 +451,9 @@ export class LoadingScreen {
     ) {
       clearInterval(parseInt(this.errorMessageElement.dataset.blinkInterval));
     }
+
+    // Remove keyboard event listener
+    document.removeEventListener("keydown", this.keydownListener);
 
     // Remove from DOM immediately
     if (this.container && this.container.parentNode) {

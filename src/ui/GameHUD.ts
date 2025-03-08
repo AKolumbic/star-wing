@@ -18,6 +18,7 @@ export class GameHUD {
   private radarContext: CanvasRenderingContext2D | null;
   private infoContainer: HTMLDivElement;
   private warningContainer: HTMLDivElement;
+  private combatLogContainer: HTMLDivElement;
 
   // Game references
   private game: Game;
@@ -34,6 +35,10 @@ export class GameHUD {
   private totalWaves: number = 8;
   private weaponCooldown: number = 0;
   private specialCooldown: number = 0;
+
+  // Combat log messages
+  private combatLogMessages: Array<{ message: string; timestamp: number }> = [];
+  private readonly COMBAT_LOG_DISPLAY_TIME = 3000; // milliseconds
 
   /**
    * Creates a new GameHUD instance.
@@ -79,6 +84,10 @@ export class GameHUD {
     this.infoContainer = document.createElement("div");
     this.infoContainer.className = "info-container";
 
+    // Create combat log container
+    this.combatLogContainer = document.createElement("div");
+    this.combatLogContainer.className = "combat-log-container";
+
     // Create warning container
     this.warningContainer = document.createElement("div");
     this.warningContainer.className = "warning-container";
@@ -89,6 +98,7 @@ export class GameHUD {
     this.container.appendChild(this.weaponStatusContainer);
     this.container.appendChild(this.radarContainer);
     this.container.appendChild(this.infoContainer);
+    this.container.appendChild(this.combatLogContainer);
     this.container.appendChild(this.warningContainer);
 
     // Add to document
@@ -247,6 +257,59 @@ export class GameHUD {
         box-shadow: 0 0 5px #0ff;
       }
       
+      /* Combat Log container */
+      .combat-log-container {
+        position: absolute;
+        top: 115px; /* Positioned below info container */
+        left: 40px;
+        width: 250px;
+        min-height: 20px;
+        max-height: 150px;
+        overflow-y: hidden;
+        font-size: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      
+      .combat-log-message {
+        background-color: rgba(0, 0, 0, 0.5);
+        border: 1px solid #fff;
+        padding: 4px 8px;
+        border-radius: 3px;
+        box-shadow: 0 0 5px #0ff;
+        opacity: 1;
+        transition: opacity 0.5s ease-out;
+        animation: slide-in 0.3s ease-out;
+      }
+      
+      .combat-log-message.fading {
+        opacity: 0;
+      }
+      
+      .combat-log-message.asteroid-destroyed {
+        color: #ffcc00;
+        text-shadow: 0 0 5px #ffa500;
+      }
+      
+      .combat-log-message.damage-taken {
+        color: #ff3333;
+        text-shadow: 0 0 5px #ff0000;
+        font-weight: bold;
+      }
+      
+      .combat-log-message.zone-cleared {
+        color: #33ff33;
+        text-shadow: 0 0 10px #00ff00;
+        font-size: 12px;
+        font-weight: bold;
+      }
+      
+      @keyframes slide-in {
+        from { transform: translateX(-20px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      
       /* Warning container */
       .warning-container {
         position: absolute;
@@ -279,7 +342,7 @@ export class GameHUD {
    * Updates HUD elements with current game state
    * @param deltaTime Time elapsed since last frame in seconds
    */
-  update(_deltaTime: number): void {
+  update(deltaTime: number): void {
     if (!this.isVisible) return;
 
     // Get the scene from the game
@@ -312,7 +375,191 @@ export class GameHUD {
     this.updateWeaponStatus();
     this.updateRadar(scene);
     this.updateInfo();
+    this.updateCombatLog();
     this.updateWarnings();
+
+    // Check for zone completion
+    this.checkZoneCompletion(scene);
+  }
+
+  /**
+   * Check if zone has been completed
+   */
+  private checkZoneCompletion(scene: Scene): void {
+    if (this.currentScore >= 500 && scene.getCurrentZone() === 1) {
+      // Zone 1 completed
+      this.addCombatLogMessage(
+        "ZONE 1 CLEARED! WELL DONE, PILOT!",
+        "zone-cleared"
+      );
+
+      // Progress to next zone (handled by Scene)
+      scene.completeCurrentZone();
+    }
+  }
+
+  /**
+   * Updates the combat log display
+   */
+  private updateCombatLog(): void {
+    const currentTime = Date.now();
+    let messagesRemoved = false;
+
+    // Remove expired messages
+    this.combatLogMessages = this.combatLogMessages.filter((msg) => {
+      const age = currentTime - msg.timestamp;
+
+      // If message is expiring soon, add the fading class
+      if (age > this.COMBAT_LOG_DISPLAY_TIME - 500) {
+        // Find the message element and add fading
+        const selector = `[data-timestamp="${msg.timestamp}"]`;
+        const element = document.querySelector(selector);
+        if (element) {
+          // Apply fading directly to the element
+          element.classList.add("fading");
+          (element as HTMLElement).style.opacity = "0";
+        }
+      }
+
+      const shouldKeep = age < this.COMBAT_LOG_DISPLAY_TIME;
+      if (!shouldKeep) {
+        messagesRemoved = true;
+      }
+      return shouldKeep;
+    });
+
+    // Only re-render if messages were removed
+    if (messagesRemoved) {
+      this.renderCombatLog();
+    }
+  }
+
+  /**
+   * Renders the combat log messages to the DOM
+   */
+  private renderCombatLog(): void {
+    // Only log when there are messages and not on every update
+    if (this.combatLogMessages.length > 0) {
+      console.log(
+        `Combat log: ${this.combatLogMessages.length} messages to render`
+      );
+    }
+
+    // Check if container exists
+    if (!this.combatLogContainer) {
+      console.error("Combat log container is undefined!");
+      return;
+    }
+
+    // Ensure the container has the right styles
+    this.combatLogContainer.style.position = "absolute";
+    this.combatLogContainer.style.top = "115px";
+    this.combatLogContainer.style.left = "40px";
+    this.combatLogContainer.style.width = "250px";
+    this.combatLogContainer.style.minHeight = "20px";
+    this.combatLogContainer.style.maxHeight = "150px";
+    this.combatLogContainer.style.overflow = "hidden";
+    this.combatLogContainer.style.fontSize = "10px";
+    this.combatLogContainer.style.display = "flex";
+    this.combatLogContainer.style.flexDirection = "column";
+    this.combatLogContainer.style.gap = "5px";
+    this.combatLogContainer.style.zIndex = "1001"; // Ensure it's above other elements
+
+    // Clear the current container
+    this.combatLogContainer.innerHTML = "";
+
+    // Add each message
+    this.combatLogMessages.forEach((msg) => {
+      const messageElement = document.createElement("div");
+      messageElement.className = "combat-log-message";
+
+      // Add explicit styling to each message element
+      messageElement.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+      messageElement.style.border = "1px solid #fff";
+      messageElement.style.padding = "4px 8px";
+      messageElement.style.borderRadius = "3px";
+      messageElement.style.boxShadow = "0 0 5px #0ff";
+      messageElement.style.opacity = "1";
+      messageElement.style.transition = "opacity 0.5s ease-out";
+      messageElement.style.animation = "slide-in 0.3s ease-out";
+
+      if (msg.message.includes('class="')) {
+        // If the message already has HTML, use it directly
+        messageElement.innerHTML = msg.message;
+      } else {
+        messageElement.textContent = msg.message;
+
+        // Add styling based on message content
+        if (msg.message.includes("ASTEROID DESTROYED")) {
+          messageElement.style.color = "#ffcc00";
+          messageElement.style.textShadow = "0 0 5px #ffa500";
+        } else if (msg.message.includes("DAMAGE")) {
+          messageElement.style.color = "#ff3333";
+          messageElement.style.textShadow = "0 0 5px #ff0000";
+          messageElement.style.fontWeight = "bold";
+        } else if (
+          msg.message.includes("ZONE") &&
+          msg.message.includes("CLEARED")
+        ) {
+          messageElement.style.color = "#33ff33";
+          messageElement.style.textShadow = "0 0 10px #00ff00";
+          messageElement.style.fontSize = "12px";
+          messageElement.style.fontWeight = "bold";
+        }
+      }
+
+      // Add data attribute for timestamp to help with finding elements
+      messageElement.dataset.timestamp = msg.timestamp.toString();
+
+      this.combatLogContainer.appendChild(messageElement);
+    });
+  }
+
+  /**
+   * Adds a new message to the combat log
+   * @param message The message to display
+   * @param className Optional CSS class to apply to the message
+   */
+  addCombatLogMessage(message: string, className?: string): void {
+    // Log only if this is a new type of message (reduce console spam)
+    if (
+      !this.combatLogMessages.some((m) =>
+        m.message.includes(message.substring(0, 10))
+      )
+    ) {
+      console.log(
+        `Combat log: Added "${message.substring(0, 30)}${
+          message.length > 30 ? "..." : ""
+        }"`
+      );
+    }
+
+    // Create the message object
+    const msgObj = {
+      message: message,
+      timestamp: Date.now(),
+    };
+
+    // If a class was specified, wrap in a span with the class
+    if (className) {
+      const messageElement = document.createElement("div");
+      messageElement.className = `combat-log-message ${className}`;
+      messageElement.textContent = message;
+
+      // Store as HTML string
+      msgObj.message = messageElement.outerHTML;
+    }
+
+    // Add to the beginning so newest messages are at the top
+    this.combatLogMessages.unshift(msgObj);
+
+    // Limit to maximum 5 messages at once
+    if (this.combatLogMessages.length > 5) {
+      this.combatLogMessages.pop();
+    }
+
+    // Update the display immediately
+    this.renderCombatLog();
   }
 
   /**
@@ -377,6 +624,10 @@ export class GameHUD {
     primaryWeapon.appendChild(primaryLabel);
     primaryWeapon.appendChild(primaryCooldown);
 
+    // Add to container
+    this.weaponStatusContainer.appendChild(primaryWeapon);
+
+    /* Secondary weapon temporarily disabled until fully implemented
     // Create special weapon display
     const specialWeapon = document.createElement("div");
     specialWeapon.className = "weapon-item";
@@ -398,8 +649,8 @@ export class GameHUD {
     specialWeapon.appendChild(specialCooldown);
 
     // Add to container
-    this.weaponStatusContainer.appendChild(primaryWeapon);
     this.weaponStatusContainer.appendChild(specialWeapon);
+    */
   }
 
   /**
@@ -415,16 +666,16 @@ export class GameHUD {
     // Clear radar
     ctx.clearRect(0, 0, this.radarCanvas.width, this.radarCanvas.height);
 
+    const radarWidth = this.radarCanvas.width;
+    const radarHeight = this.radarCanvas.height;
+    const radarCenterX = radarWidth / 2;
+    const radarCenterY = radarHeight / 2;
+    const radarRadius = radarWidth / 2 - 2;
+
     // Draw radar background
     ctx.fillStyle = "rgba(0, 30, 60, 0.7)";
     ctx.beginPath();
-    ctx.arc(
-      this.radarCanvas.width / 2,
-      this.radarCanvas.height / 2,
-      this.radarCanvas.width / 2 - 2,
-      0,
-      Math.PI * 2
-    );
+    ctx.arc(radarCenterX, radarCenterY, radarRadius, 0, Math.PI * 2);
     ctx.fill();
 
     // Draw radar rings
@@ -433,27 +684,36 @@ export class GameHUD {
 
     // Draw 3 concentric circles
     for (let i = 1; i <= 3; i++) {
-      const radius = (this.radarCanvas.width / 2 - 2) * (i / 3);
+      const radius = radarRadius * (i / 3);
       ctx.beginPath();
-      ctx.arc(
-        this.radarCanvas.width / 2,
-        this.radarCanvas.height / 2,
-        radius,
-        0,
-        Math.PI * 2
-      );
+      ctx.arc(radarCenterX, radarCenterY, radius, 0, Math.PI * 2);
       ctx.stroke();
     }
 
+    // Draw cardinal directions on radar using arrows instead of letters
+    ctx.fillStyle = "rgba(0, 255, 255, 0.7)";
+    ctx.font = "12px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    // Forward direction (bottom of radar) - down arrow
+    ctx.fillText("↓", radarCenterX, radarCenterY + radarRadius * 0.85);
+    // Backward direction (top of radar) - up arrow
+    ctx.fillText("↑", radarCenterX, radarCenterY - radarRadius * 0.85);
+    // Right direction - right arrow
+    ctx.fillText("→", radarCenterX + radarRadius * 0.85, radarCenterY);
+    // Left direction - left arrow
+    ctx.fillText("←", radarCenterX - radarRadius * 0.85, radarCenterY);
+
     // Draw radar cross
     ctx.beginPath();
-    ctx.moveTo(this.radarCanvas.width / 2, 2);
-    ctx.lineTo(this.radarCanvas.width / 2, this.radarCanvas.height - 2);
+    ctx.moveTo(radarCenterX, 2);
+    ctx.lineTo(radarCenterX, radarHeight - 2);
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.moveTo(2, this.radarCanvas.height / 2);
-    ctx.lineTo(this.radarCanvas.width - 2, this.radarCanvas.height / 2);
+    ctx.moveTo(2, radarCenterY);
+    ctx.lineTo(radarWidth - 2, radarCenterY);
     ctx.stroke();
 
     // Get player position
@@ -463,103 +723,153 @@ export class GameHUD {
     const playerPosition = playerShip.getPosition();
     if (!playerPosition) return;
 
-    // Draw player blip in the center
-    ctx.fillStyle = "#0ff";
+    // Draw player blip in the center with a directional indicator
+    ctx.fillStyle = "#0ff"; // Cyan for player
     ctx.beginPath();
-    ctx.arc(
-      this.radarCanvas.width / 2,
-      this.radarCanvas.height / 2,
-      3,
-      0,
-      Math.PI * 2
-    );
+    ctx.arc(radarCenterX, radarCenterY, 3, 0, Math.PI * 2);
     ctx.fill();
 
-    // Draw enemy blips
-    ctx.fillStyle = "#f55";
-
-    // In a full implementation, we would iterate through actual enemies
-    // For example: scene.getEnemies().forEach(enemy => {...})
+    // Draw a small indicator showing the player's facing direction
+    // Draw a triangle pointing in the direction of travel (from top-down view)
+    ctx.beginPath();
+    // Flip the triangle to point downward (toward "F" at the bottom)
+    ctx.moveTo(radarCenterX, radarCenterY + 5); // Point facing "forward" on the radar (now down)
+    ctx.lineTo(radarCenterX - 3, radarCenterY - 2);
+    ctx.lineTo(radarCenterX + 3, radarCenterY - 2);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(0, 255, 255, 0.7)";
+    ctx.fill();
 
     // Get the maximum radar range (arbitrary value representing how far the radar can "see")
-    const radarRange = 1000;
+    const radarRange = 2000; // Detection range in game units
 
-    // For now, we'll simulate some enemies
-    const simulatedEnemies = [
-      {
-        x: playerPosition.x + 300,
-        y: playerPosition.y - 200,
-        z: playerPosition.z - 300,
-      },
-      {
-        x: playerPosition.x - 400,
-        y: playerPosition.y + 100,
-        z: playerPosition.z - 200,
-      },
-      {
-        x: playerPosition.x + 100,
-        y: playerPosition.y + 300,
-        z: playerPosition.z + 100,
-      },
-    ].filter(
-      () =>
-        playerPosition.x !== undefined &&
-        playerPosition.y !== undefined &&
-        playerPosition.z !== undefined
-    );
+    // Get actual asteroids from scene
+    const asteroids = scene.getAsteroids();
 
-    // Draw each enemy blip
-    simulatedEnemies.forEach((enemy) => {
-      // Calculate relative position
-      const relX = enemy.x - playerPosition.x;
-      const relY = enemy.y - playerPosition.y;
+    // Draw asteroid blips
+    if (asteroids && asteroids.length > 0) {
+      ctx.fillStyle = "#f55"; // Red for asteroids
 
-      // Calculate distance (squared for performance)
-      const distSquared = relX * relX + relY * relY;
+      asteroids.forEach((asteroid) => {
+        if (!asteroid.isActive()) return;
 
-      // Only show enemies within radar range
-      if (distSquared <= radarRange * radarRange) {
-        // Calculate radar coordinates (scale from world space to radar space)
-        const radarX =
-          this.radarCanvas.width / 2 +
-          (relX / radarRange) * (this.radarCanvas.width / 2);
-        const radarY =
-          this.radarCanvas.height / 2 +
-          (relY / radarRange) * (this.radarCanvas.height / 2);
+        const asteroidPosition = asteroid.getPosition();
 
-        // Draw the blip
-        ctx.beginPath();
-        ctx.arc(radarX, radarY, 2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    });
+        // Calculate relative position to player using X and Z for top-down view
+        // X remains the same (left-right)
+        // Z is used for forward-backward (negative Z is forward, positive Z is backward)
+        const relX = asteroidPosition.x - playerPosition.x;
+        const relZ = asteroidPosition.z - playerPosition.z;
+
+        // Calculate distance using top-down coordinates
+        const distance = Math.sqrt(relX * relX + relZ * relZ);
+
+        // Only show asteroids within radar range
+        if (distance <= radarRange) {
+          // Scale distance to radar size
+          // Map X to radar X (left-right)
+          // Map Z to radar Y (up-down) - FLIPPED: Positive Z is up, Negative Z is down
+          const radarX = radarCenterX + (relX / radarRange) * radarRadius;
+          const radarY = radarCenterY + (relZ / radarRange) * radarRadius; // Now positive Z maps upward on the radar
+
+          // Size based on asteroid size and distance (closer = bigger blip)
+          const size = asteroid.getSize();
+          const blipSize = Math.max(2, Math.min(4, (size / 40) * 4));
+
+          // Draw the blip with dynamic size and alpha based on distance
+          const alpha = 1 - (distance / radarRange) * 0.7; // Fade with distance
+          ctx.fillStyle = `rgba(255, 85, 85, ${alpha})`;
+
+          ctx.beginPath();
+          ctx.arc(radarX, radarY, blipSize, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Add a pulsing effect to closer asteroids
+          if (distance < radarRange * 0.3) {
+            const pulseSize = blipSize + Math.sin(Date.now() / 200) * 2;
+            ctx.strokeStyle = `rgba(255, 85, 85, ${alpha * 0.5})`;
+            ctx.beginPath();
+            ctx.arc(radarX, radarY, pulseSize, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+
+          // Add height indicator for asteroids significantly above or below player
+          const heightDiff = asteroidPosition.y - playerPosition.y;
+          if (Math.abs(heightDiff) > 200) {
+            // If asteroid is significantly above/below player
+            ctx.fillStyle =
+              heightDiff > 0
+                ? `rgba(85, 255, 255, ${alpha})` // Cyan for above
+                : `rgba(255, 255, 85, ${alpha})`; // Yellow for below
+
+            // Small triangle indicator
+            ctx.beginPath();
+            if (heightDiff > 0) {
+              // Pointing up for asteroids above
+              ctx.moveTo(radarX, radarY - blipSize - 3);
+              ctx.lineTo(radarX - 2, radarY - blipSize);
+              ctx.lineTo(radarX + 2, radarY - blipSize);
+            } else {
+              // Pointing down for asteroids below
+              ctx.moveTo(radarX, radarY + blipSize + 3);
+              ctx.lineTo(radarX - 2, radarY + blipSize);
+              ctx.lineTo(radarX + 2, radarY + blipSize);
+            }
+            ctx.closePath();
+            ctx.fill();
+          }
+        }
+      });
+    }
 
     // Add radar sweep effect
     const now = Date.now();
     const angle = ((now % 2000) / 2000) * Math.PI * 2;
 
-    ctx.fillStyle = "rgba(0, 255, 255, 0.2)";
+    // Create radial gradient for sweep
+    const gradient = ctx.createRadialGradient(
+      radarCenterX,
+      radarCenterY,
+      0,
+      radarCenterX,
+      radarCenterY,
+      radarRadius
+    );
+    gradient.addColorStop(0, "rgba(0, 255, 255, 0.1)");
+    gradient.addColorStop(1, "rgba(0, 255, 255, 0.4)");
+
+    ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.moveTo(this.radarCanvas.width / 2, this.radarCanvas.height / 2);
+    ctx.moveTo(radarCenterX, radarCenterY);
     ctx.arc(
-      this.radarCanvas.width / 2,
-      this.radarCanvas.height / 2,
-      this.radarCanvas.width / 2 - 2,
-      angle - 0.1,
+      radarCenterX,
+      radarCenterY,
+      radarRadius,
+      angle - 0.2, // Wider sweep
       angle,
       false
     );
     ctx.closePath();
     ctx.fill();
+
+    // Add subtle glow around the radar
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = "rgba(0, 255, 255, 0.5)";
+    ctx.strokeStyle = "rgba(0, 255, 255, 0.8)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(radarCenterX, radarCenterY, radarRadius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
   }
 
   /**
-   * Update score and wave info
+   * Update score and zone info
    */
   private updateInfo(): void {
     this.infoContainer.innerHTML = `
       <div>SCORE: ${this.currentScore}</div>
-      <div>ZONE ${this.currentZone} - WAVE ${this.currentWave}/${this.totalWaves}</div>
+      <div>ZONE ${this.currentZone}</div>
     `;
   }
 
@@ -647,14 +957,34 @@ export class GameHUD {
    * Show the HUD
    */
   show(): void {
+    console.log("GameHUD: Showing HUD");
     this.container.style.display = "block";
     this.isVisible = true;
+
+    // Make sure combat log is visible
+    if (this.combatLogContainer) {
+      this.combatLogContainer.style.display = "flex";
+
+      // Add animation styles directly to ensure they're defined
+      const animStyle = document.createElement("style");
+      animStyle.textContent = `
+        @keyframes slide-in {
+          from { transform: translateX(-20px); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `;
+      document.head.appendChild(animStyle);
+
+      // Add a test message to verify the combat log is working
+      this.addCombatLogMessage("SYSTEMS ONLINE", "system-message");
+    }
   }
 
   /**
    * Hide the HUD
    */
   hide(): void {
+    console.log("[GameHUD] hide() called");
     this.container.style.display = "none";
     this.isVisible = false;
   }

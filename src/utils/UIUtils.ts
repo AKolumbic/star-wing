@@ -97,7 +97,7 @@ export class UIUtils {
     // Create container
     const container = document.createElement("div");
     container.style.position = "fixed";
-    container.style.top = "10px";
+    container.style.top = "45px";
     container.style.right = "10px";
     container.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
     container.style.padding = "10px";

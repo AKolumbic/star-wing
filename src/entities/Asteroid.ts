@@ -210,6 +210,14 @@ export class Asteroid {
   }
 
   /**
+   * Gets the size (radius) of the asteroid.
+   * @returns The asteroid's size
+   */
+  getSize(): number {
+    return this.size;
+  }
+
+  /**
    * Gets whether the asteroid is active.
    * @returns Whether the asteroid is active
    */
@@ -265,14 +273,14 @@ export class Asteroid {
   }
 
   /**
-   * Clean up resources used by the asteroid.
+   * Completely cleans up all asteroid resources.
+   * Should be called when removing the asteroid permanently (e.g., during game reset).
    */
   dispose(): void {
-    if (this.active) {
-      this.destroy();
-    }
+    // First destroy the asteroid to remove it from the scene
+    this.destroy();
 
-    // Dispose of geometries and materials in the model
+    // Then dispose of geometry and materials
     if (this.model) {
       this.model.traverse((child) => {
         if (child instanceof THREE.Mesh) {

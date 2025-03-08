@@ -5,6 +5,8 @@ import { LoadingScreen } from "../../ui/LoadingScreen";
 import { TerminalBorder } from "../../ui/TerminalBorder";
 import { TextCrawl } from "../../ui/TextCrawl";
 import { GameHUD } from "../../ui/GameHUD";
+import { GameOverScreen } from "../../ui/GameOverScreen";
+import { ZoneComplete } from "../../ui/ZoneComplete";
 import { Logger } from "../../utils/Logger";
 
 /**
@@ -26,6 +28,12 @@ export class UISystem implements GameSystem {
 
   /** In-game HUD component */
   private gameHUD: GameHUD;
+
+  /** Game over screen component */
+  private gameOverScreen: GameOverScreen;
+
+  /** Zone complete screen component */
+  private zoneCompleteScreen: ZoneComplete;
 
   /** Reference to the main game for accessing game state */
   private game: Game;
@@ -49,6 +57,8 @@ export class UISystem implements GameSystem {
     this.terminalBorder = TerminalBorder.getInstance();
     this.textCrawl = new TextCrawl(this.game);
     this.gameHUD = new GameHUD(this.game);
+    this.gameOverScreen = new GameOverScreen(this.game);
+    this.zoneCompleteScreen = new ZoneComplete(this.game);
 
     // The loading screen is created later when needed
 
@@ -80,34 +90,30 @@ export class UISystem implements GameSystem {
    * Cleans up UI resources.
    */
   dispose(): void {
-    if (this.menu && typeof this.menu.dispose === "function") {
-      this.menu.dispose();
-    }
+    this.logger.info("UISystem: Disposing UI components");
 
-    if (
-      this.loadingScreen &&
-      typeof this.loadingScreen.dispose === "function"
-    ) {
-      this.loadingScreen.dispose();
-    }
-
-    if (
-      this.terminalBorder &&
-      typeof this.terminalBorder.dispose === "function"
-    ) {
-      this.terminalBorder.dispose();
-    }
-
-    if (this.textCrawl && typeof this.textCrawl.dispose === "function") {
-      this.textCrawl.dispose();
-    }
-
-    if (this.gameHUD && typeof this.gameHUD.dispose === "function") {
-      this.gameHUD.dispose();
-    }
+    // Hide all UI components
+    this.hideMenu();
+    this.hideTextCrawl();
+    this.hideTerminalBorder();
+    this.hideGameHUD();
+    this.hideGameOver();
+    this.hideZoneComplete();
 
     // Remove escape key handler
     this.removeEscapeKeyHandler();
+
+    // Dispose of components that need cleanup
+    if (this.loadingScreen) {
+      this.loadingScreen.dispose();
+      this.loadingScreen = undefined;
+    }
+
+    this.menu.dispose();
+    this.textCrawl.dispose();
+    this.gameHUD.dispose();
+    this.gameOverScreen.dispose();
+    this.zoneCompleteScreen.dispose();
   }
 
   /**
@@ -155,24 +161,45 @@ export class UISystem implements GameSystem {
    */
   showMenu(): void {
     this.gameActive = false;
+
+    // Clean up the player ship when returning to main menu
+    if (this.game) {
+      const scene = this.game.getSceneSystem().getScene();
+
+      // Ensure hyperspace effect is disabled when returning to main menu
+      scene.transitionHyperspace(false, 1.0);
+
+      // Clean up player ship
+      scene.cleanupPlayerShip();
+
+      // Transition back to menu music
+      if (this.game.getAudioManager()) {
+        // Stop any game music first with a short fade out
+        this.game.getAudioManager().stopMusic(0.5);
+
+        // Play menu music after a short delay to allow the transition
+        setTimeout(() => {
+          this.game
+            .getAudioManager()
+            .playMenuThump(this.game.isDevMode(), true);
+        }, 500);
+      }
+    }
+
     this.menu.showMainMenu();
 
     // Hide the HUD when menu is shown
     this.gameHUD.hide();
-
-    // Start menu music when the menu is shown
-    const audioSystem = this.game.getAudioSystem();
-    if (audioSystem) {
-      // Pass devMode flag to use procedural audio if in dev mode
-      audioSystem.playMenuThump(this.game.isDevMode());
-    }
   }
 
   /**
    * Shows the in-game menu (pause menu during gameplay).
    */
   showInGameMenu(): void {
-    // Don't change the gameActive flag here - we just need to pause temporarily
+    // Pause the game while the menu is shown
+    if (this.game) {
+      this.game.pause();
+    }
 
     // Show the in-game menu through the Menu class
     this.menu.showInGameMenu();
@@ -194,10 +221,14 @@ export class UISystem implements GameSystem {
     // Hide the menu
     this.menu.hide();
 
-    // Show the game HUD
-    this.showGameHUD();
+    // Show the HUD
+    this.gameHUD.show();
 
-    // Log the resume action
+    // Resume the game
+    if (this.game) {
+      this.game.resume();
+    }
+
     this.logger.info("Game resumed from pause menu");
   }
 
@@ -323,5 +354,82 @@ export class UISystem implements GameSystem {
    */
   getMenu(): Menu {
     return this.menu;
+  }
+
+  /**
+   * Shows the game over screen.
+   */
+  showGameOver(): void {
+    this.hideGameHUD();
+    this.gameOverScreen.show();
+  }
+
+  /**
+   * Hides the game over screen.
+   */
+  hideGameOver(): void {
+    this.gameOverScreen.hide();
+  }
+
+  /**
+   * Restarts the game after game over.
+   * Handles all the UI changes needed when restarting a game.
+   */
+  restartGame(): void {
+    this.logger.info("Restarting game from game over screen");
+
+    // Hide the game over screen
+    this.hideGameOver();
+
+    // Get the scene and reset it
+    const scene = this.game.getSceneSystem().getScene();
+
+    // Ensure hyperspace effect is re-enabled for the ship entry animation
+    scene.transitionHyperspace(true, 1.0);
+
+    scene.resetGame();
+
+    // Show the game HUD
+    setTimeout(() => {
+      this.showGameHUD();
+      this.logger.info("Game HUD shown after restart");
+    }, 1000); // Give time for ship entry animation
+  }
+
+  /**
+   * Adds a combat log message to the game HUD.
+   * @param message The message to display in the combat log
+   * @param className Optional CSS class to apply to the message
+   */
+  addCombatLogMessage(message: string, className?: string): void {
+    // Simplified logging
+    if (message.includes("CLEARED") || message.includes("SYSTEMS ONLINE")) {
+      this.logger.info(`UISystem: ${message}`);
+    }
+
+    if (!this.gameHUD) {
+      this.logger.error(
+        "UISystem: Cannot add combat log message - gameHUD is null"
+      );
+      return;
+    }
+
+    this.gameHUD.addCombatLogMessage(message, className);
+  }
+
+  /**
+   * Shows the zone complete screen.
+   */
+  showZoneComplete(): void {
+    this.logger.info("UISystem: Showing zone complete screen");
+    this.zoneCompleteScreen.show();
+  }
+
+  /**
+   * Hides the zone complete screen.
+   */
+  hideZoneComplete(): void {
+    this.logger.info("UISystem: Hiding zone complete screen");
+    this.zoneCompleteScreen.hide();
   }
 }

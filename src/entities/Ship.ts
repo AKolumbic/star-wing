@@ -941,9 +941,12 @@ export class Ship {
    * @param deltaTime Time elapsed since the last frame in seconds
    */
   private handleInput(deltaTime: number): void {
-    // Arcade-style movement with instant response and digital feeling
-    const moveSpeed = 8.0; // Faster movement for arcade feel
-    // const maxSpeed = 8.0; // Higher max speed
+    // Skip input handling if not player controlled or during entry animation
+    if (!this.playerControlled || this.playingEntryAnimation) {
+      return;
+    }
+
+    const moveSpeed = 5;
 
     // Digital-style input response (full speed or nothing)
     let moveX = 0;
@@ -1121,29 +1124,89 @@ export class Ship {
     controlled: boolean,
     skipCallback: boolean = false
   ): void {
-    this.playerControlled = controlled;
+    // Only update if the state is actually changing
+    if (this.playerControlled !== controlled) {
+      this.playerControlled = controlled;
 
-    if (controlled) {
-      this.logger.info("🚀 SHIP: Player control enabled");
+      if (controlled) {
+        this.logger.info("🚀 SHIP: Player control enabled");
 
-      // Only execute the callback if not explicitly skipped
-      // This prevents recursion when called from Scene.setGameActive
-      if (this.onEntryCompleteCallback && !skipCallback) {
-        this.logger.info("🚀 SHIP: Executing entry complete callback");
-        this.onEntryCompleteCallback();
-        this.onEntryCompleteCallback = null;
-      } else {
-        this.logger.info("🚀 SHIP: No completion callback was executed");
+        // Only execute the callback if not explicitly skipped and we have one
+        if (this.onEntryCompleteCallback && !skipCallback) {
+          this.logger.info("🚀 SHIP: Executing entry complete callback");
+          const callback = this.onEntryCompleteCallback;
+          this.onEntryCompleteCallback = null; // Clear before executing to prevent recursion
+          callback();
+        } else {
+          this.logger.info("🚀 SHIP: No completion callback was executed");
+        }
       }
     }
   }
 
   /**
    * Gets the ship's current position.
-   * @returns The ship's position as a Vector3
    */
   getPosition(): THREE.Vector3 {
-    return this.position.clone();
+    return this.position;
+  }
+
+  /**
+   * Resets the ship's position and velocity to initial state.
+   * Used when restarting the game.
+   */
+  resetPosition(): void {
+    // Reset position to entry start position
+    this.position.copy(this.ENTRY_START_POSITION);
+
+    // Reset velocity
+    this.velocity.set(0, 0, 0);
+
+    // Reset rotation
+    this.rotation.set(0, 0, 0);
+
+    // Reset animation state
+    this.playingEntryAnimation = false;
+    this.entryStartTime = 0;
+    this.onEntryCompleteCallback = null;
+
+    // Ensure player control is disabled during reset
+    this.playerControlled = false;
+
+    // Update model and hitbox
+    this.updateModelPosition();
+    this.updateModelRotation();
+
+    // Reset engine effects
+    if (this.engineGlowMeshes) {
+      this.engineGlowMeshes.forEach((engine) => {
+        if (engine) {
+          engine.scale.set(1, 1, 1);
+          if (engine.material) {
+            (engine.material as THREE.MeshBasicMaterial).opacity = 0.9;
+          }
+        }
+      });
+    }
+
+    this.logger.info(
+      "Ship position, velocity, and animation state reset for game restart"
+    );
+  }
+
+  /**
+   * Gets the ship's current velocity.
+   */
+  getVelocity(): THREE.Vector3 {
+    return this.velocity.clone();
+  }
+
+  /**
+   * Stops all ship movement by zeroing out the velocity.
+   * Used when the ship is destroyed but should remain visible.
+   */
+  stopMovement(): void {
+    this.velocity.set(0, 0, 0);
   }
 
   /**
