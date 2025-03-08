@@ -6,6 +6,7 @@ import { TerminalBorder } from "../../ui/TerminalBorder";
 import { TextCrawl } from "../../ui/TextCrawl";
 import { GameHUD } from "../../ui/GameHUD";
 import { GameOverScreen } from "../../ui/GameOverScreen";
+import { ZoneComplete } from "../../ui/ZoneComplete";
 import { Logger } from "../../utils/Logger";
 
 /**
@@ -31,6 +32,9 @@ export class UISystem implements GameSystem {
   /** Game over screen component */
   private gameOverScreen: GameOverScreen;
 
+  /** Zone complete screen component */
+  private zoneCompleteScreen: ZoneComplete;
+
   /** Reference to the main game for accessing game state */
   private game: Game;
 
@@ -54,6 +58,7 @@ export class UISystem implements GameSystem {
     this.textCrawl = new TextCrawl(this.game);
     this.gameHUD = new GameHUD(this.game);
     this.gameOverScreen = new GameOverScreen(this.game);
+    this.zoneCompleteScreen = new ZoneComplete(this.game);
 
     // The loading screen is created later when needed
 
@@ -85,43 +90,30 @@ export class UISystem implements GameSystem {
    * Cleans up UI resources.
    */
   dispose(): void {
-    this.logger.info("Disposing UI system");
+    this.logger.info("UISystem: Disposing UI components");
 
-    if (this.menu && typeof this.menu.dispose === "function") {
-      this.menu.dispose();
-    }
-
-    if (
-      this.loadingScreen &&
-      typeof this.loadingScreen.dispose === "function"
-    ) {
-      this.loadingScreen.dispose();
-    }
-
-    if (
-      this.terminalBorder &&
-      typeof this.terminalBorder.dispose === "function"
-    ) {
-      this.terminalBorder.dispose();
-    }
-
-    if (this.textCrawl && typeof this.textCrawl.dispose === "function") {
-      this.textCrawl.dispose();
-    }
-
-    if (this.gameHUD && typeof this.gameHUD.dispose === "function") {
-      this.gameHUD.dispose();
-    }
-
-    if (
-      this.gameOverScreen &&
-      typeof this.gameOverScreen.dispose === "function"
-    ) {
-      this.gameOverScreen.dispose();
-    }
+    // Hide all UI components
+    this.hideMenu();
+    this.hideTextCrawl();
+    this.hideTerminalBorder();
+    this.hideGameHUD();
+    this.hideGameOver();
+    this.hideZoneComplete();
 
     // Remove escape key handler
     this.removeEscapeKeyHandler();
+
+    // Dispose of components that need cleanup
+    if (this.loadingScreen) {
+      this.loadingScreen.dispose();
+      this.loadingScreen = undefined;
+    }
+
+    this.menu.dispose();
+    this.textCrawl.dispose();
+    this.gameHUD.dispose();
+    this.gameOverScreen.dispose();
+    this.zoneCompleteScreen.dispose();
   }
 
   /**
@@ -401,5 +393,21 @@ export class UISystem implements GameSystem {
     }
 
     this.gameHUD.addCombatLogMessage(message, className);
+  }
+
+  /**
+   * Shows the zone complete screen.
+   */
+  showZoneComplete(): void {
+    this.logger.info("UISystem: Showing zone complete screen");
+    this.zoneCompleteScreen.show();
+  }
+
+  /**
+   * Hides the zone complete screen.
+   */
+  hideZoneComplete(): void {
+    this.logger.info("UISystem: Hiding zone complete screen");
+    this.zoneCompleteScreen.hide();
   }
 }

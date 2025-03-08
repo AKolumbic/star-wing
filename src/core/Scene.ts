@@ -64,6 +64,9 @@ export class Scene {
   /** Whether the game is currently active/playable */
   private gameActive: boolean = false;
 
+  /** Whether the player's ship has been destroyed but entities should keep moving */
+  private shipDestroyed: boolean = false;
+
   /** Current player score */
   private score: number = 0;
 
@@ -317,6 +320,17 @@ export class Scene {
             .getPosition()
             .y.toFixed(2)}, ${this.playerShip.getPosition().z.toFixed(2)}`
         );
+      }
+    } else if (this.shipDestroyed) {
+      // When ship is destroyed but entities should continue moving
+      this.updateAsteroids(deltaTime);
+
+      // Update weapon projectiles if the player ship still exists
+      if (this.playerShip) {
+        const weaponSystem = this.playerShip.getWeaponSystem();
+        if (weaponSystem) {
+          weaponSystem.updateProjectilesOnly(deltaTime);
+        }
       }
     } else if (this.gameActive && !this.playerShip) {
       this.logger.warn("Scene: No player ship found in update");
@@ -749,6 +763,9 @@ export class Scene {
    * Manages the spawning of new asteroids at regular intervals.
    */
   private manageAsteroidSpawning(): void {
+    // Don't spawn new asteroids if the ship is destroyed
+    if (this.shipDestroyed) return;
+
     const currentTime = performance.now();
 
     // Only spawn if interval has passed and we're below max asteroids
@@ -995,19 +1012,27 @@ export class Scene {
     // Transition out of hyperspace
     this.backgroundManager.transitionHyperspace(false, 1.0);
 
-    // Keep game active for a short period to let asteroids and projectiles finish moving
-    setTimeout(() => {
-      // Stop the game
-      this.setGameActive(false);
+    // Set shipDestroyed to true to allow entities to continue moving
+    this.shipDestroyed = true;
 
-      // Add dramatic pause before showing game over screen
-      setTimeout(() => {
-        // Show game over screen if UI system is available
-        if (this.game) {
-          this.game.getUISystem().showGameOver();
-        }
-      }, 1000);
-    }, 2000); // Keep game active for 2 seconds after ship destruction
+    // Mark game as inactive for spawning but keep entities moving
+    this.gameActive = false;
+
+    if (this.playerShip) {
+      // Disable ship control but keep references for projectile updates
+      this.playerShip.setPlayerControlled(false, true);
+
+      // Stop the ship from moving
+      this.playerShip.stopMovement();
+    }
+
+    // Add dramatic pause before showing game over screen
+    setTimeout(() => {
+      // Show game over screen if UI system is available
+      if (this.game) {
+        this.game.getUISystem().showGameOver();
+      }
+    }, 3000); // Wait 3 seconds before showing game over screen
   }
 
   /**
@@ -1019,6 +1044,7 @@ export class Scene {
 
     // Reset game state
     this.setGameActive(false);
+    this.shipDestroyed = false;
 
     // Clear all existing asteroids
     this.clearAllAsteroids();
@@ -1087,7 +1113,10 @@ export class Scene {
   completeCurrentZone(): void {
     this.logger.info(`Completing Zone ${this.currentZone}`);
 
-    // Increment the zone
+    // Store the completed zone number
+    const completedZone = this.currentZone;
+
+    // Increment the zone (for future use)
     this.currentZone++;
 
     // Reset wave to 1 for the new zone
@@ -1116,14 +1145,32 @@ export class Scene {
       }
     }
 
-    // Send message to the HUD system via the game's UI system
+    // Special handling for Zone 1 completion - show zone complete screen
+    if (completedZone === 1) {
+      // Deactivate the game to pause gameplay
+      this.setGameActive(false);
+
+      // If player ship exists, disable controls but keep it visible
+      if (this.playerShip) {
+        this.playerShip.setPlayerControlled(false, true);
+      }
+
+      // Show the zone complete screen
+      if (this.game && this.game.getUISystem()) {
+        this.game.getUISystem().showZoneComplete();
+      }
+
+      return; // Don't proceed with normal zone progression
+    }
+
+    // For future zones, send message to the HUD system via the game's UI system
     if (this.game && this.game.getUISystem()) {
       // Get the GameHUD via the UI system
       const uiSystem = this.game.getUISystem();
 
       // Show a "Zone Cleared" message in the combat log
       uiSystem.addCombatLogMessage(
-        `ZONE ${this.currentZone - 1} CLEARED!`,
+        `ZONE ${completedZone} CLEARED!`,
         "zone-cleared"
       );
 

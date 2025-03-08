@@ -1198,7 +1198,15 @@ export class Ship {
    * Gets the ship's current velocity.
    */
   getVelocity(): THREE.Vector3 {
-    return this.velocity;
+    return this.velocity.clone();
+  }
+
+  /**
+   * Stops all ship movement by zeroing out the velocity.
+   * Used when the ship is destroyed but should remain visible.
+   */
+  stopMovement(): void {
+    this.velocity.set(0, 0, 0);
   }
 
   /**
