@@ -206,9 +206,15 @@ export class Settings {
     const controlsInfo = document.createElement("div");
     controlsInfo.style.marginTop = "15px";
     controlsInfo.innerHTML = `
-      <div>ARROW KEYS: Move ship</div>
-      <div>SPACE: Fire weapons</div>
-      <div>ESC: Pause game</div>
+      <div style="margin-bottom: 8px;"><strong>Movement:</strong></div>
+      <div>W / UP ARROW: Move Up</div>
+      <div>S / DOWN ARROW: Move Down</div>
+      <div>A / LEFT ARROW: Move Left</div>
+      <div>D / RIGHT ARROW: Move Right</div>
+      <div style="margin-top: 15px; margin-bottom: 8px;"><strong>Combat:</strong></div>
+      <div>LEFT MOUSE BUTTON: Fire Primary Weapon</div>
+      <div style="margin-top: 15px; margin-bottom: 8px;"><strong>Game Controls:</strong></div>
+      <div>ESC: Pause / In-game Menu</div>
     `;
     controlsSection.appendChild(controlsInfo);
 

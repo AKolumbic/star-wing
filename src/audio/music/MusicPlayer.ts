@@ -155,8 +155,8 @@ export class MusicPlayer {
       // Get appropriate volume based on mute state and stored volume
       const isMuted = this.contextManager.getMuteState();
       const storedVolume = this.contextManager.getVolume();
-      // Use a much higher base value to ensure it's audible
-      const baseVolume = isMuted ? 0 : Math.max(0.5, storedVolume * 0.8);
+      // Use a more moderate base volume to match game music levels
+      const baseVolume = isMuted ? 0 : Math.max(0.3, storedVolume * 0.5);
 
       this.logger.info(
         `MusicPlayer: Setting initial gain to ${baseVolume} (muted=${isMuted}, storedVolume=${storedVolume})`
@@ -187,7 +187,8 @@ export class MusicPlayer {
 
       // Set mainGain value directly to ensure it's applied
       if (!isMuted) {
-        mainGain.gain.value = Math.max(0.4, storedVolume * 0.6);
+        // Reduce main gain for menu music to match game music levels
+        mainGain.gain.value = Math.max(0.3, storedVolume * 0.4);
         this.logger.info(
           `MusicPlayer: Force set main gain to ${mainGain.gain.value}`
         );

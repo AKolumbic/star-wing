@@ -224,6 +224,18 @@ export class ZoneComplete {
     // Hide this screen first
     this.hide();
 
+    // Ensure hyperspace effect is disabled when returning to main menu
+    if (this.game) {
+      const scene = this.game.getSceneSystem().getScene();
+      scene.transitionHyperspace(false, 1.0);
+
+      // Transition to menu music
+      if (this.game.getAudioManager()) {
+        // Stop any game music first with a short fade out
+        this.game.getAudioManager().stopMusic(0.5);
+      }
+    }
+
     // Play button sound if available
     if (this.game && this.game.getAudioManager()) {
       try {

@@ -165,20 +165,31 @@ export class UISystem implements GameSystem {
     // Clean up the player ship when returning to main menu
     if (this.game) {
       const scene = this.game.getSceneSystem().getScene();
+
+      // Ensure hyperspace effect is disabled when returning to main menu
+      scene.transitionHyperspace(false, 1.0);
+
+      // Clean up player ship
       scene.cleanupPlayerShip();
+
+      // Transition back to menu music
+      if (this.game.getAudioManager()) {
+        // Stop any game music first with a short fade out
+        this.game.getAudioManager().stopMusic(0.5);
+
+        // Play menu music after a short delay to allow the transition
+        setTimeout(() => {
+          this.game
+            .getAudioManager()
+            .playMenuThump(this.game.isDevMode(), true);
+        }, 500);
+      }
     }
 
     this.menu.showMainMenu();
 
     // Hide the HUD when menu is shown
     this.gameHUD.hide();
-
-    // Start menu music when the menu is shown
-    const audioSystem = this.game.getAudioSystem();
-    if (audioSystem) {
-      // Pass devMode flag to use procedural audio if in dev mode
-      audioSystem.playMenuThump(this.game.isDevMode());
-    }
   }
 
   /**
@@ -365,6 +376,10 @@ export class UISystem implements GameSystem {
 
     // Get the scene and reset it
     const scene = this.game.getSceneSystem().getScene();
+
+    // Ensure hyperspace effect is re-enabled for the ship entry animation
+    scene.transitionHyperspace(true, 1.0);
+
     scene.resetGame();
 
     // Show the game HUD
