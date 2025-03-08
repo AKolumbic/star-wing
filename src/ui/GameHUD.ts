@@ -624,6 +624,10 @@ export class GameHUD {
     primaryWeapon.appendChild(primaryLabel);
     primaryWeapon.appendChild(primaryCooldown);
 
+    // Add to container
+    this.weaponStatusContainer.appendChild(primaryWeapon);
+
+    /* Secondary weapon temporarily disabled until fully implemented
     // Create special weapon display
     const specialWeapon = document.createElement("div");
     specialWeapon.className = "weapon-item";
@@ -645,8 +649,8 @@ export class GameHUD {
     specialWeapon.appendChild(specialCooldown);
 
     // Add to container
-    this.weaponStatusContainer.appendChild(primaryWeapon);
     this.weaponStatusContainer.appendChild(specialWeapon);
+    */
   }
 
   /**
@@ -801,12 +805,12 @@ export class GameHUD {
   }
 
   /**
-   * Update score and wave info
+   * Update score and zone info
    */
   private updateInfo(): void {
     this.infoContainer.innerHTML = `
       <div>SCORE: ${this.currentScore}</div>
-      <div>ZONE ${this.currentZone} - WAVE ${this.currentWave}/${this.totalWaves}</div>
+      <div>ZONE ${this.currentZone}</div>
     `;
   }
 
