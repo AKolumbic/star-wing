@@ -279,8 +279,18 @@ class AudioContextManager {
 
 describe("AudioContextManager - Basic API", () => {
   let audioContextManager;
+  let mockAudioContext;
 
   beforeEach(() => {
+    // Mock document.addEventListener
+    document.addEventListener = jest.fn();
+    document.removeEventListener = jest.fn();
+
+    // Setup mock audio context
+    mockAudioContext = {
+      // ... existing mock properties ...
+    };
+
     // Reset mocks
     jest.clearAllMocks();
     localStorageMock.clear();
@@ -427,8 +437,30 @@ describe("AudioContextManager - Basic API", () => {
 
 describe("AudioContextManager - Volume & State Controls", () => {
   let audioContextManager;
+  let mockAudioContext;
 
   beforeEach(() => {
+    // Mock document.addEventListener
+    document.addEventListener = jest.fn();
+    document.removeEventListener = jest.fn();
+
+    // Setup mock audio context with all required methods
+    mockAudioContext = {
+      createGain: jest.fn().mockReturnValue({
+        connect: jest.fn(),
+        disconnect: jest.fn(),
+        gain: { value: 1 },
+      }),
+      destination: { connect: jest.fn() },
+      state: "suspended",
+      resume: jest.fn().mockResolvedValue(undefined),
+      suspend: jest.fn().mockResolvedValue(undefined),
+      close: jest.fn().mockResolvedValue(undefined),
+    };
+
+    // Mock the AudioContext constructor
+    global.AudioContext = jest.fn().mockImplementation(() => mockAudioContext);
+
     // Reset mocks
     jest.clearAllMocks();
     localStorageMock.clear();
@@ -615,25 +647,15 @@ describe("AudioContextManager - Volume & State Controls", () => {
   describe("Event Listeners", () => {
     test("should try to resume context on user interaction", () => {
       // Get the click handler
-      const clickHandlerCalls = document.addEventListener.mock.calls.filter(
+      const clickHandler = document.addEventListener.mock.calls.find(
         (call) => call[0] === "click"
-      );
+      )?.[1];
 
-      // Verify there's at least one click handler
-      expect(clickHandlerCalls.length).toBeGreaterThan(0);
-
-      const clickHandler = clickHandlerCalls[0][1];
-
-      // Mock context state
-      audioContextManager.getContext().state = "suspended";
-      const resumeSpy = jest
-        .spyOn(audioContextManager.getContext(), "resume")
-        .mockResolvedValueOnce(undefined);
-
-      // Simulate a click
-      clickHandler();
-
-      expect(resumeSpy).toHaveBeenCalled();
+      expect(clickHandler).toBeDefined();
+      if (clickHandler) {
+        clickHandler();
+        expect(mockAudioContext.resume).toHaveBeenCalled();
+      }
     });
   });
 });
