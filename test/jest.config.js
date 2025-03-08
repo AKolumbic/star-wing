@@ -15,15 +15,30 @@ module.exports = {
   setupFilesAfterEnv: ["<rootDir>/test/setup.js"],
 
   // The glob patterns Jest uses to detect test files
-  testMatch: ["<rootDir>/test/**/*.test.js", "<rootDir>/test/**/*.spec.js"],
+  testMatch: [
+    "<rootDir>/test/**/*.test.js",
+    "<rootDir>/test/**/*.spec.js",
+    "<rootDir>/test/**/*.test.ts", // Add TypeScript test files
+    "<rootDir>/test/**/*.spec.ts", // Add TypeScript spec files
+  ],
 
-  // Transform files with babel-jest
+  // Transform files with babel-jest and ts-jest
   transform: {
-    "^.+\\.jsx?$": "babel-jest",
+    "^.+\\.jsx?$": [
+      "babel-jest",
+      { configFile: "<rootDir>/test/babel.config.js" },
+    ],
+    "^.+\\.tsx?$": [
+      "ts-jest",
+      {
+        tsconfig: "<rootDir>/test/tsconfig.json", // Point to our test tsconfig
+        babelConfig: "<rootDir>/test/babel.config.js",
+      },
+    ],
   },
 
   // Module file extensions for importing
-  moduleFileExtensions: ["js", "json", "jsx", "node"],
+  moduleFileExtensions: ["js", "json", "jsx", "node", "ts", "tsx"], // Add ts and tsx
 
   // Mock static assets
   moduleNameMapper: {
@@ -35,6 +50,7 @@ module.exports = {
   // Code coverage configuration
   collectCoverageFrom: [
     "src/**/*.{js,jsx}",
+    "src/**/*.{ts,tsx}", // Add TypeScript files for coverage
     "!**/node_modules/**",
     "!**/vendor/**",
     "!**/dist/**",

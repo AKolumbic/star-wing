@@ -14,6 +14,7 @@ This directory contains the testing framework for the Star-Wing game. This docum
 8. [Performance Testing](#performance-testing)
 9. [Visual Regression Testing](#visual-regression-testing)
 10. [Continuous Integration](#continuous-integration)
+11. [AudioManager Testing](#audiomanager-testing)
 
 ## Testing Philosophy
 
@@ -357,7 +358,9 @@ export class AudioContextMock {
 
 ## Running Tests
 
-Tests are run using npm scripts:
+Tests are run using npm scripts defined in the project's package.json file. Here's a comprehensive guide to running different types of tests and analyzing test coverage.
+
+### Basic Test Commands
 
 ```bash
 # Run all tests
@@ -377,12 +380,92 @@ npm run test:performance
 
 # Run visual tests
 npm run test:visual
+```
 
-# Watch mode for development
+### Running Specific Tests
+
+```bash
+# Run a specific test file
+npm test path/to/test-file.js
+
+# Run tests matching a specific pattern
+npm test -- -t "pattern to match"
+
+# Example: Run all tests related to audio
+npm test -- -t "audio"
+
+# Run tests in a specific directory
+npm test test/unit/audio/
+
+# Run a specific test within a file
+npm test path/to/test-file.js -- -t "specific test name"
+```
+
+### Watch Mode for Development
+
+```bash
+# Run tests in watch mode (re-runs when files change)
 npm run test:watch
 
-# Generate coverage report
+# Watch a specific test file
+npm run test:watch -- path/to/test-file.js
+
+# Watch tests matching a pattern
+npm run test:watch -- -t "pattern to match"
+```
+
+### Test Coverage
+
+```bash
+# Generate coverage report for all tests
 npm run test:coverage
+
+# Generate coverage for specific tests
+npm test path/to/test-file.js -- --coverage
+
+# Generate coverage report for unit tests only
+npm run test:unit -- --coverage
+
+# Set minimum coverage thresholds
+npm test -- --coverage --coverageThreshold='{"global":{"statements":80,"branches":80,"functions":80,"lines":80}}'
+```
+
+### Viewing Coverage Reports
+
+After running tests with coverage, you can view the reports:
+
+```bash
+# The coverage report is saved in the coverage/ directory
+# Open the HTML report in your browser
+open coverage/lcov-report/index.html
+```
+
+### Debugging Tests
+
+```bash
+# Run tests with Node.js inspector
+node --inspect-brk node_modules/.bin/jest --runInBand path/to/test-file.js
+
+# Output more detailed information
+npm test -- --verbose
+
+# Display individual test results
+npm test -- --verbose=true
+```
+
+### Test Configuration
+
+You can pass additional Jest configuration options:
+
+```bash
+# Run tests with a custom timeout (in milliseconds)
+npm test -- --testTimeout=10000
+
+# Bail after a certain number of failures
+npm test -- --bail=3
+
+# Use a specific configuration file
+npm test -- --config=custom-jest-config.js
 ```
 
 ## Testing Patterns
@@ -739,6 +822,94 @@ jobs:
         uses: codecov/codecov-action@v2
         with:
           file: ./coverage/coverage-final.json
+```
+
+## AudioManager Testing
+
+The AudioManager is a critical component of our game's audio system, responsible for all sound generation and playback. We've implemented comprehensive testing for this component with the following improvements:
+
+### 1. Complete Method Coverage
+
+Our test suite now covers all methods in the AudioManager class:
+
+- Core functionality: `initialize()`, `dispose()`, etc.
+- Volume control: `setVolume()`, `getVolume()`, `getMuteState()`, `toggleMute()`
+- Audio playback: `playTestTone()`, `playMenuThump()`, etc.
+- Music management: `preloadLevelMusic()`, `playLevelMusic()`, `addMusicLayer()`, etc.
+- Resource management: `preloadEssentialAudio()`, `cleanupUnusedAudio()`, etc.
+- Audio sample management: `playAudioSample()`, `loadAudioSample()`, etc.
+
+### 2. Memory Optimization
+
+We've optimized the tests to reduce memory consumption:
+
+- Shared mock objects for dependencies
+- Efficient test setup and teardown
+- Immediate execution of timeouts to speed up tests
+- Proper cleanup of resources after tests
+
+### 3. TypeScript Support
+
+We've added TypeScript support to our testing infrastructure:
+
+- Updated Jest configuration to handle TypeScript files
+- Added TypeScript type definitions for better code quality
+- Created a dedicated tsconfig.json for tests
+
+### 4. Test Organization
+
+Tests are organized by functionality:
+
+```javascript
+describe("AudioManager - Comprehensive Tests", () => {
+  // Singleton pattern tests
+  describe("Singleton Pattern", () => {
+    // Tests for getInstance()
+  });
+
+  // Initialization tests
+  describe("Initialization", () => {
+    // Tests for initialize()
+  });
+
+  // Volume control tests
+  describe("Volume Control", () => {
+    // Tests for volume-related methods
+  });
+
+  // ... and so on for each functional area
+});
+```
+
+### 5. Edge Case Testing
+
+We test various edge cases:
+
+- Initialization state (already initialized, not initialized)
+- Mute state transitions (muted to unmuted, unmuted to muted)
+- Layer management (active/inactive layered music)
+- Resource availability (assets loaded/not loaded)
+
+### Running AudioManager Tests
+
+To run the AudioManager tests specifically:
+
+```bash
+# Run all AudioManager tests
+npm test test/unit/audio/AudioManager.test.js
+
+# Run with coverage information
+npm test test/unit/audio/AudioManager.test.js -- --coverage
+
+# Run specific AudioManager tests
+npm test test/unit/audio/AudioManager.test.js -- -t "toggleMute"
+
+# Run in watch mode during development
+npm run test:watch -- test/unit/audio/AudioManager.test.js
+
+# Generate detailed coverage report
+npm test test/unit/audio/AudioManager.test.js -- --coverage --coverageReporters=html
+open coverage/lcov-report/src/audio/AudioManager.ts.html
 ```
 
 ---
