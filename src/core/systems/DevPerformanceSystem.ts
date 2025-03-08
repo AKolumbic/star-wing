@@ -1,5 +1,5 @@
-import { GameSystem } from "../core/GameSystem";
-import { DevPerformanceOverlay } from "../utils/DevPerformanceOverlay";
+import { GameSystem } from "../GameSystem";
+import { DevPerformanceOverlay } from "../../utils/DevPerformanceOverlay";
 
 export class DevPerformanceSystem implements GameSystem {
   private overlay: DevPerformanceOverlay;

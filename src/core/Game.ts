@@ -85,7 +85,7 @@ export class Game {
 
     // If in dev mode, add the performance overlay system.
     if (this.devMode) {
-      import("../systems/DevPerformanceSystem").then(
+      import("./systems/DevPerformanceSystem").then(
         ({ DevPerformanceSystem }) => {
           this.systems.push(new DevPerformanceSystem());
         }
