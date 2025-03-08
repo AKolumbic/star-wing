@@ -1203,4 +1203,12 @@ export class Scene {
       this.playerShip = null;
     }
   }
+
+  /**
+   * Gets the list of active asteroids in the scene.
+   * @returns Array of active asteroids
+   */
+  getAsteroids(): Asteroid[] {
+    return this.asteroids;
+  }
 }

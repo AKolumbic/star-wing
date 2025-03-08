@@ -666,16 +666,16 @@ export class GameHUD {
     // Clear radar
     ctx.clearRect(0, 0, this.radarCanvas.width, this.radarCanvas.height);
 
+    const radarWidth = this.radarCanvas.width;
+    const radarHeight = this.radarCanvas.height;
+    const radarCenterX = radarWidth / 2;
+    const radarCenterY = radarHeight / 2;
+    const radarRadius = radarWidth / 2 - 2;
+
     // Draw radar background
     ctx.fillStyle = "rgba(0, 30, 60, 0.7)";
     ctx.beginPath();
-    ctx.arc(
-      this.radarCanvas.width / 2,
-      this.radarCanvas.height / 2,
-      this.radarCanvas.width / 2 - 2,
-      0,
-      Math.PI * 2
-    );
+    ctx.arc(radarCenterX, radarCenterY, radarRadius, 0, Math.PI * 2);
     ctx.fill();
 
     // Draw radar rings
@@ -684,27 +684,36 @@ export class GameHUD {
 
     // Draw 3 concentric circles
     for (let i = 1; i <= 3; i++) {
-      const radius = (this.radarCanvas.width / 2 - 2) * (i / 3);
+      const radius = radarRadius * (i / 3);
       ctx.beginPath();
-      ctx.arc(
-        this.radarCanvas.width / 2,
-        this.radarCanvas.height / 2,
-        radius,
-        0,
-        Math.PI * 2
-      );
+      ctx.arc(radarCenterX, radarCenterY, radius, 0, Math.PI * 2);
       ctx.stroke();
     }
 
+    // Draw cardinal directions on radar using arrows instead of letters
+    ctx.fillStyle = "rgba(0, 255, 255, 0.7)";
+    ctx.font = "12px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    // Forward direction (bottom of radar) - down arrow
+    ctx.fillText("↓", radarCenterX, radarCenterY + radarRadius * 0.85);
+    // Backward direction (top of radar) - up arrow
+    ctx.fillText("↑", radarCenterX, radarCenterY - radarRadius * 0.85);
+    // Right direction - right arrow
+    ctx.fillText("→", radarCenterX + radarRadius * 0.85, radarCenterY);
+    // Left direction - left arrow
+    ctx.fillText("←", radarCenterX - radarRadius * 0.85, radarCenterY);
+
     // Draw radar cross
     ctx.beginPath();
-    ctx.moveTo(this.radarCanvas.width / 2, 2);
-    ctx.lineTo(this.radarCanvas.width / 2, this.radarCanvas.height - 2);
+    ctx.moveTo(radarCenterX, 2);
+    ctx.lineTo(radarCenterX, radarHeight - 2);
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.moveTo(2, this.radarCanvas.height / 2);
-    ctx.lineTo(this.radarCanvas.width - 2, this.radarCanvas.height / 2);
+    ctx.moveTo(2, radarCenterY);
+    ctx.lineTo(radarWidth - 2, radarCenterY);
     ctx.stroke();
 
     // Get player position
@@ -714,94 +723,144 @@ export class GameHUD {
     const playerPosition = playerShip.getPosition();
     if (!playerPosition) return;
 
-    // Draw player blip in the center
-    ctx.fillStyle = "#0ff";
+    // Draw player blip in the center with a directional indicator
+    ctx.fillStyle = "#0ff"; // Cyan for player
     ctx.beginPath();
-    ctx.arc(
-      this.radarCanvas.width / 2,
-      this.radarCanvas.height / 2,
-      3,
-      0,
-      Math.PI * 2
-    );
+    ctx.arc(radarCenterX, radarCenterY, 3, 0, Math.PI * 2);
     ctx.fill();
 
-    // Draw enemy blips
-    ctx.fillStyle = "#f55";
-
-    // In a full implementation, we would iterate through actual enemies
-    // For example: scene.getEnemies().forEach(enemy => {...})
+    // Draw a small indicator showing the player's facing direction
+    // Draw a triangle pointing in the direction of travel (from top-down view)
+    ctx.beginPath();
+    // Flip the triangle to point downward (toward "F" at the bottom)
+    ctx.moveTo(radarCenterX, radarCenterY + 5); // Point facing "forward" on the radar (now down)
+    ctx.lineTo(radarCenterX - 3, radarCenterY - 2);
+    ctx.lineTo(radarCenterX + 3, radarCenterY - 2);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(0, 255, 255, 0.7)";
+    ctx.fill();
 
     // Get the maximum radar range (arbitrary value representing how far the radar can "see")
-    const radarRange = 1000;
+    const radarRange = 2000; // Detection range in game units
 
-    // For now, we'll simulate some enemies
-    const simulatedEnemies = [
-      {
-        x: playerPosition.x + 300,
-        y: playerPosition.y - 200,
-        z: playerPosition.z - 300,
-      },
-      {
-        x: playerPosition.x - 400,
-        y: playerPosition.y + 100,
-        z: playerPosition.z - 200,
-      },
-      {
-        x: playerPosition.x + 100,
-        y: playerPosition.y + 300,
-        z: playerPosition.z + 100,
-      },
-    ].filter(
-      () =>
-        playerPosition.x !== undefined &&
-        playerPosition.y !== undefined &&
-        playerPosition.z !== undefined
-    );
+    // Get actual asteroids from scene
+    const asteroids = scene.getAsteroids();
 
-    // Draw each enemy blip
-    simulatedEnemies.forEach((enemy) => {
-      // Calculate relative position
-      const relX = enemy.x - playerPosition.x;
-      const relY = enemy.y - playerPosition.y;
+    // Draw asteroid blips
+    if (asteroids && asteroids.length > 0) {
+      ctx.fillStyle = "#f55"; // Red for asteroids
 
-      // Calculate distance (squared for performance)
-      const distSquared = relX * relX + relY * relY;
+      asteroids.forEach((asteroid) => {
+        if (!asteroid.isActive()) return;
 
-      // Only show enemies within radar range
-      if (distSquared <= radarRange * radarRange) {
-        // Calculate radar coordinates (scale from world space to radar space)
-        const radarX =
-          this.radarCanvas.width / 2 +
-          (relX / radarRange) * (this.radarCanvas.width / 2);
-        const radarY =
-          this.radarCanvas.height / 2 +
-          (relY / radarRange) * (this.radarCanvas.height / 2);
+        const asteroidPosition = asteroid.getPosition();
 
-        // Draw the blip
-        ctx.beginPath();
-        ctx.arc(radarX, radarY, 2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    });
+        // Calculate relative position to player using X and Z for top-down view
+        // X remains the same (left-right)
+        // Z is used for forward-backward (negative Z is forward, positive Z is backward)
+        const relX = asteroidPosition.x - playerPosition.x;
+        const relZ = asteroidPosition.z - playerPosition.z;
+
+        // Calculate distance using top-down coordinates
+        const distance = Math.sqrt(relX * relX + relZ * relZ);
+
+        // Only show asteroids within radar range
+        if (distance <= radarRange) {
+          // Scale distance to radar size
+          // Map X to radar X (left-right)
+          // Map Z to radar Y (up-down) - FLIPPED: Positive Z is up, Negative Z is down
+          const radarX = radarCenterX + (relX / radarRange) * radarRadius;
+          const radarY = radarCenterY + (relZ / radarRange) * radarRadius; // Now positive Z maps upward on the radar
+
+          // Size based on asteroid size and distance (closer = bigger blip)
+          const size = asteroid.getSize();
+          const blipSize = Math.max(2, Math.min(4, (size / 40) * 4));
+
+          // Draw the blip with dynamic size and alpha based on distance
+          const alpha = 1 - (distance / radarRange) * 0.7; // Fade with distance
+          ctx.fillStyle = `rgba(255, 85, 85, ${alpha})`;
+
+          ctx.beginPath();
+          ctx.arc(radarX, radarY, blipSize, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Add a pulsing effect to closer asteroids
+          if (distance < radarRange * 0.3) {
+            const pulseSize = blipSize + Math.sin(Date.now() / 200) * 2;
+            ctx.strokeStyle = `rgba(255, 85, 85, ${alpha * 0.5})`;
+            ctx.beginPath();
+            ctx.arc(radarX, radarY, pulseSize, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+
+          // Add height indicator for asteroids significantly above or below player
+          const heightDiff = asteroidPosition.y - playerPosition.y;
+          if (Math.abs(heightDiff) > 200) {
+            // If asteroid is significantly above/below player
+            ctx.fillStyle =
+              heightDiff > 0
+                ? `rgba(85, 255, 255, ${alpha})` // Cyan for above
+                : `rgba(255, 255, 85, ${alpha})`; // Yellow for below
+
+            // Small triangle indicator
+            ctx.beginPath();
+            if (heightDiff > 0) {
+              // Pointing up for asteroids above
+              ctx.moveTo(radarX, radarY - blipSize - 3);
+              ctx.lineTo(radarX - 2, radarY - blipSize);
+              ctx.lineTo(radarX + 2, radarY - blipSize);
+            } else {
+              // Pointing down for asteroids below
+              ctx.moveTo(radarX, radarY + blipSize + 3);
+              ctx.lineTo(radarX - 2, radarY + blipSize);
+              ctx.lineTo(radarX + 2, radarY + blipSize);
+            }
+            ctx.closePath();
+            ctx.fill();
+          }
+        }
+      });
+    }
 
     // Add radar sweep effect
     const now = Date.now();
     const angle = ((now % 2000) / 2000) * Math.PI * 2;
 
-    ctx.fillStyle = "rgba(0, 255, 255, 0.2)";
+    // Create radial gradient for sweep
+    const gradient = ctx.createRadialGradient(
+      radarCenterX,
+      radarCenterY,
+      0,
+      radarCenterX,
+      radarCenterY,
+      radarRadius
+    );
+    gradient.addColorStop(0, "rgba(0, 255, 255, 0.1)");
+    gradient.addColorStop(1, "rgba(0, 255, 255, 0.4)");
+
+    ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.moveTo(this.radarCanvas.width / 2, this.radarCanvas.height / 2);
+    ctx.moveTo(radarCenterX, radarCenterY);
     ctx.arc(
-      this.radarCanvas.width / 2,
-      this.radarCanvas.height / 2,
-      this.radarCanvas.width / 2 - 2,
-      angle - 0.1,
+      radarCenterX,
+      radarCenterY,
+      radarRadius,
+      angle - 0.2, // Wider sweep
       angle,
       false
     );
     ctx.closePath();
     ctx.fill();
+
+    // Add subtle glow around the radar
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = "rgba(0, 255, 255, 0.5)";
+    ctx.strokeStyle = "rgba(0, 255, 255, 0.8)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(radarCenterX, radarCenterY, radarRadius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
   }
 
   /**
