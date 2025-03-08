@@ -19,6 +19,9 @@ export class GameLoop {
   /** Flag indicating if the game loop is active */
   private isRunning: boolean = false;
 
+  /** Flag indicating if game updates are paused */
+  private isPaused: boolean = false;
+
   /** ID returned by requestAnimationFrame for cancellation */
   private animationFrameId: number = 0;
 
@@ -82,6 +85,24 @@ export class GameLoop {
   }
 
   /**
+   * Sets the paused state of the game loop.
+   * When paused, the loop continues running but most systems don't update.
+   * @param paused Whether the game loop should be paused
+   */
+  setPaused(paused: boolean): void {
+    this.isPaused = paused;
+    this.logger.info(`Game loop ${paused ? "paused" : "resumed"}`);
+  }
+
+  /**
+   * Gets the current paused state.
+   * @returns Whether the game loop is currently paused
+   */
+  isPausedState(): boolean {
+    return this.isPaused;
+  }
+
+  /**
    * The main game loop function.
    * @private
    */
@@ -107,9 +128,12 @@ export class GameLoop {
       this.preUpdateCallback(this.deltaTime);
     }
 
-    // Update all systems
-    for (const system of this.systems) {
-      system.update(this.deltaTime);
+    // Only update game systems if not paused
+    if (!this.isPaused) {
+      // Update all systems
+      for (const system of this.systems) {
+        system.update(this.deltaTime);
+      }
     }
 
     // Call post-update callback if set

@@ -262,6 +262,38 @@ export class Game {
   }
 
   /**
+   * Pauses the game without stopping the game loop completely.
+   * Used when the in-game menu is shown.
+   */
+  pause(): void {
+    if (!this.isRunning) {
+      this.logger.warn("Cannot pause - game is not running");
+      return;
+    }
+
+    this.logger.info("Game paused");
+
+    // We'll use a special flag in the game loop to pause updates
+    // but keep the loop running
+    this.gameLoop.setPaused(true);
+  }
+
+  /**
+   * Resumes the game after it was paused.
+   */
+  resume(): void {
+    if (!this.isRunning) {
+      this.logger.warn("Cannot resume - game is not running");
+      return;
+    }
+
+    this.logger.info("Game resumed");
+
+    // Resume normal updates in the game loop
+    this.gameLoop.setPaused(false);
+  }
+
+  /**
    * Stops the game loop and marks the game as not running.
    */
   stop(): void {

@@ -196,7 +196,10 @@ export class UISystem implements GameSystem {
    * Shows the in-game menu (pause menu during gameplay).
    */
   showInGameMenu(): void {
-    // Don't change the gameActive flag here - we just need to pause temporarily
+    // Pause the game while the menu is shown
+    if (this.game) {
+      this.game.pause();
+    }
 
     // Show the in-game menu through the Menu class
     this.menu.showInGameMenu();
@@ -218,10 +221,14 @@ export class UISystem implements GameSystem {
     // Hide the menu
     this.menu.hide();
 
-    // Show the game HUD
-    this.showGameHUD();
+    // Show the HUD
+    this.gameHUD.show();
 
-    // Log the resume action
+    // Resume the game
+    if (this.game) {
+      this.game.resume();
+    }
+
     this.logger.info("Game resumed from pause menu");
   }
 
