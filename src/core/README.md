@@ -12,7 +12,7 @@ The core systems implement a modular architecture with the following structure:
 
 1. **Main Game Controller** - `Game.ts` coordinates all systems and provides the central API
 2. **System Interface** - `GameSystem.ts` defines the common interface for all subsystems
-3. **Game Loop Manager** - `GameLoop.ts` manages the update/render cycle independently
+3. **Game Loop Manager** - `GameLoop.ts` manages the update/render cycle and pause functionality
 4. **System Adapters** - Specialized adapters in the `systems/` directory wrap core functionality
 5. **Performance Monitoring** - `PerformanceMonitor.ts` tracks game metrics and optimizes performance
 
@@ -28,6 +28,7 @@ The central controller for the entire game.
 - Delegates game loop management to the GameLoop class
 - Provides dev mode options including audio control
 - Manages state transitions between game phases (menu, gameplay, etc.)
+- Implements pause and resume functionality for the in-game menu
 
 ```typescript
 // Basic usage
@@ -46,6 +47,10 @@ game.toggleDevModeAudio();
 
 // Ensure audio can start playing (useful for mobile browsers)
 game.ensureAudioCanPlay();
+
+// Pause and resume the game
+game.pause();
+game.resume();
 ```
 
 **Development Mode Parameters:**
@@ -72,13 +77,20 @@ export interface GameSystem {
 
 ### GameLoop.ts
 
-Dedicated class that manages the game loop timing and updates.
+Dedicated class that manages the game loop timing, updates, and pausing.
 
 - Handles requestAnimationFrame and delta time calculations
 - Updates all systems in sequence each frame
 - Tracks performance metrics
 - Supports pre-update and post-update hooks
 - Implements frame throttling for performance optimization
+- Provides pause functionality while maintaining the animation loop
+
+```typescript
+// Pause and resume the game loop
+gameLoop.setPaused(true); // Pause game updates but keep the loop running
+gameLoop.setPaused(false); // Resume normal updates
+```
 
 ### System Adapters
 
@@ -91,14 +103,15 @@ Specialized adapters that implement the GameSystem interface:
 - Coordinates the modular background system
 - Handles visual effects and scene composition
 - Manages adaptive quality settings based on performance
+- Maintains entity motion after ship destruction
 
 #### InputSystem
 
 - Manages keyboard and mouse input
 - Provides methods to query input state
 - Handles event binding and cleanup
-- Supports key binding customization
-- Implements touch controls for mobile devices
+- Supports WASD and arrow key controls
+- Implements mouse-based weapon targeting
 
 #### AudioSystem
 
@@ -107,16 +120,26 @@ Specialized adapters that implement the GameSystem interface:
 - Preloads essential audio assets during initialization
 - Manages audio settings persistence and volume controls
 - Provides access to music playback and sound effect functionality
+- Handles music transitions between menu and gameplay
 - Integrates with Howler.js for complex audio scenarios
 - See `/src/audio/README.md` for detailed documentation on the audio architecture
 
 #### UISystem
 
 - Coordinates UI components including menus and overlays
-- Manages loading screen and terminal border
+- Manages loading screen, terminal border, and zone completion screen
 - Handles UI state and transitions
 - Implements retro terminal styling using GSAP for animations
 - Manages responsive design adjustments
+- Integrates with game pause functionality
+- Controls the tactical radar display
+
+#### DevPerformanceSystem
+
+- Monitors and displays performance metrics in development mode
+- Tracks FPS, frame times, and memory usage
+- Provides visual overlay for performance data
+- Only active in development mode
 
 ## Utility Classes
 

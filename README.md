@@ -80,12 +80,9 @@ game.toggleDevModeAudio();
 
 ## Controls
 
-- **WASD**: Ship movement
+- **WASD or Arrow Keys**: Ship movement
 - **Mouse**: Aim weapons
 - **Left Click**: Fire primary weapon
-- **Right Click**: Fire secondary weapon
-- **Space**: Barrel roll/dodge
-- **1-3**: Switch weapon modes
 - **ESC**: Pause game/show in-game menu
 
 ## Features
@@ -95,6 +92,9 @@ game.toggleDevModeAudio();
 - **Hyperspace Travel**: Dynamic starfield effects and transitions
 - **Retro Terminal UI**: CRT-inspired user interface with scan lines and glitch effects
 - **Performance Optimization**: Object pooling, frustum culling, and advanced audio management
+- **Tactical Radar**: Top-down perspective radar showing asteroid positions and elevations
+- **True Pause Functionality**: Game properly pauses when the menu is opened
+- **Zone Completion Screen**: Visual feedback when a zone is completed
 
 ## Project Structure
 

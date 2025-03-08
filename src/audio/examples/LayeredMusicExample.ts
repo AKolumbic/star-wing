@@ -5,7 +5,7 @@
  * It shows how to preload tracks, start layered music, add layers, adjust volumes,
  * and remove layers.
  */
-import { AudioManager } from "../src/audio/AudioManager";
+import { AudioManager } from "../AudioManager";
 
 /**
  * Example class that demonstrates the layered music system
