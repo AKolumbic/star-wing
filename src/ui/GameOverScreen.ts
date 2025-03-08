@@ -224,11 +224,24 @@ export class GameOverScreen {
   }
 
   /**
-   * Handler for main menu button
+   * Handles the main menu button click
    */
   private handleMainMenu(): void {
     this.logger.info("Game Over: Return to main menu requested");
     this.hide();
+
+    // Ensure hyperspace effect is disabled when returning to main menu
+    const scene = this.game.getSceneSystem().getScene();
+    scene.transitionHyperspace(false, 1.0);
+
+    // Transition to menu music
+    if (this.game.getAudioManager()) {
+      // Stop any game music first with a short fade out
+      this.game.getAudioManager().stopMusic(0.5);
+    }
+
+    // Clean up the player ship before transitioning to main menu
+    scene.cleanupPlayerShip();
 
     // Wait for fade out before showing menu
     setTimeout(() => {

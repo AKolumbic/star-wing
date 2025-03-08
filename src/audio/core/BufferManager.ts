@@ -200,6 +200,15 @@ export class BufferManager {
         await this.loadAudioSample(menuMusicFile, menuMusicId, true);
       }
 
+      // Game music is also essential
+      const gameMusicFile = "assets/audio/star-wing_game-loop.mp3";
+      const gameMusicId = "gameMusic";
+
+      // Only load if not already in cache
+      if (!this.hasBuffer(gameMusicId)) {
+        await this.loadAudioSample(gameMusicFile, gameMusicId, true);
+      }
+
       // You can add more essential sounds here if needed
 
       this.logger.info("BufferManager: Essential audio preloading complete");
@@ -218,7 +227,7 @@ export class BufferManager {
    */
   public cleanupUnused(preserveEssential: boolean = true): void {
     // List of essential audio IDs that should be preserved
-    const essentialAudio = ["menuMusic"];
+    const essentialAudio = ["menuMusic", "gameMusic"];
 
     // Get all buffer IDs
     const bufferIds = this.getBufferIds();

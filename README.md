@@ -8,10 +8,11 @@ Star Wing is a web-based 3D space shooter that combines classic arcade gameplay 
 
 ## Tech Stack
 
-- **Three.js**: 3D graphics and rendering
+- **Three.js**: 3D graphics and rendering (v0.162.0)
 - **TypeScript**: Type-safe JavaScript
 - **Vite**: Build tool and development server
 - **Web Audio API**: Audio management and synthesis
+- **Howler.js**: Additional audio support for complex soundscapes
 - **GSAP**: UI animations and transitions
 
 ## Development Setup
@@ -35,10 +36,28 @@ npm install
 npm run dev
 ```
 
+For MCP enabled dev tools, enter in a different terminal:
+
+```bash
+npx @agentdeskai/browser-tools-server
+```
+
 4. Build for production:
 
 ```bash
 npm run build
+```
+
+5. Preview the production build:
+
+```bash
+npm run preview
+```
+
+6. Run tests:
+
+```bash
+npm test
 ```
 
 ## Development Mode
@@ -61,12 +80,9 @@ game.toggleDevModeAudio();
 
 ## Controls
 
-- **WASD**: Ship movement
+- **WASD or Arrow Keys**: Ship movement
 - **Mouse**: Aim weapons
 - **Left Click**: Fire primary weapon
-- **Right Click**: Fire secondary weapon
-- **Space**: Barrel roll/dodge
-- **1-3**: Switch weapon modes
 - **ESC**: Pause game/show in-game menu
 
 ## Features
@@ -76,6 +92,9 @@ game.toggleDevModeAudio();
 - **Hyperspace Travel**: Dynamic starfield effects and transitions
 - **Retro Terminal UI**: CRT-inspired user interface with scan lines and glitch effects
 - **Performance Optimization**: Object pooling, frustum culling, and advanced audio management
+- **Tactical Radar**: Top-down perspective radar showing asteroid positions and elevations
+- **True Pause Functionality**: Game properly pauses when the menu is opened
+- **Zone Completion Screen**: Visual feedback when a zone is completed
 
 ## Project Structure
 
@@ -86,6 +105,7 @@ The codebase follows a modular architecture with clear separation of concerns:
 - **Entities**: Player ship, enemies, and environmental objects
 - **Weapons**: Weapon types, projectiles, and combat systems
 - **UI**: Menu systems and in-game HUD
+- **Utils**: Utility functions and helper classes
 
 For detailed documentation on the architecture and implementation, see the [Source Code README](./src/README.md).
 

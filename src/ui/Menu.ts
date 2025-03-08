@@ -7,7 +7,7 @@ export class Menu {
   private container: HTMLDivElement;
   private isVisible: boolean = true;
   private currentSelection: number = 0;
-  private menuOptions: string[] = ["START GAME", "SETTINGS", "HIGH SCORES"];
+  private menuOptions: string[] = ["START GAME", "SETTINGS"];
   private inGameMode: boolean = false; // Flag to track if menu is shown during gameplay
   private settings: Settings;
   private highScores: HighScores;
@@ -246,8 +246,6 @@ export class Menu {
           this.startGame();
         } else if (option === "SETTINGS") {
           this.showSettings();
-        } else if (option === "HIGH SCORES") {
-          this.showHighScores();
         }
       });
       menuSection.appendChild(menuOption);
@@ -352,9 +350,6 @@ export class Menu {
       case 1: // SETTINGS
         this.showSettings();
         break;
-      case 2: // HIGH SCORES
-        this.showHighScores();
-        break;
       default:
         this.logger.warn("Unknown menu option selected");
     }
@@ -438,6 +433,11 @@ export class Menu {
             // 4. After ship is initialized, start ship entry
             scene.startShipEntry(() => {
               this.logger.info("Ship entry complete, game is now active");
+
+              // Start layered music for level 1
+              const audioManager = this.game.getAudioManager();
+              this.logger.info("Starting layered music for level 1");
+              audioManager.playLevelMusic("level1");
 
               // 5. Finally, start the game and show HUD
               this.game.start();
@@ -571,17 +571,6 @@ export class Menu {
 
     // Set up a callback to restore the menu when settings are closed
     this.settings.setOnCloseCallback(() => {
-      this.container.style.display = "flex";
-    });
-  }
-
-  private showHighScores(): void {
-    // Hide the menu container but stay "active" logically
-    this.container.style.display = "none";
-    this.highScores.show();
-
-    // Set up a callback to restore the menu when high scores are closed
-    this.highScores.setOnCloseCallback(() => {
       this.container.style.display = "flex";
     });
   }

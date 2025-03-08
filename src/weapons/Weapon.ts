@@ -217,9 +217,19 @@ export abstract class Weapon {
   }
 
   /**
-   * Disposes of any resources created by the weapon
+   * Gets the projectiles currently active for this weapon.
+   * This is meant to be overridden by subclasses.
+   * @returns An empty array by default
+   */
+  getProjectiles(): any[] {
+    return [];
+  }
+
+  /**
+   * Clean up resources used by the weapon.
+   * This should be called when the weapon is no longer needed.
    */
   dispose(): void {
-    // To be implemented by subclasses if they create persistent objects
+    // Override this in subclasses as needed to clean up resources
   }
 }
