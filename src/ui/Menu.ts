@@ -257,7 +257,7 @@ export class Menu {
 
     // Create link instead of just text
     const copyrightLink = document.createElement("a");
-    copyrightLink.href = "https://www.github.com/akolumbic";
+    copyrightLink.href = "https://www.github.com/akolumbic/star-wing";
     copyrightLink.textContent = "© 2025 DROSSHOLE";
     copyrightLink.style.color = "#fff"; // Keep same color as before
     copyrightLink.style.textDecoration = "none"; // No underline by default
