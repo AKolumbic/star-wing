@@ -7,8 +7,8 @@ This directory contains the testing framework for the Star-Wing game. This docum
 1. [Testing Philosophy](#testing-philosophy)
 2. [Test Structure](#test-structure)
 3. [Testing Tools](#testing-tools)
-4. [Test Mocks](#test-mocks)
-5. [Running Tests](#running-tests)
+4. [Running Tests](#running-tests)
+5. [Test Mocks](#test-mocks)
 6. [Testing Patterns](#testing-patterns)
 7. [Writing Tests by Component](#writing-tests-by-component)
 8. [Performance Testing](#performance-testing)
@@ -62,6 +62,118 @@ We use the following tools for testing Star-Wing:
 3. **Playwright/Puppeteer**: For end-to-end testing and visual regression tests
 4. **Jest Image Snapshot**: For visual comparison testing
 5. **Sinon.js**: For spies, stubs, and mocks
+
+## Running Tests
+
+Tests are run using npm scripts defined in the project's package.json file. Here's a comprehensive guide to running different types of tests and analyzing test coverage.
+
+### Basic Test Commands
+
+```bash
+# Run all tests
+npm test
+
+# Run unit tests
+npm run test:unit
+
+# Run integration tests
+npm run test:integration
+
+# Run functional tests
+npm run test:functional
+
+# Run performance tests
+npm run test:performance
+
+# Run visual tests
+npm run test:visual
+```
+
+### Running Specific Tests
+
+```bash
+# Run a specific test file
+npm test path/to/test-file.js
+
+# Run tests matching a specific pattern
+npm test -- -t "pattern to match"
+
+# Example: Run all tests related to audio
+npm test -- -t "audio"
+
+# Run tests in a specific directory
+npm test test/unit/audio/
+
+# Run a specific test within a file
+npm test path/to/test-file.js -- -t "specific test name"
+```
+
+### Watch Mode for Development
+
+```bash
+# Run tests in watch mode (re-runs when files change)
+npm run test:watch
+
+# Watch a specific test file
+npm run test:watch -- path/to/test-file.js
+
+# Watch tests matching a pattern
+npm run test:watch -- -t "pattern to match"
+```
+
+### Test Coverage
+
+```bash
+# Generate coverage report for all tests
+npx jest --coverage
+
+# Generate coverage for specific tests
+npm test path/to/test-file.js -- --coverage
+
+# Generate coverage report for unit tests only
+npm run test:unit -- --coverage
+
+# Set minimum coverage thresholds
+npm test -- --coverage --coverageThreshold='{"global":{"statements":80,"branches":80,"functions":80,"lines":80}}'
+```
+
+### Viewing Coverage Reports
+
+After running tests with coverage, you can view the reports:
+
+```bash
+# The coverage report is saved in the coverage/ directory
+# Open the HTML report in your browser
+open coverage/lcov-report/index.html
+```
+
+### Debugging Tests
+
+```bash
+# Run tests with Node.js inspector
+node --inspect-brk node_modules/.bin/jest --runInBand path/to/test-file.js
+
+# Output more detailed information
+npm test -- --verbose
+
+# Display individual test results
+npm test -- --verbose=true
+```
+
+### Test Configuration
+
+You can pass additional Jest configuration options:
+
+```bash
+# Run tests with a custom timeout (in milliseconds)
+npm test -- --testTimeout=10000
+
+# Bail after a certain number of failures
+npm test -- --bail=3
+
+# Use a specific configuration file
+npm test -- --config=custom-jest-config.js
+```
 
 ## Test Mocks
 
@@ -354,118 +466,6 @@ export class AudioContextMock {
     return Promise.resolve();
   }
 }
-```
-
-## Running Tests
-
-Tests are run using npm scripts defined in the project's package.json file. Here's a comprehensive guide to running different types of tests and analyzing test coverage.
-
-### Basic Test Commands
-
-```bash
-# Run all tests
-npm test
-
-# Run unit tests
-npm run test:unit
-
-# Run integration tests
-npm run test:integration
-
-# Run functional tests
-npm run test:functional
-
-# Run performance tests
-npm run test:performance
-
-# Run visual tests
-npm run test:visual
-```
-
-### Running Specific Tests
-
-```bash
-# Run a specific test file
-npm test path/to/test-file.js
-
-# Run tests matching a specific pattern
-npm test -- -t "pattern to match"
-
-# Example: Run all tests related to audio
-npm test -- -t "audio"
-
-# Run tests in a specific directory
-npm test test/unit/audio/
-
-# Run a specific test within a file
-npm test path/to/test-file.js -- -t "specific test name"
-```
-
-### Watch Mode for Development
-
-```bash
-# Run tests in watch mode (re-runs when files change)
-npm run test:watch
-
-# Watch a specific test file
-npm run test:watch -- path/to/test-file.js
-
-# Watch tests matching a pattern
-npm run test:watch -- -t "pattern to match"
-```
-
-### Test Coverage
-
-```bash
-# Generate coverage report for all tests
-npm run test:coverage
-
-# Generate coverage for specific tests
-npm test path/to/test-file.js -- --coverage
-
-# Generate coverage report for unit tests only
-npm run test:unit -- --coverage
-
-# Set minimum coverage thresholds
-npm test -- --coverage --coverageThreshold='{"global":{"statements":80,"branches":80,"functions":80,"lines":80}}'
-```
-
-### Viewing Coverage Reports
-
-After running tests with coverage, you can view the reports:
-
-```bash
-# The coverage report is saved in the coverage/ directory
-# Open the HTML report in your browser
-open coverage/lcov-report/index.html
-```
-
-### Debugging Tests
-
-```bash
-# Run tests with Node.js inspector
-node --inspect-brk node_modules/.bin/jest --runInBand path/to/test-file.js
-
-# Output more detailed information
-npm test -- --verbose
-
-# Display individual test results
-npm test -- --verbose=true
-```
-
-### Test Configuration
-
-You can pass additional Jest configuration options:
-
-```bash
-# Run tests with a custom timeout (in milliseconds)
-npm test -- --testTimeout=10000
-
-# Bail after a certain number of failures
-npm test -- --bail=3
-
-# Use a specific configuration file
-npm test -- --config=custom-jest-config.js
 ```
 
 ## Testing Patterns
