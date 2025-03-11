@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { Background } from "./Background";
-import { StarfieldBackground } from "./StarfieldBackground";
+import { StarfieldBackground, DEFAULT_PARAMS } from "./StarfieldBackground";
 import { Logger } from "../../utils/Logger";
 
 /**
@@ -198,6 +198,14 @@ export class BackgroundManager {
 
     // Tell the starfield to start transitioning
     starfield.setHyperspaceMode(enable);
+
+    // If disabling hyperspace, ensure we reset the background state
+    if (!enable) {
+      // Reset any hyperspace-specific state
+      starfield.setParameter("direction", new THREE.Vector3(0, 0, 1));
+      starfield.setParameter("minSpeed", DEFAULT_PARAMS.minSpeed);
+      starfield.setParameter("maxSpeed", DEFAULT_PARAMS.maxSpeed);
+    }
 
     return true;
   }

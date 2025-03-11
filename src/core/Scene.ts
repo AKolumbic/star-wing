@@ -183,34 +183,58 @@ export class Scene {
   }
 
   /**
-   * Initializes the scene asynchronously.
-   * Sets up lighting and registers background types.
-   * @returns Promise that resolves when initialization is complete
+   * Starts the animation loop for the scene.
    */
-  async init(): Promise<void> {
-    this.logger.info("Scene: Initializing");
-
-    // Setup backgrounds
-    this.setupBackgrounds();
-
-    // Setup basic lighting
-    this.setupBasicLighting();
-
-    // Set the default background (starfield)
-    try {
-      this.logger.info("Scene: Setting initial starfield background");
-      await this.backgroundManager.setBackground(BackgroundType.STARFIELD);
-      this.logger.info("Scene: Starfield background initialized successfully");
-    } catch (error) {
-      this.logger.error("Scene: Error setting starfield background", error);
+  startAnimationLoop(): void {
+    if (this.animationFrameId !== null) {
+      // Animation loop is already running
+      return;
     }
 
-    // Rest of initialization
-    this.setupEventListeners();
+    const animate = () => {
+      // Update scene with delta time
+      const currentTime = performance.now();
+      const deltaTime = (currentTime - this.lastTime) / 1000;
+      this.lastTime = currentTime;
+
+      // Update scene
+      this.update(deltaTime);
+
+      // Render scene
+      this.render();
+
+      // Request next frame
+      this.animationFrameId = requestAnimationFrame(animate);
+    };
+
+    // Start the animation loop
+    this.logger.info("Starting scene animation loop");
+    this.lastTime = performance.now();
+    this.animationFrameId = requestAnimationFrame(animate);
+  }
+
+  /**
+   * Initializes the scene.
+   * @returns A promise that resolves when initialization is complete
+   */
+  async init(): Promise<void> {
+    // Set up the background manager
+    this.logger.info("Scene: Setting up background manager");
+    this.logger.info("Scene: Background manager setup complete");
+
+    // Set initial background to starfield
+    this.logger.info("Scene: Setting initial starfield background");
+    await this.backgroundManager.setBackground(BackgroundType.STARFIELD);
+    this.logger.info("Scene: Starfield background initialized successfully");
+
+    // Set up event listeners
+    window.addEventListener("resize", this.onWindowResize.bind(this));
+    this.logger.info("Scene: Event listeners set up");
+
+    // Start the animation loop
+    this.startAnimationLoop();
 
     this.logger.info("Scene initialized successfully");
-
-    return Promise.resolve();
   }
 
   /**

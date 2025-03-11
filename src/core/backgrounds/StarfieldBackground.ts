@@ -37,7 +37,7 @@ export interface StarfieldParams {
 /**
  * Default parameters for the starfield.
  */
-const DEFAULT_PARAMS: Required<StarfieldParams> = {
+export const DEFAULT_PARAMS: Required<StarfieldParams> = {
   starCount: 1500,
   fieldSize: 2000,
   starColor: 0xffffff,
@@ -330,6 +330,42 @@ export class StarfieldBackground implements Background {
         this.starMaterial.uniforms.hyperspaceMode.value =
           this.hyperspaceTransition;
       }
+    }
+
+    // If disabling hyperspace, reset star positions and speeds
+    if (!enabled) {
+      this.resetStarPositions();
+    }
+  }
+
+  /**
+   * Reset star positions and speeds to their default state.
+   * @private
+   */
+  private resetStarPositions(): void {
+    if (!this.starPositions || !this.starSpeeds) return;
+
+    // Reset each star's position and speed
+    for (let i = 0; i < this.params.starCount; i++) {
+      const idx = i * 3;
+
+      // Reset position to random location within field
+      this.starPositions[idx] = (Math.random() - 0.5) * this.params.fieldSize; // x
+      this.starPositions[idx + 1] =
+        (Math.random() - 0.5) * this.params.fieldSize; // y
+      this.starPositions[idx + 2] =
+        (Math.random() - 0.5) * this.params.fieldSize; // z
+
+      // Reset speed to default range
+      this.starSpeeds[i] =
+        this.params.minSpeed +
+        Math.random() * (this.params.maxSpeed - this.params.minSpeed);
+    }
+
+    // Update the geometry attributes
+    if (this.stars) {
+      const positionAttr = this.stars.geometry.getAttribute("position");
+      positionAttr.needsUpdate = true;
     }
   }
 

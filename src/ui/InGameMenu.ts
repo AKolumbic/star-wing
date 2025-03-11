@@ -1,6 +1,8 @@
 import { Game } from "../core/Game";
 import { Logger } from "../utils/Logger";
 import { Settings } from "./Settings";
+import { BackgroundType } from "../core/backgrounds/BackgroundManager";
+import { TransitionScreen } from "./TransitionScreen";
 
 /**
  * Handles the in-game pause menu with options specific to gameplay.
@@ -417,39 +419,53 @@ export class InGameMenu {
   }
 
   /**
-   * Execute the return to main menu action after confirmation
+   * Handles returning to the main menu.
+   * This includes cleaning up the game state and showing a transition screen.
    */
   private async executeReturnToMainMenu(): Promise<void> {
-    this.logger.info("Confirmed: Returning to main menu from game");
+    this.logger.info("Executing return to main menu sequence");
 
-    // Hide menus
-    this.hideConfirmation();
+    // Hide the in-game menu and confirmation
     this.hide();
+    this.hideConfirmation();
 
-    // Pause the game first to stop updates
-    this.game.pause();
-
-    // Get access to the scene for cleanup
+    // Get the current scene from the game
     const scene = this.game.getSceneSystem().getScene();
 
-    // Ensure hyperspace effect is disabled and wait for the transition to complete
-    this.logger.info(
-      "Disabling hyperspace effect before returning to main menu"
-    );
-    await scene.transitionHyperspace(false, 1.0);
+    // Create and show the transition screen
+    const transitionScreen = new TransitionScreen(scene);
 
-    // Clean up the player ship - do this ONCE here, not in UISystem.showMenu()
-    this.logger.info("Cleaning up player ship before returning to main menu");
-    scene.cleanupPlayerShip();
+    // Show the transition screen and wait for completion
+    await new Promise<void>((resolve) => {
+      transitionScreen.show(() => {
+        // After transition is complete:
+        // 1. Stop any game audio
+        if (this.game.getAudioManager()) {
+          this.game.getAudioManager().stopMusic();
+        }
 
-    // Stop any game audio that might be playing
-    if (this.game.getAudioManager()) {
-      this.logger.info("Stopping game audio before playing menu music");
-      this.game.getAudioManager().stopMusic();
-    }
+        // 2. Get the new scene that has the animation loop running
+        const newScene = transitionScreen.getNewScene();
+        if (newScene) {
+          // Update the scene reference in the game's scene system
+          this.game.getSceneSystem().dispose();
 
-    // Use the UISystem to show the main menu WITHOUT additional cleanup
-    this.game.getUISystem().showMainMenuWithoutCleanup();
+          // Set up the new scene
+          newScene.setGame(this.game);
+          newScene.init().then(() => {
+            // 3. Show the main menu
+            this.game.getUISystem().showMenu();
+          });
+        }
+
+        // 4. Clean up the transition screen
+        transitionScreen.dispose();
+
+        resolve();
+      });
+    });
+
+    this.logger.info("Return to main menu sequence complete");
   }
 
   /**

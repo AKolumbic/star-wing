@@ -120,33 +120,17 @@ export class ToneMusicPlayer {
         this.fadeoutTimers.delete("menu_music");
       }
 
-      // Check if we already have a menu music player
+      // Stop and dispose any existing menu music player
       const existingPlayer = this.activePlayers.get("menu_music");
       if (existingPlayer) {
         this.logger.info(
-          "ToneMusicPlayer: Using pre-created menu music player for instant playback"
+          "ToneMusicPlayer: Disposing existing menu music player"
         );
-
-        // Reset the player to start from the beginning
-        try {
-          existingPlayer.stop();
-          existingPlayer.seek(0);
-          existingPlayer.volume.value = 0; // Set to full volume immediately
-          existingPlayer.start();
-          this.logger.info(
-            "ToneMusicPlayer: Menu music playing (instant start)"
-          );
-          return existingPlayer;
-        } catch (error) {
-          this.logger.warn(
-            "ToneMusicPlayer: Error restarting existing player",
-            error
-          );
-          // Continue to create a new one if restarting failed
-        }
+        existingPlayer.stop();
+        existingPlayer.dispose();
+        this.activePlayers.delete("menu_music");
       }
 
-      // If we don't have a player or restarting failed, create a new one
       // Check if the buffer exists
       if (!this.bufferManager.hasBuffer("menu_music")) {
         this.logger.warn("ToneMusicPlayer: Menu music buffer not found");
@@ -161,7 +145,7 @@ export class ToneMusicPlayer {
       }
 
       this.logger.info(
-        `ToneMusicPlayer: Creating player with buffer duration: ${buffer.duration}s`
+        `ToneMusicPlayer: Creating new player with buffer duration: ${buffer.duration}s`
       );
 
       // Ensure Tone.js context is running
@@ -171,21 +155,22 @@ export class ToneMusicPlayer {
         Tone.start();
       }
 
-      // Create a new player with the loaded AudioBuffer by passing the underlying AudioBuffer
+      // Create a new player with the loaded AudioBuffer
       const audioBuffer = buffer.get() as AudioBuffer;
       const player = new Tone.Player(audioBuffer, () => {
         this.logger.info("ToneMusicPlayer: Player loaded");
       });
       player.loop = loop;
       player.autostart = false;
-      player.volume.value = 0; // set to normal volume
+      player.volume.value = -60; // Start silent and fade in
       player.toDestination();
 
       // Store the player
       this.activePlayers.set("menu_music", player);
 
-      // Start playback
+      // Start playback and fade in
       player.start();
+      player.volume.rampTo(0, fadeInTime);
 
       this.logger.info("ToneMusicPlayer: Menu music playing");
       return player;
@@ -212,13 +197,12 @@ export class ToneMusicPlayer {
         this.fadeoutTimers.delete("menu_music");
       }
 
-      // Just stop after fade out but keep the player for reuse
+      // Stop and dispose after fade out
       const timerId = setTimeout(() => {
         player.stop();
-        // Keep player in activePlayers for instant reuse
-        this.logger.info(
-          "ToneMusicPlayer: Menu music stopped but player preserved for instant restart"
-        );
+        player.dispose();
+        this.activePlayers.delete("menu_music");
+        this.logger.info("ToneMusicPlayer: Menu music stopped and disposed");
         this.fadeoutTimers.delete("menu_music");
       }, fadeOutTime * 1000);
 
@@ -362,6 +346,21 @@ export class ToneMusicPlayer {
   public stopLayeredMusic(fadeOutTime: number = 1): void {
     this.logger.info("ToneMusicPlayer: Stopping all layered music");
 
+    // Stop game loop music if it's playing
+    const gameLoopPlayer = this.activePlayers.get("game_loop");
+    if (gameLoopPlayer) {
+      this.logger.info("ToneMusicPlayer: Stopping game loop music");
+      gameLoopPlayer.volume.rampTo(-60, fadeOutTime);
+      setTimeout(() => {
+        gameLoopPlayer.stop();
+        gameLoopPlayer.dispose();
+        this.activePlayers.delete("game_loop");
+        this.logger.info(
+          "ToneMusicPlayer: Game loop music stopped and disposed"
+        );
+      }, fadeOutTime * 1000);
+    }
+
     // Fade out all layers
     this.activeLayers.forEach((layer) => {
       layer.gain.gain.rampTo(0, fadeOutTime);
@@ -382,6 +381,27 @@ export class ToneMusicPlayer {
       // Clear the layers
       this.activeLayers.clear();
     }, `+${fadeOutTime}`);
+  }
+
+  /**
+   * Stops game loop music with an optional fade-out
+   */
+  public stopGameMusic(fadeOutTime: number = 1): void {
+    this.logger.info("ToneMusicPlayer: Stopping game music");
+
+    const player = this.activePlayers.get("game_loop");
+    if (player) {
+      // Fade out gracefully
+      player.volume.rampTo(-60, fadeOutTime);
+
+      // Stop and dispose after fade out
+      setTimeout(() => {
+        player.stop();
+        player.dispose();
+        this.activePlayers.delete("game_loop");
+        this.logger.info("ToneMusicPlayer: Game music stopped and disposed");
+      }, fadeOutTime * 1000);
+    }
   }
 
   /**

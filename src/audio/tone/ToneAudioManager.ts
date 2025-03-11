@@ -713,7 +713,19 @@ export class ToneAudioManager {
    */
   public stopMusic(): void {
     this.logger.info("ToneAudioManager: Stopping all music");
-    this.stopMenuMusic();
+
+    // Stop menu music with a short fade
+    this.musicPlayer.stopMenuMusic(0.5);
+
+    // Stop game loop music with a short fade
+    this.musicPlayer.stopGameMusic(0.5);
+
+    // Stop layered music with a short fade
     this.stopLayeredMusic();
+
+    // Stop procedural music with a short fade
+    this.proceduralMusic.stopMusic(0.5);
+
+    this.isPlaying = false;
   }
 }
