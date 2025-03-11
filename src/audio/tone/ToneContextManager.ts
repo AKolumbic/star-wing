@@ -1,6 +1,5 @@
 /**
- * ToneContextManager - Manages the Tone.js context and master volume control
- * This is a direct replacement for the Web Audio API's AudioContextManager
+ * ToneContextManager - Manages the Tone.js audio context
  */
 import { Logger } from "../../utils/Logger";
 import * as Tone from "tone";
@@ -12,31 +11,54 @@ export class ToneContextManager {
   /** Flag indicating if audio is currently muted */
   private isMuted: boolean = false;
 
+  /** Is the context initialized */
+  private isInitialized = false;
+
   constructor() {
-    this.logger.info(
-      "ToneContextManager: Creating new Tone.js context manager"
-    );
+    this.logger.info("ToneContextManager: Created");
 
     // Load mute state from localStorage
-    const savedMuteState = localStorage.getItem("starWing_muted");
-    this.isMuted = savedMuteState ? savedMuteState === "true" : false;
-
-    // Set default volume to 25% if nothing is stored
-    if (!localStorage.getItem("starWing_volume")) {
-      localStorage.setItem("starWing_volume", "0.25");
-    }
-
-    // Set initial volume
-    const volume = this.isMuted ? -Infinity : this.getVolumeInDb();
-    Tone.getDestination().volume.value = volume;
+    this.loadMuteState();
   }
 
   /**
-   * Initializes the Tone.js audio context
+   * Initializes the Tone.js context
    */
   public async initialize(): Promise<void> {
-    this.logger.info("ToneContextManager: Initializing Tone.js context");
+    if (this.isInitialized) {
+      this.logger.info("ToneContextManager: Already initialized");
+      return;
+    }
 
+    this.logger.info("ToneContextManager: Initializing");
+
+    try {
+      // Attempt to resume the context if it's suspended
+      await this.startContext();
+
+      // Now that context is started, set maxPolyphony (moved from constructor)
+      // Increase polyphony limit to prevent dropped notes
+      // Default is 32, we'll increase it to 64
+      if (Tone.context && (Tone.context as any).options) {
+        (Tone.context as any).options.maxPolyphony = 64;
+        this.logger.info("ToneContextManager: Set maxPolyphony to 64");
+      } else {
+        this.logger.warn(
+          "ToneContextManager: Could not set maxPolyphony - context not fully initialized"
+        );
+      }
+
+      this.isInitialized = true;
+      this.logger.info("ToneContextManager: Initialization complete");
+    } catch (error) {
+      this.logger.error("ToneContextManager: Initialization failed", error);
+    }
+  }
+
+  /**
+   * Starts the Tone.js audio context
+   */
+  private async startContext(): Promise<void> {
     try {
       await Tone.start();
       this.logger.info(
@@ -47,6 +69,7 @@ export class ToneContextManager {
         "ToneContextManager: Failed to start Tone.js context",
         error
       );
+      throw error;
     }
   }
 
@@ -171,5 +194,22 @@ export class ToneContextManager {
   public dispose(): void {
     this.logger.info("ToneContextManager: Disposing resources");
     // Tone.js will handle its own cleanup
+  }
+
+  /**
+   * Loads mute state from localStorage
+   */
+  private loadMuteState(): void {
+    const savedMuteState = localStorage.getItem("starWing_muted");
+    this.isMuted = savedMuteState ? savedMuteState === "true" : false;
+
+    // Set default volume to 25% if nothing is stored
+    if (!localStorage.getItem("starWing_volume")) {
+      localStorage.setItem("starWing_volume", "0.25");
+    }
+
+    // Set initial volume
+    const volume = this.isMuted ? -Infinity : this.getVolumeInDb();
+    Tone.getDestination().volume.value = volume;
   }
 }

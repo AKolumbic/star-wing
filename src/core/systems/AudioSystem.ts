@@ -1,19 +1,23 @@
 import { GameSystem } from "../GameSystem";
-import { AudioManager } from "../../audio/AudioManager";
+import {
+  getAudioManager,
+  initializeAudioSystem,
+} from "../../audio/initializeAudio";
+import { ToneAudioManager } from "../../audio/tone/ToneAudioManager";
 
 /**
- * Adapter class that wraps the AudioManager class to implement the GameSystem interface.
+ * Adapter class that wraps the ToneAudioManager class to implement the GameSystem interface.
  * Responsible for sound effects, music, and audio control.
  */
 export class AudioSystem implements GameSystem {
-  /** The underlying AudioManager instance */
-  private audioManager: AudioManager;
+  /** The underlying ToneAudioManager instance */
+  private audioManager: ToneAudioManager;
 
   /**
    * Creates a new AudioSystem.
    */
   constructor() {
-    this.audioManager = new AudioManager();
+    this.audioManager = getAudioManager();
   }
 
   /**
@@ -22,8 +26,8 @@ export class AudioSystem implements GameSystem {
    */
   async init(): Promise<void> {
     try {
-      // Initialize the audio manager
-      this.audioManager.initialize();
+      // Initialize the audio system using the helper
+      await initializeAudioSystem();
 
       // Use the new preloading function that handles optimization
       await this.audioManager.preloadEssentialAudio();
@@ -38,11 +42,11 @@ export class AudioSystem implements GameSystem {
 
   /**
    * Updates the audio system for the current frame.
-   * Currently a no-op as the AudioManager handles its own timing.
+   * Currently a no-op as the ToneAudioManager handles its own timing.
    * @param deltaTime Time elapsed since the last frame in seconds
    */
   update(_deltaTime: number): void {
-    // AudioManager handles its own timing internally
+    // ToneAudioManager handles its own timing internally
   }
 
   /**
@@ -53,10 +57,10 @@ export class AudioSystem implements GameSystem {
   }
 
   /**
-   * Gets the underlying AudioManager instance.
-   * @returns The AudioManager instance
+   * Gets the underlying ToneAudioManager instance.
+   * @returns The ToneAudioManager instance
    */
-  getAudioManager(): AudioManager {
+  getAudioManager(): ToneAudioManager {
     return this.audioManager;
   }
 
@@ -65,11 +69,15 @@ export class AudioSystem implements GameSystem {
    * @param useProceduralAudio Force using procedural audio instead of MP3 (for devMode)
    * @param forceRestart If true, will force restart even if already playing
    */
-  playMenuThump(
+  playMenuMusic(
     useProceduralAudio: boolean = false,
     forceRestart: boolean = false
   ): void {
-    this.audioManager.playMenuThump(useProceduralAudio, forceRestart);
+    if (useProceduralAudio) {
+      this.audioManager.playMenuMusic(true);
+    } else {
+      this.audioManager.playMenuMusic(false);
+    }
   }
 
   /**

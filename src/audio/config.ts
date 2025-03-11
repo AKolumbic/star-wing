@@ -5,12 +5,6 @@
 
 export const AudioConfig = {
   /**
-   * Use Tone.js implementation instead of the original Web Audio API implementation
-   * This can be changed at runtime to switch implementations
-   */
-  useToneJs: false,
-
-  /**
    * Default master volume (0-1 range)
    */
   defaultVolume: 0.25,
@@ -24,6 +18,31 @@ export const AudioConfig = {
    * Enable audio debug logging
    */
   enableDebugLogging: true,
+
+  /**
+   * Performance monitoring for audio
+   */
+  performance: {
+    /**
+     * Enable performance monitoring
+     */
+    enableMonitoring: true,
+
+    /**
+     * Log performance metrics to console
+     */
+    logMetrics: false,
+
+    /**
+     * Interval for logging metrics (in ms)
+     */
+    loggingInterval: 10000,
+
+    /**
+     * Maximum audio nodes before warning
+     */
+    maxAudioNodes: 100,
+  },
 
   /**
    * Paths to essential audio assets

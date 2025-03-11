@@ -1,6 +1,6 @@
 /**
- * AudioToggle - A simple UI control to toggle between audio implementations
- * This allows for A/B testing between the original Web Audio API and Tone.js implementations
+ * AudioToggle - A UI control to toggle between audio implementations
+ * Enhanced to support feature-by-feature migration testing
  */
 import { AudioConfig } from "../audio/config";
 import { AudioManagerFactory } from "../audio/AudioManagerFactory";
@@ -12,11 +12,17 @@ export class AudioToggle {
   private toggleButton!: HTMLButtonElement;
   private statusLabel!: HTMLElement;
   private feedbackButton!: HTMLButtonElement;
+  private featureToggleContainer!: HTMLElement;
+  private featureToggles: Record<string, HTMLInputElement> = {};
+  private performanceDisplay!: HTMLElement;
 
   /** Current implementation */
   private usingToneJs: boolean;
 
-  /** Logger */
+  /** Performance monitoring interval */
+  private performanceInterval: number | null = null;
+
+  /** Logger instance */
   private logger = Logger.getInstance();
 
   /** Instance */
@@ -50,6 +56,11 @@ export class AudioToggle {
     this.feedbackButton.addEventListener("click", () =>
       this.showFeedbackForm()
     );
+
+    // Setup performance monitoring if enabled
+    if (AudioConfig.performance.enableMonitoring) {
+      this.startPerformanceMonitoring();
+    }
   }
 
   /**
@@ -61,6 +72,8 @@ export class AudioToggle {
     this.toggleButton = document.createElement("button");
     this.statusLabel = document.createElement("span");
     this.feedbackButton = document.createElement("button");
+    this.featureToggleContainer = document.createElement("div");
+    this.performanceDisplay = document.createElement("div");
 
     // Style container
     this.container.style.position = "fixed";
@@ -74,6 +87,7 @@ export class AudioToggle {
     this.container.style.display = "flex";
     this.container.style.flexDirection = "column";
     this.container.style.gap = "10px";
+    this.container.style.maxWidth = "300px";
 
     // Style toggle button
     this.toggleButton.textContent = "Switch Audio Engine";
@@ -97,32 +111,194 @@ export class AudioToggle {
     this.statusLabel.style.fontSize = "14px";
     this.statusLabel.style.fontFamily = "monospace";
 
+    // Style feature toggle container
+    this.featureToggleContainer.style.display = "flex";
+    this.featureToggleContainer.style.flexDirection = "column";
+    this.featureToggleContainer.style.gap = "5px";
+    this.featureToggleContainer.style.marginTop = "5px";
+
+    // Style performance display
+    this.performanceDisplay.style.fontSize = "12px";
+    this.performanceDisplay.style.fontFamily = "monospace";
+    this.performanceDisplay.style.marginTop = "5px";
+    this.performanceDisplay.style.padding = "5px";
+    this.performanceDisplay.style.backgroundColor = "rgba(0, 0, 0, 0.3)";
+    this.performanceDisplay.style.borderRadius = "3px";
+    this.performanceDisplay.textContent = "Performance: monitoring...";
+
     // Add title
     const title = document.createElement("h3");
     title.textContent = "Audio A/B Testing";
     title.style.margin = "0 0 10px 0";
     title.style.fontSize = "16px";
 
+    // Create feature toggles
+    this.createFeatureToggles();
+
     // Assemble container
     this.container.appendChild(title);
     this.container.appendChild(this.statusLabel);
     this.container.appendChild(this.toggleButton);
+
+    // Only show feature toggles when not using full Tone.js
+    if (!this.usingToneJs) {
+      this.container.appendChild(this.featureToggleContainer);
+    }
+
+    this.container.appendChild(this.performanceDisplay);
     this.container.appendChild(this.feedbackButton);
   }
 
   /**
-   * Update the status label
+   * Creates UI controls for feature toggles
+   */
+  private createFeatureToggles(): void {
+    // Clear existing toggles
+    this.featureToggleContainer.innerHTML = "";
+
+    // Create a toggle for each feature
+    const featureTitle = document.createElement("h4");
+    featureTitle.textContent = "Feature Toggles";
+    featureTitle.style.margin = "0 0 5px 0";
+    featureTitle.style.fontSize = "14px";
+    this.featureToggleContainer.appendChild(featureTitle);
+
+    // Create toggle for each feature
+    Object.keys(AudioConfig.featureToggles).forEach((key) => {
+      const toggleKey = key as keyof typeof AudioConfig.featureToggles;
+      const value = AudioConfig.featureToggles[toggleKey];
+
+      const toggleContainer = document.createElement("div");
+      toggleContainer.style.display = "flex";
+      toggleContainer.style.alignItems = "center";
+      toggleContainer.style.justifyContent = "space-between";
+
+      const label = document.createElement("label");
+      label.textContent = this.formatFeatureName(toggleKey);
+      label.style.flex = "1";
+      label.style.fontSize = "12px";
+
+      const toggle = document.createElement("input");
+      toggle.type = "checkbox";
+      toggle.checked = value;
+      toggle.style.cursor = "pointer";
+
+      // Store reference to the toggle
+      this.featureToggles[toggleKey] = toggle;
+
+      // Add event listener
+      toggle.addEventListener("change", () => {
+        if (toggle.checked) {
+          AudioManagerFactory.enableToneJsFeature(toggleKey);
+        } else {
+          AudioManagerFactory.disableToneJsFeature(toggleKey);
+        }
+
+        // Update UI
+        this.updateStatus();
+        this.showFeatureTogglePrompt(toggleKey, toggle.checked);
+      });
+
+      toggleContainer.appendChild(label);
+      toggleContainer.appendChild(toggle);
+      this.featureToggleContainer.appendChild(toggleContainer);
+    });
+  }
+
+  /**
+   * Formats a feature name for display
+   */
+  private formatFeatureName(feature: string): string {
+    // Remove the "useToneJsFor" prefix and add spaces
+    return feature
+      .replace("useToneJsFor", "")
+      .replace(/([A-Z])/g, " $1")
+      .trim();
+  }
+
+  /**
+   * Update the status label and UI
    */
   private updateStatus(): void {
     this.usingToneJs = AudioConfig.useToneJs;
-    this.statusLabel.textContent = `Current: ${
-      this.usingToneJs ? "Tone.js" : "Web Audio API"
-    }`;
 
-    // Update toggle button color
-    this.toggleButton.style.backgroundColor = this.usingToneJs
-      ? "#4CAF50"
-      : "#FF9800";
+    // Update status label
+    if (this.usingToneJs) {
+      this.statusLabel.textContent = `Using: Tone.js (Full)`;
+    } else {
+      // Check if any features are enabled
+      const enabledFeatures = Object.values(AudioConfig.featureToggles).filter(
+        Boolean
+      ).length;
+      if (enabledFeatures > 0) {
+        this.statusLabel.textContent = `Using: Hybrid (${enabledFeatures} Tone.js features)`;
+      } else {
+        this.statusLabel.textContent = `Using: Web Audio API (Original)`;
+      }
+    }
+
+    // Update toggle button color and text
+    if (this.usingToneJs) {
+      this.toggleButton.style.backgroundColor = "#4CAF50";
+      this.toggleButton.textContent = "Switch to Web Audio API";
+    } else {
+      this.toggleButton.style.backgroundColor = "#FF9800";
+      this.toggleButton.textContent = "Switch to Full Tone.js";
+    }
+
+    // Show/hide feature toggles based on mode
+    if (this.usingToneJs) {
+      this.featureToggleContainer.style.display = "none";
+    } else {
+      this.featureToggleContainer.style.display = "flex";
+
+      // Update toggle states
+      Object.keys(AudioConfig.featureToggles).forEach((key) => {
+        const toggleKey = key as keyof typeof AudioConfig.featureToggles;
+        const toggle = this.featureToggles[toggleKey];
+        if (toggle) {
+          toggle.checked = AudioConfig.featureToggles[toggleKey];
+        }
+      });
+    }
+  }
+
+  /**
+   * Start monitoring and displaying performance metrics
+   */
+  private startPerformanceMonitoring(): void {
+    if (this.performanceInterval !== null) {
+      clearInterval(this.performanceInterval);
+    }
+
+    this.performanceInterval = window.setInterval(() => {
+      // Get the current audio manager
+      const manager = AudioManagerFactory.getAudioManager() as any;
+
+      // Check if it has performance metrics
+      if (manager.getPerformanceMetrics) {
+        const metrics = manager.getPerformanceMetrics();
+        this.updatePerformanceDisplay(metrics);
+      } else {
+        this.performanceDisplay.textContent = "Performance: Not available";
+      }
+    }, 1000) as unknown as number;
+  }
+
+  /**
+   * Update the performance display
+   */
+  private updatePerformanceDisplay(metrics: any): void {
+    if (!metrics) {
+      this.performanceDisplay.textContent = "Performance: No data";
+      return;
+    }
+
+    this.performanceDisplay.textContent =
+      `Nodes: ${metrics.audioNodeCount || "N/A"} | ` +
+      `Latency: ${
+        metrics.avgLatency ? metrics.avgLatency.toFixed(1) + "ms" : "N/A"
+      }`;
   }
 
   /**
@@ -143,6 +319,34 @@ export class AudioToggle {
 
     // Show feedback dialog
     this.showFeedbackPrompt();
+  }
+
+  /**
+   * Show a prompt for feedback after toggling a feature
+   */
+  private showFeatureTogglePrompt(feature: string, enabled: boolean): void {
+    const formattedFeature = this.formatFeatureName(feature);
+
+    const prompt = document.createElement("div");
+    prompt.style.position = "fixed";
+    prompt.style.top = "20px";
+    prompt.style.left = "50%";
+    prompt.style.transform = "translateX(-50%)";
+    prompt.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+    prompt.style.color = "white";
+    prompt.style.padding = "15px";
+    prompt.style.borderRadius = "5px";
+    prompt.style.zIndex = "1100";
+    prompt.textContent = `${
+      enabled ? "Enabled" : "Disabled"
+    } Tone.js for ${formattedFeature}. Notice any differences?`;
+
+    document.body.appendChild(prompt);
+
+    // Remove after 3 seconds
+    setTimeout(() => {
+      document.body.removeChild(prompt);
+    }, 3000);
   }
 
   /**
@@ -205,9 +409,22 @@ export class AudioToggle {
 
     // Create implementation info
     const info = document.createElement("p");
-    info.textContent = `Current implementation: ${
-      this.usingToneJs ? "Tone.js" : "Web Audio API"
-    }`;
+    if (this.usingToneJs) {
+      info.textContent = `Current implementation: Tone.js (Full)`;
+    } else {
+      // Check if any features are enabled
+      const enabledFeatures = Object.entries(AudioConfig.featureToggles)
+        .filter(([_, value]) => value)
+        .map(([key]) => this.formatFeatureName(key));
+
+      if (enabledFeatures.length > 0) {
+        info.textContent = `Current implementation: Hybrid - Tone.js used for: ${enabledFeatures.join(
+          ", "
+        )}`;
+      } else {
+        info.textContent = `Current implementation: Web Audio API (Original)`;
+      }
+    }
 
     // Create feedback textarea
     const textareaLabel = document.createElement("label");
@@ -253,6 +470,37 @@ export class AudioToggle {
       ratingContainer.appendChild(wrapper);
     }
 
+    // Create performance rating section
+    const perfRatingLabel = document.createElement("label");
+    perfRatingLabel.textContent = "Rate performance (1-5):";
+    perfRatingLabel.style.display = "block";
+    perfRatingLabel.style.marginTop = "15px";
+
+    const perfRatingContainer = document.createElement("div");
+    perfRatingContainer.style.display = "flex";
+    perfRatingContainer.style.gap = "10px";
+    perfRatingContainer.style.marginTop = "5px";
+
+    for (let i = 1; i <= 5; i++) {
+      const radio = document.createElement("input");
+      radio.type = "radio";
+      radio.name = "perf-rating";
+      radio.value = i.toString();
+      radio.id = `perf-rating-${i}`;
+      radio.style.cursor = "pointer";
+
+      const label = document.createElement("label");
+      label.htmlFor = `perf-rating-${i}`;
+      label.textContent = i.toString();
+      label.style.cursor = "pointer";
+
+      const wrapper = document.createElement("div");
+      wrapper.appendChild(radio);
+      wrapper.appendChild(label);
+
+      perfRatingContainer.appendChild(wrapper);
+    }
+
     // Create button container
     const buttonContainer = document.createElement("div");
     buttonContainer.style.display = "flex";
@@ -286,20 +534,38 @@ export class AudioToggle {
     });
 
     submitButton.addEventListener("click", () => {
-      // Get selected rating
+      // Get selected ratings
       const selectedRating = document.querySelector(
         'input[name="rating"]:checked'
       ) as HTMLInputElement;
       const rating = selectedRating ? selectedRating.value : "Not provided";
 
+      const selectedPerfRating = document.querySelector(
+        'input[name="perf-rating"]:checked'
+      ) as HTMLInputElement;
+      const perfRating = selectedPerfRating
+        ? selectedPerfRating.value
+        : "Not provided";
+
       // Get feedback text
       const feedbackText = textarea.value;
 
+      // Determine implementation type for logging
+      let implType = "Web Audio API";
+      if (this.usingToneJs) {
+        implType = "Tone.js (Full)";
+      } else {
+        const enabledFeatures = Object.values(
+          AudioConfig.featureToggles
+        ).filter(Boolean).length;
+        if (enabledFeatures > 0) {
+          implType = `Hybrid (${enabledFeatures} Tone.js features)`;
+        }
+      }
+
       // Log feedback
       this.logger.info(
-        `AudioToggle: Feedback for ${
-          this.usingToneJs ? "Tone.js" : "Web Audio API"
-        } - Rating: ${rating}, Feedback: ${feedbackText}`
+        `AudioToggle: Feedback for ${implType} - Audio Rating: ${rating}, Performance Rating: ${perfRating}, Feedback: ${feedbackText}`
       );
 
       // In a real implementation, this would be sent to a server
@@ -322,6 +588,8 @@ export class AudioToggle {
     form.appendChild(textarea);
     form.appendChild(ratingLabel);
     form.appendChild(ratingContainer);
+    form.appendChild(perfRatingLabel);
+    form.appendChild(perfRatingContainer);
     form.appendChild(buttonContainer);
 
     modal.appendChild(form);
@@ -350,6 +618,22 @@ export class AudioToggle {
     setTimeout(() => {
       document.body.removeChild(message);
     }, 3000);
+  }
+
+  /**
+   * Clean up resources
+   */
+  public dispose(): void {
+    if (this.performanceInterval !== null) {
+      clearInterval(this.performanceInterval);
+      this.performanceInterval = null;
+    }
+
+    if (this.container.parentNode) {
+      this.container.parentNode.removeChild(this.container);
+    }
+
+    AudioToggle.instance = undefined as any;
   }
 }
 

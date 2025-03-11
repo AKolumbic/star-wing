@@ -119,9 +119,18 @@ export class ToneBufferManager {
 
     // Define essential sounds - Update with your actual essential sounds
     const essentials = [
-      { url: "audio/laser.mp3", id: "laser", essential: true },
-      { url: "audio/explosion.mp3", id: "explosion", essential: true },
-      { url: "audio/menu_select.mp3", id: "menu_select", essential: true },
+      { url: "assets/audio/laser.mp3", id: "laser", essential: true },
+      { url: "assets/audio/explosion.mp3", id: "explosion", essential: true },
+      {
+        url: "assets/audio/menu_select.mp3",
+        id: "menu_select",
+        essential: true,
+      },
+      {
+        url: "assets/audio/star-wing_menu-loop.mp3",
+        id: "menu_music",
+        essential: true,
+      },
     ];
 
     // Load all essential sounds
