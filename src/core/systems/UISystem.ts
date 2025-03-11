@@ -8,6 +8,7 @@ import { GameHUD } from "../../ui/GameHUD";
 import { GameOverScreen } from "../../ui/GameOverScreen";
 import { ZoneComplete } from "../../ui/ZoneComplete";
 import { Logger } from "../../utils/Logger";
+import { InGameMenu } from "../../ui/InGameMenu";
 
 /**
  * System that manages all UI components including menus, overlays, and HUD.
@@ -16,6 +17,9 @@ import { Logger } from "../../utils/Logger";
 export class UISystem implements GameSystem {
   /** Main menu controller */
   private menu: Menu;
+
+  /** In-game menu controller */
+  private inGameMenu: InGameMenu;
 
   /** Loading screen shown at startup */
   private loadingScreen?: LoadingScreen;
@@ -54,6 +58,7 @@ export class UISystem implements GameSystem {
   constructor(game: Game) {
     this.game = game;
     this.menu = new Menu(this.game);
+    this.inGameMenu = new InGameMenu(this.game);
     this.terminalBorder = TerminalBorder.getInstance();
     this.textCrawl = new TextCrawl(this.game);
     this.gameHUD = new GameHUD(this.game);
@@ -61,6 +66,9 @@ export class UISystem implements GameSystem {
     this.zoneCompleteScreen = new ZoneComplete(this.game);
 
     // The loading screen is created later when needed
+
+    // Hide the in-game menu initially (ensure it's not visible on start)
+    this.hideInGameMenu();
 
     // Set up Escape key handler for in-game menu
     this.setupEscapeKeyHandler();
@@ -94,6 +102,7 @@ export class UISystem implements GameSystem {
 
     // Hide all UI components
     this.hideMenu();
+    this.hideInGameMenu();
     this.hideTextCrawl();
     this.hideTerminalBorder();
     this.hideGameHUD();
@@ -110,6 +119,7 @@ export class UISystem implements GameSystem {
     }
 
     this.menu.dispose();
+    this.inGameMenu.dispose();
     this.textCrawl.dispose();
     this.gameHUD.dispose();
     this.gameOverScreen.dispose();
@@ -122,10 +132,13 @@ export class UISystem implements GameSystem {
   private setupEscapeKeyHandler(): void {
     this.escapeKeyHandler = (e: KeyboardEvent) => {
       if (e.key === "Escape" && this.gameActive) {
-        // Toggle menu visibility
-        if (this.isMenuVisible()) {
-          this.resumeGame();
+        // Let the InGameMenu handle the ESC key if it's visible
+        // (it needs to handle the confirmation dialog if visible)
+        if (this.isInGameMenuVisible()) {
+          // The menu is already handling this via its own key event handler
+          return;
         } else {
+          // Menu is not visible, so show it
           this.showInGameMenu();
         }
 
@@ -158,6 +171,7 @@ export class UISystem implements GameSystem {
 
   /**
    * Shows the main menu (not during gameplay).
+   * This method performs cleanup operations.
    */
   showMenu(): void {
     this.gameActive = false;
@@ -174,8 +188,8 @@ export class UISystem implements GameSystem {
 
       // Transition back to menu music
       if (this.game.getAudioManager()) {
-        // Stop any game music first with a short fade out
-        this.game.getAudioManager().stopLayeredMusic();
+        // Stop ALL music before starting menu music to prevent overlapping tracks
+        this.game.getAudioManager().stopMusic();
 
         // Play menu music immediately for better synchronization with menu display
         this.game.getAudioManager().playMenuMusic(this.game.isDevMode());
@@ -189,6 +203,27 @@ export class UISystem implements GameSystem {
   }
 
   /**
+   * Shows the main menu without performing cleanup operations.
+   * This is used by the InGameMenu when it has already handled cleanup.
+   */
+  showMainMenuWithoutCleanup(): void {
+    this.gameActive = false;
+
+    // Explicitly hide the in-game menu to prevent overlay issues
+    this.hideInGameMenu();
+
+    // Play menu music immediately
+    if (this.game && this.game.getAudioManager()) {
+      this.game.getAudioManager().playMenuMusic(this.game.isDevMode());
+    }
+
+    this.menu.showMainMenu();
+
+    // Hide the HUD
+    this.gameHUD.hide();
+  }
+
+  /**
    * Shows the in-game menu (pause menu during gameplay).
    */
   showInGameMenu(): void {
@@ -197,8 +232,8 @@ export class UISystem implements GameSystem {
       this.game.pause();
     }
 
-    // Show the in-game menu through the Menu class
-    this.menu.showInGameMenu();
+    // Show the in-game menu
+    this.inGameMenu.show();
 
     // Hide the HUD when menu is shown
     this.gameHUD.hide();
@@ -214,8 +249,9 @@ export class UISystem implements GameSystem {
     // Set flag to indicate game is active
     this.gameActive = true;
 
-    // Hide the menu
+    // Hide the menu and in-game menu
     this.menu.hide();
+    this.inGameMenu.hide();
 
     // Show the HUD
     this.gameHUD.show();
@@ -233,7 +269,13 @@ export class UISystem implements GameSystem {
    */
   hideMenu(): void {
     this.menu.hide();
-    // We now handle this explicitly from the Menu class when needed
+  }
+
+  /**
+   * Hides the in-game menu.
+   */
+  hideInGameMenu(): void {
+    this.inGameMenu.hide();
   }
 
   /**
@@ -338,10 +380,18 @@ export class UISystem implements GameSystem {
 
   /**
    * Checks if any menu is currently visible.
-   * @returns True if a menu is visible
+   * @returns True if any menu is visible, false otherwise
    */
   isMenuVisible(): boolean {
     return this.menu.isMenuVisible();
+  }
+
+  /**
+   * Checks if the in-game menu is visible.
+   * @returns True if in-game menu is visible, false otherwise
+   */
+  isInGameMenuVisible(): boolean {
+    return this.inGameMenu.isMenuVisible();
   }
 
   /**

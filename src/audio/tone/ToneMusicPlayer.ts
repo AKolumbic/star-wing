@@ -31,6 +31,9 @@ export class ToneMusicPlayer {
   /** Active music layers for layered playback */
   private activeLayers: Map<string, MusicLayer> = new Map();
 
+  /** Track active fadeout timers to cancel them when restarting tracks */
+  private fadeoutTimers: Map<string, number> = new Map();
+
   /** Logger instance */
   private logger = Logger.getInstance();
 
@@ -110,6 +113,13 @@ export class ToneMusicPlayer {
     this.logger.info("ToneMusicPlayer: Playing menu music");
 
     try {
+      // Cancel any pending fadeout timers to prevent race conditions
+      if (this.fadeoutTimers.has("menu_music")) {
+        this.logger.info("ToneMusicPlayer: Cancelling pending fadeout timer");
+        clearTimeout(this.fadeoutTimers.get("menu_music"));
+        this.fadeoutTimers.delete("menu_music");
+      }
+
       // Check if we already have a menu music player
       const existingPlayer = this.activePlayers.get("menu_music");
       if (existingPlayer) {
@@ -196,14 +206,24 @@ export class ToneMusicPlayer {
       // Fade out gracefully
       player.volume.rampTo(-60, fadeOutTime);
 
+      // Clear any existing fadeout timer
+      if (this.fadeoutTimers.has("menu_music")) {
+        clearTimeout(this.fadeoutTimers.get("menu_music"));
+        this.fadeoutTimers.delete("menu_music");
+      }
+
       // Just stop after fade out but keep the player for reuse
-      setTimeout(() => {
+      const timerId = setTimeout(() => {
         player.stop();
         // Keep player in activePlayers for instant reuse
         this.logger.info(
           "ToneMusicPlayer: Menu music stopped but player preserved for instant restart"
         );
+        this.fadeoutTimers.delete("menu_music");
       }, fadeOutTime * 1000);
+
+      // Store the timer ID so we can cancel it if needed
+      this.fadeoutTimers.set("menu_music", timerId as unknown as number);
     }
   }
 
@@ -379,25 +399,41 @@ export class ToneMusicPlayer {
   }
 
   /**
-   * Disposes of all resources
+   * Disposes all active players and resources
    */
   public dispose(): void {
     this.logger.info("ToneMusicPlayer: Disposing resources");
 
+    // Stop any active fadeout timers
+    this.fadeoutTimers.forEach((timerId) => {
+      clearTimeout(timerId);
+    });
+    this.fadeoutTimers.clear();
+
     // Stop and dispose all active players
     this.activePlayers.forEach((player) => {
-      player.stop();
-      player.dispose();
+      try {
+        player.stop();
+        player.dispose();
+      } catch (error) {
+        this.logger.warn("Error disposing player:", error);
+      }
     });
     this.activePlayers.clear();
 
-    // Stop and dispose all layers
+    // Stop and dispose all active layers
     this.activeLayers.forEach((layer) => {
-      layer.player.stop();
-      layer.player.dispose();
-      layer.gain.dispose();
+      try {
+        layer.player.stop();
+        layer.player.dispose();
+        layer.gain.dispose();
+      } catch (error) {
+        this.logger.warn("Error disposing layer:", error);
+      }
     });
     this.activeLayers.clear();
+
+    this.logger.info("ToneMusicPlayer: All resources disposed");
   }
 
   /**

@@ -234,18 +234,10 @@ export class GameOverScreen {
     const scene = this.game.getSceneSystem().getScene();
     scene.transitionHyperspace(false, 1.0);
 
-    // Transition to menu music
-    if (this.game.getAudioManager()) {
-      // Stop any game music first with a short fade out
-      this.game.getAudioManager().stopMusic(0.5);
-    }
-
     // Clean up the player ship before transitioning to main menu
     scene.cleanupPlayerShip();
 
-    // Wait for fade out before showing menu
-    setTimeout(() => {
-      this.game.getUISystem().showMenu();
-    }, 1000);
+    // Show the menu immediately - the menu itself will handle music transitions
+    this.game.getUISystem().showMenu();
   }
 }
