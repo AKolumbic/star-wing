@@ -48,9 +48,9 @@ export const AudioConfig = {
    * Paths to essential audio assets
    */
   essentialAudioPaths: {
-    laser: "audio/laser.mp3",
-    explosion: "audio/explosion.mp3",
-    menuSelect: "audio/menu_select.mp3",
+    laser: "assets/audio/sfx/laser.wav",
+    explosion: "assets/audio/sfx/explosion.wav",
+    menuSelect: "assets/audio/sfx/menu_select.wav",
   },
 
   /**

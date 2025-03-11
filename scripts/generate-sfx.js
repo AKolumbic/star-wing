@@ -9,6 +9,7 @@ import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
 import { fileURLToPath } from "url";
+import * as Tone from "tone";
 
 // Get the directory name
 const __filename = fileURLToPath(import.meta.url);
@@ -23,9 +24,14 @@ if (!fs.existsSync(audioDir)) {
 // Generate a laser sound effect
 const generateLaser = () => {
   const laserScript = `
-const fs = require('fs');
-const path = require('path');
-const Tone = require('tone');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import * as Tone from 'tone';
+
+// Get the directory name
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Create an offline context for rendering audio
 const renderLength = 1; // seconds
@@ -86,9 +92,14 @@ context.render().then((buffer) => {
 // Generate an explosion sound effect
 const generateExplosion = () => {
   const explosionScript = `
-const fs = require('fs');
-const path = require('path');
-const Tone = require('tone');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import * as Tone from 'tone';
+
+// Get the directory name
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Create an offline context for rendering audio
 const renderLength = 1.5; // seconds
@@ -149,9 +160,14 @@ context.render().then((buffer) => {
 // Generate a menu select sound effect
 const generateMenuSelect = () => {
   const menuSelectScript = `
-const fs = require('fs');
-const path = require('path');
-const Tone = require('tone');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import * as Tone from 'tone';
+
+// Get the directory name
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Create an offline context for rendering audio
 const renderLength = 0.5; // seconds
@@ -207,19 +223,12 @@ const generateAllSfx = async () => {
   try {
     console.log("Generating sound effects...");
 
-    // Create placeholder files
-    fs.writeFileSync(path.join(audioDir, "laser.mp3"), "placeholder");
-    fs.writeFileSync(path.join(audioDir, "explosion.mp3"), "placeholder");
-    fs.writeFileSync(path.join(audioDir, "menu_select.mp3"), "placeholder");
-
-    console.log(
-      "Created placeholder files. For actual sound generation, you need to:"
-    );
-    console.log("1. Install Tone.js: npm install tone");
-    console.log(
-      "2. Find suitable sound effects and place them in public/assets/audio/"
-    );
-    console.log("3. Or create them using a sound editor");
+    // Generate each sound effect
+    await Promise.all([
+      generateLaser(),
+      generateExplosion(),
+      generateMenuSelect(),
+    ]);
 
     console.log("Sound effect generation complete!");
   } catch (error) {

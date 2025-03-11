@@ -60,13 +60,51 @@ export class ToneContextManager {
    */
   private async startContext(): Promise<void> {
     try {
+      this.logger.info(
+        `ToneContextManager: Starting context (current state: ${Tone.context.state})`
+      );
+
+      // First try to resume if suspended
+      if (Tone.context.state === "suspended") {
+        this.logger.info("ToneContextManager: Resuming suspended context");
+        await Tone.context.resume();
+      }
+
+      // Then start Tone.js
       await Tone.start();
+
+      // Wait a bit to ensure context is actually running
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Double-check the context state
+      if (Tone.context.state !== "running") {
+        this.logger.warn(
+          `ToneContextManager: Context still not running (state: ${Tone.context.state})`
+        );
+        throw new Error("Context failed to start");
+      }
+
       this.logger.info(
         "ToneContextManager: Tone.js context started successfully"
       );
     } catch (error) {
       this.logger.error(
         "ToneContextManager: Failed to start Tone.js context",
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Explicitly start the audio context (call this after user interaction)
+   */
+  public async startAudioContext(): Promise<void> {
+    try {
+      await this.startContext();
+    } catch (error) {
+      this.logger.error(
+        "ToneContextManager: Failed to start audio context",
         error
       );
       throw error;

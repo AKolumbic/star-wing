@@ -261,7 +261,7 @@ export class ToneProceduralGenerator {
   /**
    * Starts procedural menu music
    */
-  public startMenuMusic(): void {
+  public async startMenuMusic(): Promise<void> {
     if (this.isPlaying) {
       this.logger.info("ToneProceduralGenerator: Music already playing");
       return;
@@ -270,6 +270,12 @@ export class ToneProceduralGenerator {
     this.logger.info("ToneProceduralGenerator: Starting procedural menu music");
 
     try {
+      // Ensure context is ready
+      if (Tone.context.state !== "running") {
+        await Tone.context.resume();
+        await Tone.start();
+      }
+
       // Create synths
       this.createSynths();
 
@@ -277,7 +283,7 @@ export class ToneProceduralGenerator {
       this.createSequences();
 
       // Start the transport
-      Tone.getTransport().start();
+      Tone.Transport.start();
 
       this.isPlaying = true;
     } catch (error) {
@@ -544,7 +550,6 @@ export class ToneProceduralGenerator {
 
     // Ambient pad
     this.synths.pad = new Tone.PolySynth(Tone.Synth).set({
-      maxPolyphony: 32,
       oscillator: { type: "sine" },
       envelope: {
         attack: 2,

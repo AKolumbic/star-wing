@@ -33,14 +33,28 @@ export class ToneBufferManager {
       this.logger.warn(`ToneBufferManager: Buffer ${id} not found in cache`);
       return null;
     }
-    return this.bufferCache.get(id) || null;
+    const buffer = (this.bufferCache as any)._buffers[id];
+    if (!buffer) {
+      this.logger.warn(`ToneBufferManager: Buffer ${id} exists but is null`);
+      return null;
+    }
+    this.logger.info(
+      `ToneBufferManager: Retrieved buffer ${id} (${buffer.duration.toFixed(
+        2
+      )}s)`
+    );
+    return buffer;
   }
 
   /**
    * Checks if a buffer exists in the cache
    */
   public hasBuffer(id: string): boolean {
-    return this.bufferCache.has(id);
+    const exists = id in (this.bufferCache as any)._buffers;
+    this.logger.debug(
+      `ToneBufferManager: Checking buffer ${id} exists: ${exists}`
+    );
+    return exists;
   }
 
   /**
@@ -55,15 +69,17 @@ export class ToneBufferManager {
    * Adds a buffer to the cache
    */
   public storeBuffer(id: string, buffer: Tone.ToneAudioBuffer): void {
-    if (buffer) {
-      // Need to manually add since we're not using the built-in loading
-      (this.bufferCache as any)._buffers[id] = buffer;
-      this.logger.info(
-        `ToneBufferManager: Stored buffer ${id} (${buffer.duration.toFixed(
-          2
-        )}s)`
+    if (!buffer) {
+      this.logger.warn(
+        `ToneBufferManager: Attempted to store null buffer for ${id}`
       );
+      return;
     }
+    // Need to manually add since we're not using the built-in loading
+    (this.bufferCache as any)._buffers[id] = buffer;
+    this.logger.info(
+      `ToneBufferManager: Stored buffer ${id} (${buffer.duration.toFixed(2)}s)`
+    );
   }
 
   /**
@@ -79,35 +95,42 @@ export class ToneBufferManager {
         `ToneBufferManager: Loading audio sample ${id} from ${url}`
       );
 
-      // Use ToneAudioBuffer to load the file
-      const buffer = new Tone.ToneAudioBuffer(
-        url,
-        () => {
-          this.logger.info(
-            `ToneBufferManager: Loaded buffer ${id} (${buffer.duration.toFixed(
-              2
-            )}s)`
-          );
+      // Create a promise to handle the buffer loading
+      return new Promise((resolve, reject) => {
+        // Use ToneAudioBuffer to load the file
+        const buffer = new Tone.ToneAudioBuffer(
+          url,
+          () => {
+            this.logger.info(
+              `ToneBufferManager: Loaded buffer ${id} (${buffer.duration.toFixed(
+                2
+              )}s)`
+            );
 
-          // Add to buffer cache
-          this.storeBuffer(id, buffer);
+            // Add to buffer cache
+            this.storeBuffer(id, buffer);
 
-          if (isEssential) {
-            this.essentialBuffers.add(id);
+            if (isEssential) {
+              this.essentialBuffers.add(id);
+            }
+
+            resolve();
+          },
+          (error) => {
+            this.logger.error(
+              `ToneBufferManager: Failed to load buffer ${id}`,
+              error
+            );
+            reject(error);
           }
-        },
-        (error) => {
-          this.logger.error(
-            `ToneBufferManager: Failed to load buffer ${id}`,
-            error
-          );
-        }
-      );
+        );
+      });
     } catch (error) {
       this.logger.error(
         `ToneBufferManager: Error loading audio sample ${id}`,
         error
       );
+      throw error;
     }
   }
 
@@ -119,10 +142,14 @@ export class ToneBufferManager {
 
     // Define essential sounds - Update with your actual essential sounds
     const essentials = [
-      { url: "assets/audio/laser.mp3", id: "laser", essential: true },
-      { url: "assets/audio/explosion.mp3", id: "explosion", essential: true },
+      { url: "assets/audio/sfx/laser.wav", id: "laser", essential: true },
       {
-        url: "assets/audio/menu_select.mp3",
+        url: "assets/audio/sfx/explosion.wav",
+        id: "explosion",
+        essential: true,
+      },
+      {
+        url: "assets/audio/sfx/menu_select.wav",
         id: "menu_select",
         essential: true,
       },

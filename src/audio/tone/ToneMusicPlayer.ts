@@ -69,20 +69,33 @@ export class ToneMusicPlayer {
         return null;
       }
 
-      // Create a new player
-      const player = new Tone.Player({
-        url: buffer as any,
-        loop: loop,
-        fadeIn: fadeInTime,
-        volume: -10, // Start at lower volume
-        autostart: true,
-      }).toDestination();
+      this.logger.info(
+        `ToneMusicPlayer: Creating player with buffer duration: ${buffer.duration}s`
+      );
+
+      // Ensure Tone.js context is running
+      if (Tone.context.state !== "running") {
+        this.logger.info("ToneMusicPlayer: Starting audio context");
+        Tone.context.resume();
+        Tone.start();
+      }
+
+      // Create a new player with the loaded AudioBuffer by passing the underlying AudioBuffer
+      const audioBuffer = buffer.get() as AudioBuffer;
+      const player = new Tone.Player(audioBuffer, () => {
+        this.logger.info("ToneMusicPlayer: Player loaded");
+      });
+      player.loop = loop;
+      player.autostart = false;
+      player.volume.value = -10; // initially set lower
+      player.toDestination();
 
       // Store the player
       this.activePlayers.set("menu_music", player);
 
-      // Ramp volume up for a smooth start
-      player.volume.rampTo(0, fadeInTime);
+      // For testing, set volume to 0 dB immediately
+      player.volume.value = 0;
+      player.start();
 
       this.logger.info("ToneMusicPlayer: Menu music playing");
       return player;

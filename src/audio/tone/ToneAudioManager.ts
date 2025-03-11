@@ -128,12 +128,13 @@ export class ToneAudioManager {
     // Create a chain for master processing
     this.effectsChain = new ToneEffectsChain();
 
-    // Connect the effects chain between Tone's master output and destination
-    Tone.getDestination().disconnect();
-    this.effectsChain.getInputNode().connect(Tone.getDestination());
+    // -- Original routing (commented out for debugging) --
+    // Tone.getDestination().disconnect();
+    // this.effectsChain.getInputNode().connect(Tone.getDestination());
+    // Tone.Destination.chain(this.effectsChain.getInputNode());
 
-    // Connect Tone's master to our effects chain input
-    Tone.Destination.chain(this.effectsChain.getInputNode());
+    // For debugging, connect the effects chain output directly to the destination
+    this.effectsChain.getOutputNode().connect(Tone.getDestination());
 
     // Apply default environment preset
     this.setEnvironmentEffects(this.activeEnvironment);
@@ -200,24 +201,63 @@ export class ToneAudioManager {
    * Plays menu/title screen music
    * If procedural is true, generates music instead of loading a file
    */
-  public playMenuMusic(procedural: boolean = false): void {
+  public async playMenuMusic(procedural: boolean = false): Promise<void> {
     this.logger.info(
       `ToneAudioManager: Playing menu music (procedural: ${procedural})`
     );
 
     if (procedural) {
       // Use procedural generator
-      this.proceduralMusic.startMenuMusic();
+      await this.proceduralMusic.startMenuMusic();
     } else {
       // Check if we have the menu music buffer
-      if (this.bufferManager.hasBuffer("menu_music")) {
-        this.musicPlayer.playMenuMusic();
+      const hasBuffer = this.bufferManager.hasBuffer("menu_music");
+      const buffer = this.bufferManager.getBuffer("menu_music");
+      this.logger.info(
+        `ToneAudioManager: Menu music buffer status - exists: ${hasBuffer}, buffer: ${
+          buffer ? "valid" : "null"
+        }`
+      );
+
+      // If buffer isn't loaded yet, try loading it
+      if (!hasBuffer || !buffer) {
+        try {
+          this.logger.info("ToneAudioManager: Attempting to load menu music");
+          await this.bufferManager.loadAudioSample(
+            "assets/audio/star-wing_menu-loop.mp3",
+            "menu_music",
+            true
+          );
+          // Check buffer again after loading
+          if (this.bufferManager.hasBuffer("menu_music")) {
+            const player = this.musicPlayer.playMenuMusic();
+            if (!player) {
+              this.logger.warn(
+                "ToneAudioManager: Failed to create player, falling back to procedural"
+              );
+              await this.proceduralMusic.startMenuMusic();
+            }
+          } else {
+            this.logger.warn(
+              "ToneAudioManager: Failed to load menu music, using procedural"
+            );
+            await this.proceduralMusic.startMenuMusic();
+          }
+        } catch (error) {
+          this.logger.error(
+            "ToneAudioManager: Error loading menu music",
+            error
+          );
+          await this.proceduralMusic.startMenuMusic();
+        }
       } else {
-        // Fall back to procedural if buffer not available
-        this.logger.info(
-          "ToneAudioManager: Menu music not found, using procedural"
-        );
-        this.proceduralMusic.startMenuMusic();
+        const player = this.musicPlayer.playMenuMusic();
+        if (!player) {
+          this.logger.warn(
+            "ToneAudioManager: Failed to create player, falling back to procedural"
+          );
+          await this.proceduralMusic.startMenuMusic();
+        }
       }
     }
 
