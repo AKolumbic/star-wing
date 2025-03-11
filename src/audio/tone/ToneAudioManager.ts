@@ -693,4 +693,13 @@ export class ToneAudioManager {
     // Now start the game loop music
     await this.playGameLoopMusic();
   }
+
+  /**
+   * Stops all music playback.
+   */
+  public stopMusic(): void {
+    this.logger.info("ToneAudioManager: Stopping all music");
+    this.stopMenuMusic();
+    this.stopLayeredMusic();
+  }
 }
