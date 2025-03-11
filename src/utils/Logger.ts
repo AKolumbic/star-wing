@@ -37,6 +37,19 @@ export class Logger {
   }
 
   /**
+   * Formats the current timestamp with millisecond precision
+   * @returns Formatted timestamp string in [HH:MM:SS.mmm] format
+   */
+  private getTimestamp(): string {
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, "0");
+    const minutes = now.getMinutes().toString().padStart(2, "0");
+    const seconds = now.getSeconds().toString().padStart(2, "0");
+    const milliseconds = now.getMilliseconds().toString().padStart(3, "0");
+    return `[${hours}:${minutes}:${seconds}.${milliseconds}]`;
+  }
+
+  /**
    * Logs an informational message.
    * These will be stripped in production builds.
    * @param message The message to log
@@ -44,7 +57,10 @@ export class Logger {
    */
   public info(message: string, ...optionalParams: any[]): void {
     if (!this.isProduction) {
-      console.info(`[INFO] ${message}`, ...optionalParams);
+      console.info(
+        `${this.getTimestamp()} [INFO] ${message}`,
+        ...optionalParams
+      );
     }
   }
 
@@ -56,7 +72,10 @@ export class Logger {
    */
   public debug(message: string, ...optionalParams: any[]): void {
     if (!this.isProduction) {
-      console.debug(`[DEBUG] ${message}`, ...optionalParams);
+      console.debug(
+        `${this.getTimestamp()} [DEBUG] ${message}`,
+        ...optionalParams
+      );
     }
   }
 
@@ -68,7 +87,10 @@ export class Logger {
    */
   public warn(message: string, ...optionalParams: any[]): void {
     if (!this.isProduction) {
-      console.warn(`[WARN] ${message}`, ...optionalParams);
+      console.warn(
+        `${this.getTimestamp()} [WARN] ${message}`,
+        ...optionalParams
+      );
     }
   }
 
@@ -80,7 +102,10 @@ export class Logger {
    */
   public error(message: string, ...optionalParams: any[]): void {
     // We always log errors, even in production
-    console.error(`[ERROR] ${message}`, ...optionalParams);
+    console.error(
+      `${this.getTimestamp()} [ERROR] ${message}`,
+      ...optionalParams
+    );
   }
 
   /**
@@ -91,7 +116,7 @@ export class Logger {
    */
   public group(label: string, logFn: () => void): void {
     if (!this.isProduction) {
-      console.group(`[GROUP] ${label}`);
+      console.group(`${this.getTimestamp()} [GROUP] ${label}`);
       logFn();
       console.groupEnd();
     }

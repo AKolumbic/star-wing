@@ -177,10 +177,8 @@ export class UISystem implements GameSystem {
         // Stop any game music first with a short fade out
         this.game.getAudioManager().stopLayeredMusic();
 
-        // Play menu music after a short delay to allow the transition
-        setTimeout(() => {
-          this.game.getAudioManager().playMenuMusic(this.game.isDevMode());
-        }, 500);
+        // Play menu music immediately for better synchronization with menu display
+        this.game.getAudioManager().playMenuMusic(this.game.isDevMode());
       }
     }
 

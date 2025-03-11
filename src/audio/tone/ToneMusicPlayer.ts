@@ -44,6 +44,63 @@ export class ToneMusicPlayer {
   }
 
   /**
+   * Creates a menu music player without starting it,
+   * used for preloading to eliminate startup delay.
+   */
+  public createMenuMusicPlayer(): Tone.Player | null {
+    try {
+      // Check if the buffer exists
+      if (!this.bufferManager.hasBuffer("menu_music")) {
+        this.logger.warn("ToneMusicPlayer: Menu music buffer not found");
+        return null;
+      }
+
+      // Check if we already have a player
+      if (this.activePlayers.has("menu_music")) {
+        return this.activePlayers.get("menu_music") || null;
+      }
+
+      // Get the buffer
+      const buffer = this.bufferManager.getBuffer("menu_music");
+      if (!buffer) {
+        this.logger.warn("ToneMusicPlayer: Menu music buffer is null");
+        return null;
+      }
+
+      this.logger.info(
+        `ToneMusicPlayer: Pre-creating player with buffer duration: ${buffer.duration}s`
+      );
+
+      // Ensure Tone.js context is running
+      if (Tone.context.state !== "running") {
+        this.logger.info("ToneMusicPlayer: Starting audio context");
+        Tone.context.resume();
+        Tone.start();
+      }
+
+      // Create a new player with the loaded AudioBuffer
+      const audioBuffer = buffer.get() as AudioBuffer;
+      const player = new Tone.Player(audioBuffer, () => {
+        this.logger.info("ToneMusicPlayer: Player preloaded and ready");
+      });
+      player.loop = true;
+      player.autostart = false;
+      player.volume.value = -60; // Start silent
+      player.toDestination();
+
+      // Store the player
+      this.activePlayers.set("menu_music", player);
+      return player;
+    } catch (error) {
+      this.logger.error(
+        "ToneMusicPlayer: Error creating menu music player",
+        error
+      );
+      return null;
+    }
+  }
+
+  /**
    * Plays menu music (either file-based or procedural)
    */
   public playMenuMusic(
@@ -53,14 +110,38 @@ export class ToneMusicPlayer {
     this.logger.info("ToneMusicPlayer: Playing menu music");
 
     try {
+      // Check if we already have a menu music player
+      const existingPlayer = this.activePlayers.get("menu_music");
+      if (existingPlayer) {
+        this.logger.info(
+          "ToneMusicPlayer: Using pre-created menu music player for instant playback"
+        );
+
+        // Reset the player to start from the beginning
+        try {
+          existingPlayer.stop();
+          existingPlayer.seek(0);
+          existingPlayer.volume.value = 0; // Set to full volume immediately
+          existingPlayer.start();
+          this.logger.info(
+            "ToneMusicPlayer: Menu music playing (instant start)"
+          );
+          return existingPlayer;
+        } catch (error) {
+          this.logger.warn(
+            "ToneMusicPlayer: Error restarting existing player",
+            error
+          );
+          // Continue to create a new one if restarting failed
+        }
+      }
+
+      // If we don't have a player or restarting failed, create a new one
       // Check if the buffer exists
       if (!this.bufferManager.hasBuffer("menu_music")) {
         this.logger.warn("ToneMusicPlayer: Menu music buffer not found");
         return null;
       }
-
-      // Stop any existing menu music
-      this.stopMenuMusic();
 
       // Get the buffer
       const buffer = this.bufferManager.getBuffer("menu_music");
@@ -87,14 +168,13 @@ export class ToneMusicPlayer {
       });
       player.loop = loop;
       player.autostart = false;
-      player.volume.value = -10; // initially set lower
+      player.volume.value = 0; // set to normal volume
       player.toDestination();
 
       // Store the player
       this.activePlayers.set("menu_music", player);
 
-      // For testing, set volume to 0 dB immediately
-      player.volume.value = 0;
+      // Start playback
       player.start();
 
       this.logger.info("ToneMusicPlayer: Menu music playing");
@@ -116,11 +196,13 @@ export class ToneMusicPlayer {
       // Fade out gracefully
       player.volume.rampTo(-60, fadeOutTime);
 
-      // Stop and dispose after fade out using setTimeout
+      // Just stop after fade out but keep the player for reuse
       setTimeout(() => {
         player.stop();
-        player.dispose();
-        this.activePlayers.delete("menu_music");
+        // Keep player in activePlayers for instant reuse
+        this.logger.info(
+          "ToneMusicPlayer: Menu music stopped but player preserved for instant restart"
+        );
       }, fadeOutTime * 1000);
     }
   }

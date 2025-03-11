@@ -219,37 +219,30 @@ export class ToneAudioManager {
         }`
       );
 
-      // If buffer isn't loaded yet, try loading it
+      // If buffer isn't loaded yet, immediately fallback to procedural music and load sample in background
       if (!hasBuffer || !buffer) {
-        try {
-          this.logger.info("ToneAudioManager: Attempting to load menu music");
-          await this.bufferManager.loadAudioSample(
+        this.logger.warn(
+          "ToneAudioManager: Menu music sample not preloaded, falling back to procedural music immediately"
+        );
+        await this.proceduralMusic.startMenuMusic();
+        // Initiate background loading of the menu music sample
+        this.bufferManager
+          .loadAudioSample(
             "assets/audio/star-wing_menu-loop.mp3",
             "menu_music",
             true
+          )
+          .then(() =>
+            this.logger.info(
+              "ToneAudioManager: Menu music sample loaded in background"
+            )
+          )
+          .catch((error) =>
+            this.logger.error(
+              "ToneAudioManager: Failed to load menu music sample in background",
+              error
+            )
           );
-          // Check buffer again after loading
-          if (this.bufferManager.hasBuffer("menu_music")) {
-            const player = this.musicPlayer.playMenuMusic();
-            if (!player) {
-              this.logger.warn(
-                "ToneAudioManager: Failed to create player, falling back to procedural"
-              );
-              await this.proceduralMusic.startMenuMusic();
-            }
-          } else {
-            this.logger.warn(
-              "ToneAudioManager: Failed to load menu music, using procedural"
-            );
-            await this.proceduralMusic.startMenuMusic();
-          }
-        } catch (error) {
-          this.logger.error(
-            "ToneAudioManager: Error loading menu music",
-            error
-          );
-          await this.proceduralMusic.startMenuMusic();
-        }
       } else {
         const player = this.musicPlayer.playMenuMusic();
         if (!player) {
@@ -400,6 +393,27 @@ export class ToneAudioManager {
    */
   public async preloadEssentialAudio(): Promise<void> {
     await this.bufferManager.preloadEssentials();
+
+    // Pre-create the menu music player to eliminate startup delay
+    if (this.bufferManager.hasBuffer("menu_music")) {
+      this.logger.info(
+        "ToneAudioManager: Pre-creating menu music player to eliminate startup delay"
+      );
+      try {
+        // Create the player but keep it paused
+        const player = this.musicPlayer.createMenuMusicPlayer();
+        if (player) {
+          this.logger.info(
+            "ToneAudioManager: Menu music player pre-created successfully"
+          );
+        }
+      } catch (error) {
+        this.logger.warn(
+          "ToneAudioManager: Failed to pre-create menu music player",
+          error
+        );
+      }
+    }
   }
 
   /**
