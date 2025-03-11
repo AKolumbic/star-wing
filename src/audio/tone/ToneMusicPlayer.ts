@@ -116,19 +116,20 @@ export class ToneMusicPlayer {
       // Fade out gracefully
       player.volume.rampTo(-60, fadeOutTime);
 
-      // Stop and dispose after fade out
-      Tone.getTransport().scheduleOnce(() => {
+      // Stop and dispose after fade out using setTimeout
+      setTimeout(() => {
         player.stop();
         player.dispose();
         this.activePlayers.delete("menu_music");
-      }, `+${fadeOutTime}`);
+      }, fadeOutTime * 1000);
     }
   }
 
   /**
    * Starts layered music playback
+   * Returns true if the base layer was successfully added, false otherwise.
    */
-  public startLayeredMusic(baseMusicId: string): void {
+  public startLayeredMusic(baseMusicId: string): boolean {
     this.logger.info(
       `ToneMusicPlayer: Starting layered music with base ${baseMusicId}`
     );
@@ -143,8 +144,17 @@ export class ToneMusicPlayer {
     // Add the base layer
     this.addMusicLayer(baseMusicId, 1.0);
 
+    // Check if the base layer was added successfully
+    if (!this.activeLayers.has(baseMusicId)) {
+      this.logger.warn(
+        `ToneMusicPlayer: Failed to add layered music for id ${baseMusicId}`
+      );
+      return false;
+    }
+
     // Start the Transport
     Tone.getTransport().start();
+    return true;
   }
 
   /**
@@ -306,5 +316,71 @@ export class ToneMusicPlayer {
       layer.gain.dispose();
     });
     this.activeLayers.clear();
+  }
+
+  /**
+   * Plays game loop music using the 'game_loop' buffer.
+   */
+  public playGameMusic(
+    loop: boolean = true,
+    fadeInTime: number = 1
+  ): Tone.Player | null {
+    this.logger.info("ToneMusicPlayer: Playing game loop music");
+    try {
+      // Check if the buffer exists
+      if (!this.bufferManager.hasBuffer("game_loop")) {
+        this.logger.warn("ToneMusicPlayer: Game loop music buffer not found");
+        return null;
+      }
+      // Stop any existing game loop music if playing
+      const existingPlayer = this.activePlayers.get("game_loop");
+      if (existingPlayer) {
+        existingPlayer.stop();
+        existingPlayer.dispose();
+        this.activePlayers.delete("game_loop");
+      }
+      // Get the buffer
+      const buffer = this.bufferManager.getBuffer("game_loop");
+      if (!buffer) {
+        this.logger.warn("ToneMusicPlayer: Game loop music buffer is null");
+        return null;
+      }
+      this.logger.info(
+        `ToneMusicPlayer: Creating player with game loop buffer duration: ${buffer.duration}s`
+      );
+
+      // Ensure Tone.js context is running
+      if (Tone.context.state !== "running") {
+        this.logger.info("ToneMusicPlayer: Starting audio context");
+        Tone.context.resume();
+        Tone.start();
+      }
+
+      // Create a new player with the loaded AudioBuffer by passing the underlying AudioBuffer
+      const audioBuffer = buffer.get() as AudioBuffer;
+      const player = new Tone.Player(audioBuffer, () => {
+        this.logger.info("ToneMusicPlayer: Game loop player loaded");
+      });
+      player.loop = loop;
+      player.autostart = false;
+      player.volume.value = -10; // initially set lower
+      player.toDestination();
+
+      // Store the player
+      this.activePlayers.set("game_loop", player);
+
+      // Start the player and perform a fade-in over fadeInTime seconds
+      player.start();
+      player.volume.rampTo(0, fadeInTime);
+
+      this.logger.info("ToneMusicPlayer: Game loop music playing");
+      return player;
+    } catch (error) {
+      this.logger.error(
+        "ToneMusicPlayer: Error playing game loop music",
+        error
+      );
+      return null;
+    }
   }
 }

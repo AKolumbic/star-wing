@@ -158,6 +158,11 @@ export class ToneBufferManager {
         id: "menu_music",
         essential: true,
       },
+      {
+        url: "assets/audio/star-wing_game-loop.mp3",
+        id: "game_loop",
+        essential: true,
+      },
     ];
 
     // Load all essential sounds

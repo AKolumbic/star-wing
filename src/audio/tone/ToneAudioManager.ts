@@ -292,6 +292,46 @@ export class ToneAudioManager {
   }
 
   /**
+   * Plays the asteroid collision sound. Alias for playCollisionSound.
+   */
+  public playAsteroidCollisionSound(size: string = "medium"): void {
+    this.logger.info("ToneAudioManager: Playing asteroid collision sound");
+    this.playCollisionSound(size);
+  }
+
+  /**
+   * Plays the game loop music using the 'game_loop' buffer.
+   */
+  public async playGameLoopMusic(): Promise<void> {
+    this.logger.info("ToneAudioManager: Playing game loop music");
+
+    // Check if the game loop music buffer is loaded, if not, attempt to load it
+    if (!this.bufferManager.hasBuffer("game_loop")) {
+      this.logger.info(
+        "ToneAudioManager: Game loop music buffer not found. Attempting to load it."
+      );
+      try {
+        await this.bufferManager.loadAudioSample(
+          "assets/audio/star-wing_game-loop.mp3",
+          "game_loop",
+          true
+        );
+      } catch (error) {
+        this.logger.error(
+          "ToneAudioManager: Error loading game loop music",
+          error
+        );
+        return;
+      }
+    }
+
+    const player = this.musicPlayer.playGameMusic(true, 0.5);
+    if (!player) {
+      this.logger.warn("ToneAudioManager: Failed to play game loop music");
+    }
+  }
+
+  /**
    * Starts layered music with the given base track
    */
   public startLayeredMusic(baseTrackId: string): void {
@@ -635,12 +675,22 @@ export class ToneAudioManager {
   }
 
   /**
-   * Plays level music using the layered music system
-   * This is an alias for startLayeredMusic to maintain backward compatibility
+   * Plays level music by transitioning from menu music to game loop music.
+   * This method stops the menu music with a fade-out and then starts the game loop music.
    * @param levelId The level ID (e.g., "level1")
    */
-  public playLevelMusic(levelId: string): void {
-    this.logger.info(`ToneAudioManager: Playing level music for ${levelId}`);
-    this.startLayeredMusic(levelId);
+  public async playLevelMusic(levelId: string): Promise<void> {
+    this.logger.info(
+      `ToneAudioManager: Transitioning from menu music to game loop music for level ${levelId}`
+    );
+
+    // Stop the menu music with a fade-out of 0.5 seconds
+    this.musicPlayer.stopMenuMusic(0.5);
+
+    // Wait for 0.5 seconds to allow the fade-out to complete
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // Now start the game loop music
+    await this.playGameLoopMusic();
   }
 }
