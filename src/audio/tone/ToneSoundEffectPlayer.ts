@@ -203,7 +203,10 @@ export class ToneSoundEffectPlayer {
           duration = 0.2;
       }
 
-      // Add processing
+      // Add processing: lower volume further (-18 dB) and shift pitch down (-5 semitones) for a deeper torpedo-like effect
+      const pitchShift = new Tone.PitchShift({ pitch: -5 });
+      const volumeNode = new Tone.Volume(-18);
+
       const filter = new Tone.Filter({
         frequency: 2000,
         type: "lowpass",
@@ -212,8 +215,14 @@ export class ToneSoundEffectPlayer {
 
       const distortion = new Tone.Distortion(0.3);
 
-      // Connect the chain
-      synth.chain(filter, distortion, Tone.getDestination());
+      // Connect the chain: synth -> pitchShift -> volume -> filter -> distortion -> destination
+      synth.chain(
+        pitchShift,
+        volumeNode,
+        filter,
+        distortion,
+        Tone.getDestination()
+      );
 
       // Play the sound
       synth.triggerAttack(startFreq);
@@ -223,6 +232,8 @@ export class ToneSoundEffectPlayer {
       // Cleanup
       setTimeout(() => {
         synth.dispose();
+        pitchShift.dispose();
+        volumeNode.dispose();
         filter.dispose();
         distortion.dispose();
       }, (duration + 0.5) * 1000);
