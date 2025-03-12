@@ -1,6 +1,6 @@
 # Layered Music System
 
-The Star Wing audio system now supports layered music, which allows multiple music tracks to play simultaneously in perfect synchronization. This enables dynamic soundtrack changes during gameplay by adding or removing layers, or adjusting their relative volumes.
+The Star Wing audio system supports layered music through Tone.js, which allows multiple music tracks to play simultaneously in perfect synchronization. This enables dynamic soundtrack changes during gameplay by adding or removing layers, or adjusting their relative volumes.
 
 ## Overview
 
@@ -10,6 +10,8 @@ The layered music system allows:
 2. Adding or removing layers during gameplay
 3. Adjusting the volume of individual layers
 4. Creating dynamic soundtracks that respond to game events
+5. Applying per-layer effects processing
+6. Beat-synchronized transitions between layers
 
 ## Required Audio Files
 
@@ -28,8 +30,8 @@ For the first level implementation, we use two audio tracks:
 ## Basic Usage
 
 ```typescript
-// Get the AudioManager instance
-const audioManager = AudioManager.getInstance();
+// Get the ToneAudioManager instance
+const audioManager = ToneAudioManager.getInstance();
 
 // Preload the music for a specific level
 await audioManager.preloadLevelMusic("level1");
@@ -80,19 +82,32 @@ audioManager.removeMusicLayer("trackId", 2.0);
 audioManager.stopMusic(1.0);
 ```
 
+### Applying Effects to Layers
+
+```typescript
+// Apply reverb to a specific layer
+audioManager.applyLayerEffect("ambientLayer", "reverb", 0.3);
+
+// Apply filter to a layer
+audioManager.applyLayerEffect("bassLayer", "lowpass", { frequency: 800 });
+
+// Remove effect from a layer
+audioManager.removeLayerEffect("ambientLayer", "reverb");
+```
+
 ## Creating Custom Layered Music
 
 To create additional layered music for other levels:
 
 1. Create music tracks with the same tempo and duration
 2. Add them to the assets folder
-3. Update the `preloadLevelMusic` method in `AudioManager` to load your new tracks
+3. Update the `preloadLevelMusic` method in `ToneAudioManager` to load your new tracks
 4. Modify the `playLevelMusic` method to handle your new level
 
 Example of adding music for a new level:
 
 ```typescript
-// In AudioManager.ts, update preloadLevelMusic:
+// In ToneAudioManager.ts, update preloadLevelMusic:
 if (levelId === "level2") {
   await this.bufferManager.loadAudioSample(
     "assets/audio/level2-base.mp3",
@@ -144,31 +159,42 @@ function onCombatEnd() {
 }
 ```
 
+## Beat-Synced Layer Changes
+
+Tone.js allows for precise rhythmic synchronization:
+
+```typescript
+// Add a layer on the next bar boundary (typically 4 beats)
+audioManager.addMusicLayerOnNextBar("rhythmLayer", 0.6);
+
+// Remove a layer at a specific time in the musical structure
+audioManager.removeMusicLayerAtTime("rhythmLayer", "4n"); // Remove after a quarter note
+```
+
 ## Implementation Details
 
 The layered music system works by:
 
-1. Creating synchronized AudioBufferSourceNodes for each track
-2. Calculating the exact position in the loop for new layers
-3. Using GainNodes to control the volume of each layer individually
-4. Managing smooth transitions with the Web Audio API's parameter automation
+1. Using Tone.js `Player` objects for each track in perfect synchronization
+2. Calculating the exact position in the loop for new layers using `Tone.Transport`
+3. Using `Tone.Gain` nodes to control the volume of each layer individually
+4. Managing smooth transitions with Tone.js parameter scheduling
+5. Applying Tone.js effects to individual layers or the master output
+6. Synchronizing with Tone.js Transport for beat-accurate timing
 
-## Future Enhancements
+## Current Capabilities
 
 The current implementation supports:
 
-- Up to 5 simultaneous layers
-- Volume control for each layer
+- Up to 8 simultaneous layers
+- Volume control for each layer with smooth transitions
 - Adding and removing layers dynamically
-
-Potential future enhancements:
-
-- Spatial audio for layers (3D positioning)
-- Audio effects per layer (reverb, filters)
-- Automated layer management based on game state
 - Beat-synchronized layer transitions
+- Per-layer audio effects
+- Environment-based effects presets
+- Spatial positioning for selected layers
 
 ## Example Implementation
 
 For a complete example showing how to use the layered music system, see:
-`examples/LayeredMusicExample.ts`
+`docs/examples/LayeredMusicExample.ts`
