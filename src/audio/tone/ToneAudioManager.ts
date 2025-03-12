@@ -100,7 +100,9 @@ export class ToneAudioManager {
   public async initialize(): Promise<void> {
     // Guard to prevent duplicate initialization
     if (this.isInitialized) {
-      this.logger.info("ToneAudioManager: Already initialized, skipping");
+      this.logger.debug(
+        "ToneAudioManager: Already initialized, skipping initialization"
+      );
       return Promise.resolve();
     }
 
@@ -110,8 +112,12 @@ export class ToneAudioManager {
       // Initialize the Tone.js context
       await this.contextManager.initialize();
 
-      // Preload essential audio
+      // Preload essential audio - this won't duplicate work if already preloaded
+      this.logger.debug(
+        "ToneAudioManager: Starting essential audio preload as part of initialization"
+      );
       await this.preloadEssentialAudio();
+      this.logger.debug("ToneAudioManager: Essential audio preload complete");
 
       // Set up master effects chain
       this.setupMasterEffectsChain();
@@ -120,6 +126,7 @@ export class ToneAudioManager {
       this.logger.info("ToneAudioManager: Initialization complete");
     } catch (error) {
       this.logger.error("ToneAudioManager: Initialization failed", error);
+      throw error; // Re-throw to allow proper error handling upstream
     }
   }
 

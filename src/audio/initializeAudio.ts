@@ -6,11 +6,21 @@
 import { AudioManagerFactory } from "./AudioManagerFactory";
 import { Logger } from "../utils/Logger";
 
+// Flag to track if the audio system has been initialized
+let audioSystemInitialized = false;
+
 /**
  * Initializes the audio system for the game.
  */
 export async function initializeAudioSystem(): Promise<void> {
   const logger = Logger.getInstance();
+
+  // Skip if already initialized
+  if (audioSystemInitialized) {
+    logger.debug("Audio system already initialized, skipping");
+    return Promise.resolve();
+  }
+
   const audioManager = AudioManagerFactory.getAudioManager();
 
   try {
@@ -20,6 +30,9 @@ export async function initializeAudioSystem(): Promise<void> {
     // No need to call preloadEssentialAudio separately - it's handled in initialize()
 
     logger.info("Audio system initialized successfully with Tone.js");
+
+    // Mark as initialized
+    audioSystemInitialized = true;
   } catch (error) {
     logger.error("Failed to initialize audio system:", error);
     throw error;

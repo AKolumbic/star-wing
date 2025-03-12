@@ -4,6 +4,7 @@ import {
   initializeAudioSystem,
 } from "../../audio/initializeAudio";
 import { ToneAudioManager } from "../../audio/tone/ToneAudioManager";
+import { Logger } from "../../utils/Logger";
 
 /**
  * Adapter class that wraps the ToneAudioManager class to implement the GameSystem interface.
@@ -12,6 +13,12 @@ import { ToneAudioManager } from "../../audio/tone/ToneAudioManager";
 export class AudioSystem implements GameSystem {
   /** The underlying ToneAudioManager instance */
   private audioManager: ToneAudioManager;
+
+  /** Flag to track if audio system has been initialized */
+  private isInitialized = false;
+
+  /** Logger instance */
+  private logger = Logger.getInstance();
 
   /**
    * Creates a new AudioSystem.
@@ -25,12 +32,21 @@ export class AudioSystem implements GameSystem {
    * @returns A promise that resolves when initialization is complete
    */
   async init(): Promise<void> {
+    // Skip if already initialized
+    if (this.isInitialized) {
+      this.logger.debug("AudioSystem already initialized, skipping");
+      return Promise.resolve();
+    }
+
     try {
       // Initialize the audio system using the helper
       // This will already handle preloading essential audio
       await initializeAudioSystem();
 
       // No need to call preloadEssentialAudio separately - it's already done in initializeAudioSystem
+
+      // Mark as initialized
+      this.isInitialized = true;
 
       return Promise.resolve();
     } catch (error) {

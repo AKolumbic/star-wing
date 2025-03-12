@@ -227,8 +227,16 @@ export class Game {
     this.performanceMonitor.startTimer("game-initialization");
 
     try {
-      // Initialize all systems in parallel
-      await Promise.all(this.systems.map((system) => system.init()));
+      // Filter out the AudioSystem which is already initialized in showLoadingScreen
+      const systemsToInitialize = this.systems.filter(
+        (system) => !(system instanceof AudioSystem)
+      );
+
+      // Initialize remaining systems in parallel
+      this.logger.debug(
+        "Initializing non-audio systems (audio already initialized)"
+      );
+      await Promise.all(systemsToInitialize.map((system) => system.init()));
 
       // Music will now be started in the UI System's showMenu method
 
