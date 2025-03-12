@@ -8,7 +8,6 @@ export class Menu {
   private isVisible: boolean = true;
   private currentSelection: number = 0;
   private menuOptions: string[] = ["START GAME", "SETTINGS"];
-  private inGameMode: boolean = false; // Flag to track if menu is shown during gameplay
   private settings: Settings;
   private highScores: HighScores;
   private game: Game;
@@ -241,12 +240,7 @@ export class Menu {
       });
 
       menuOption.addEventListener("click", () => {
-        if (option === "START GAME") {
-          this.logger.info("[Menu] START GAME clicked");
-          this.startGame();
-        } else if (option === "SETTINGS") {
-          this.showSettings();
-        }
+        this.activateCurrentOption();
       });
       menuSection.appendChild(menuOption);
     });
@@ -294,64 +288,131 @@ export class Menu {
   private handleKeyDown(event: KeyboardEvent): void {
     if (!this.isVisible) return;
 
+    // Handle keyboard navigation
     switch (event.key) {
       case "ArrowUp":
-        this.selectOption(this.currentSelection - 1);
+        this.logger.info("Menu: Up arrow pressed");
+        // Wrap around to bottom if at the top
+        this.selectOption(
+          this.currentSelection === 0
+            ? this.menuOptions.length - 1
+            : this.currentSelection - 1
+        );
+        event.preventDefault();
         break;
       case "ArrowDown":
-        this.selectOption(this.currentSelection + 1);
+        this.logger.info("Menu: Down arrow pressed");
+        // Wrap around to top if at the bottom
+        this.selectOption(
+          (this.currentSelection + 1) % this.menuOptions.length
+        );
+        event.preventDefault();
         break;
       case "Enter":
+      case " ":
+        this.logger.info("Menu: Enter/Space pressed");
         this.activateCurrentOption();
+        event.preventDefault();
         break;
     }
   }
 
   private selectOption(index: number): void {
+    // Wrap around if index is out of bounds
     if (index < 0) index = this.menuOptions.length - 1;
     if (index >= this.menuOptions.length) index = 0;
 
-    // Remove previous selection
-    const options = document.querySelectorAll(".menu-option");
-    options.forEach((option) => option.classList.remove("selected"));
+    this.logger.debug(
+      `Menu: Selecting option ${index}: ${this.menuOptions[index]}`
+    );
 
-    // Add new selection
-    options[index].classList.add("selected");
+    // Remove selected class from all options
+    const menuOptions = document.querySelectorAll(".menu-option");
+    menuOptions.forEach((option) => option.classList.remove("selected"));
+
+    // Add selected class to the new selection if it exists in the DOM
+    if (index < menuOptions.length) {
+      menuOptions[index].classList.add("selected");
+    } else {
+      this.logger.warn(`Menu: DOM element for option ${index} not found`);
+      // If DOM doesn't match our options array, recreate the options
+      this.recreateMenuOptions();
+    }
+
+    // Update the current selection
     this.currentSelection = index;
   }
 
   private updateMenuOptions(): void {
-    // Update the first menu option based on in-game state
-    const menuOptionElements = document.querySelectorAll(".menu-option");
-    if (menuOptionElements.length > 0) {
-      menuOptionElements[0].textContent = this.inGameMode
-        ? "RESUME GAME"
-        : "START GAME";
+    // Main menu always has 2 options
+    if (this.menuOptions.length !== 2) {
+      this.menuOptions = ["START GAME", "SETTINGS"];
     }
 
-    // Also update our internal array to keep things consistent
-    this.menuOptions[0] = this.inGameMode ? "RESUME GAME" : "START GAME";
+    // Update the DOM elements if visible
+    if (this.isVisible) {
+      // Update the existing menu option elements text if they exist
+      const menuOptionElements = document.querySelectorAll(".menu-option");
+      if (menuOptionElements.length > 0) {
+        menuOptionElements.forEach((element, index) => {
+          if (index < this.menuOptions.length) {
+            element.textContent = this.menuOptions[index];
+          }
+        });
+      }
+    }
+  }
+
+  /**
+   * Recreates all menu options in the DOM based on the current menuOptions array
+   */
+  private recreateMenuOptions(): void {
+    // Remove existing options
+    const optionsContainer = document.querySelector(".menu-section");
+    if (optionsContainer) {
+      while (optionsContainer.firstChild) {
+        optionsContainer.removeChild(optionsContainer.firstChild);
+      }
+
+      // Add updated options
+      this.menuOptions.forEach((option, index) => {
+        const menuOption = document.createElement("div");
+        menuOption.className = "menu-option";
+        menuOption.textContent = option;
+        if (index === this.currentSelection) {
+          menuOption.classList.add("selected");
+        }
+
+        // Add click event listener to each menu option
+        menuOption.addEventListener("click", () => {
+          this.activateCurrentOption();
+        });
+
+        // Add mouseover event to highlight the option
+        menuOption.addEventListener("mouseover", () => {
+          this.selectOption(index);
+        });
+
+        optionsContainer.appendChild(menuOption);
+      });
+    }
   }
 
   private activateCurrentOption(): void {
-    const currentOption = this.menuOptions[this.currentSelection];
-    this.logger.info(`Activating menu option: ${currentOption}`);
+    const option = this.menuOptions[this.currentSelection];
+    this.logger.info(`Activating menu option: ${option}`);
 
-    switch (this.currentSelection) {
-      case 0: // START GAME or RESUME GAME
-        if (this.inGameMode) {
-          this.logger.info("Resuming game from pause menu");
-          this.resumeGame();
-        } else {
-          this.logger.info("Starting new game from main menu");
-          this.startGame();
-        }
+    switch (option) {
+      case "START GAME":
+        this.startGame();
         break;
-      case 1: // SETTINGS
+      case "SETTINGS":
         this.showSettings();
         break;
-      default:
-        this.logger.warn("Unknown menu option selected");
+      case "HIGH SCORES":
+        this.highScores.show();
+        this.hide();
+        break;
     }
   }
 
@@ -391,19 +452,6 @@ export class Menu {
    * Shows the text crawl, then hyperspace transition, then ship entry.
    */
   private startGame(): void {
-    if (this.inGameMode) {
-      this.logger.warn(
-        "Attempted to start a new game while already in-game. Resuming instead."
-      );
-      this.resumeGame();
-      return;
-    }
-
-    if (!this.isVisible) {
-      this.logger.info("Menu is not visible, cannot start game");
-      return;
-    }
-
     this.logger.info("Starting a new game sequence");
     this.hide();
 
@@ -452,7 +500,7 @@ export class Menu {
   }
 
   /**
-   * Displays a screen indicating the game is still in development.
+   * Shows the development screen
    */
   private showDevelopmentScreen(): void {
     // Create overlay container
@@ -550,20 +598,6 @@ export class Menu {
     document.body.appendChild(overlay);
   }
 
-  /**
-   * Resume the game by hiding the menu
-   */
-  private resumeGame(): void {
-    this.logger.info("Resuming game...");
-
-    // Make sure we don't trigger any game start logic - just hide the menu
-    this.hide();
-
-    // Show the game HUD through the UI system
-    const uiSystem = this.game.getUISystem();
-    uiSystem.resumeGame();
-  }
-
   private showSettings(): void {
     // Hide the menu container but stay "active" logically
     this.container.style.display = "none";
@@ -576,24 +610,19 @@ export class Menu {
   }
 
   /**
-   * Shows the menu for in-game pause
-   */
-  showInGameMenu(): void {
-    this.inGameMode = true;
-    this.updateMenuOptions();
-    this.show();
-  }
-
-  /**
    * Shows the main menu (not in-game)
    */
   showMainMenu(): void {
-    this.inGameMode = false;
     this.updateMenuOptions();
+    // Force recreation of menu options
+    this.recreateMenuOptions();
     this.show();
   }
 
   show(): void {
+    // Update menu options before showing
+    this.updateMenuOptions();
+
     this.container.style.display = "flex";
     this.isVisible = true;
     this.logger.info("Menu: Menu displayed");

@@ -7,7 +7,7 @@ import { GravityBeam } from "./types/GravityBeam";
 import { GameSystem } from "../core/GameSystem";
 import { UISystem } from "../core/systems/UISystem";
 import { Game } from "../core/Game";
-import { AudioManager } from "../audio/AudioManager";
+import { ToneAudioManager } from "../audio/tone/ToneAudioManager";
 import { Logger } from "../utils/Logger";
 
 /**
@@ -36,7 +36,7 @@ export class WeaponSystem implements GameSystem {
    * Set via setGame() method but functionality not yet implemented
    */
   private game: Game | null = null;
-  private audioManager: AudioManager | null = null;
+  private audioManager: ToneAudioManager | null = null;
   private logger = Logger.getInstance();
 
   /**
@@ -74,7 +74,9 @@ export class WeaponSystem implements GameSystem {
    */
   setGame(game: Game): void {
     this.game = game;
-    this.audioManager = game.getAudioManager();
+    if (game) {
+      this.audioManager = game.getAudioManager() as ToneAudioManager;
+    }
     this.logger.info("WeaponSystem: Connected to Game and AudioManager");
   }
 

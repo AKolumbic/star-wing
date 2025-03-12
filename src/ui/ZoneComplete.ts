@@ -219,21 +219,13 @@ export class ZoneComplete {
    * Handles the main menu button click
    */
   private handleMainMenu(): void {
-    this.logger.info("Zone complete: Player chose to return to main menu");
-
-    // Hide this screen first
+    this.logger.info("Zone Complete: Return to main menu requested");
     this.hide();
 
-    // Ensure hyperspace effect is disabled when returning to main menu
     if (this.game) {
+      // Ensure hyperspace effect is disabled when returning to main menu
       const scene = this.game.getSceneSystem().getScene();
       scene.transitionHyperspace(false, 1.0);
-
-      // Transition to menu music
-      if (this.game.getAudioManager()) {
-        // Stop any game music first with a short fade out
-        this.game.getAudioManager().stopMusic(0.5);
-      }
     }
 
     // Play button sound if available
@@ -245,9 +237,7 @@ export class ZoneComplete {
       }
     }
 
-    // Tell the game to return to the main menu
-    setTimeout(() => {
-      this.game.getUISystem().showMenu();
-    }, 1000);
+    // Show the menu immediately - the menu itself will handle music transitions
+    this.game.getUISystem().showMenu();
   }
 }

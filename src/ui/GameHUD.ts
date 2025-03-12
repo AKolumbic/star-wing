@@ -1,5 +1,6 @@
 import { Game } from "../core/Game";
 import { Scene } from "../core/Scene";
+import { Logger } from "../utils/Logger";
 
 /**
  * GameHUD class for displaying in-game heads-up display elements.
@@ -39,6 +40,8 @@ export class GameHUD {
   // Combat log messages
   private combatLogMessages: Array<{ message: string; timestamp: number }> = [];
   private readonly COMBAT_LOG_DISPLAY_TIME = 3000; // milliseconds
+
+  private logger = Logger.getInstance();
 
   /**
    * Creates a new GameHUD instance.
@@ -386,7 +389,7 @@ export class GameHUD {
    * Check if zone has been completed
    */
   private checkZoneCompletion(scene: Scene): void {
-    if (this.currentScore >= 500 && scene.getCurrentZone() === 1) {
+    if (this.currentScore >= 100 && scene.getCurrentZone() === 1) {
       // Zone 1 completed
       this.addCombatLogMessage(
         "ZONE 1 CLEARED! WELL DONE, PILOT!",
@@ -984,7 +987,7 @@ export class GameHUD {
    * Hide the HUD
    */
   hide(): void {
-    console.log("[GameHUD] hide() called");
+    this.logger.debug("[GameHUD] hide() called");
     this.container.style.display = "none";
     this.isVisible = false;
   }

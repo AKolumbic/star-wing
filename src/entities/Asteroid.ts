@@ -176,9 +176,18 @@ export class Asteroid {
     this.model.rotation.y += this.rotationSpeed.y * deltaTime;
     this.model.rotation.z += this.rotationSpeed.z * deltaTime;
 
-    // Check if asteroid has moved too far (for cleanup)
-    if (this.position.z > 1000) {
-      this.destroy();
+    // Check if asteroid has moved too far in any direction (for cleanup)
+    // Use horizontal and vertical limits similar to what Scene.ts uses
+    const horizontalLimit = 2000; // Slightly larger than Scene's limit
+    const verticalLimit = 1000; // Slightly larger than Scene's limit
+
+    // Check boundaries in all directions
+    if (
+      this.position.z > 1000 || // Too far behind the player
+      Math.abs(this.position.x) > horizontalLimit || // Too far left/right
+      Math.abs(this.position.y) > verticalLimit // Too far up/down
+    ) {
+      this.destroyQuietly(); // Use silent version for off-screen cleanup
       return false;
     }
 
@@ -244,7 +253,9 @@ export class Asteroid {
   }
 
   /**
-   * Destroys the asteroid, removing it from the scene.
+   * Destroys the asteroid, removing it from the scene and playing collision sound.
+   * This should be used for gameplay-relevant collisions (ship hits, laser hits)
+   * but NOT for off-screen cleanup. Use destroyQuietly() for that instead.
    */
   destroy(): void {
     if (!this.active) return;
@@ -267,6 +278,23 @@ export class Asteroid {
 
     this.logger.debug(
       `Asteroid destroyed at position ${this.position.x.toFixed(
+        2
+      )}, ${this.position.y.toFixed(2)}, ${this.position.z.toFixed(2)}`
+    );
+  }
+
+  /**
+   * Destroys the asteroid silently (for off-screen cleanup)
+   * Removes from scene without playing collision sound
+   */
+  destroyQuietly(): void {
+    if (!this.active) return;
+
+    this.active = false;
+    this.scene.remove(this.model);
+
+    this.logger.debug(
+      `Asteroid removed silently at position ${this.position.x.toFixed(
         2
       )}, ${this.position.y.toFixed(2)}, ${this.position.z.toFixed(2)}`
     );

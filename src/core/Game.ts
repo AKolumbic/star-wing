@@ -5,7 +5,7 @@ import { InputSystem } from "./systems/InputSystem";
 import { AudioSystem } from "./systems/AudioSystem";
 import { UISystem } from "./systems/UISystem";
 import { UIUtils } from "../utils/UIUtils";
-import { AudioManager } from "../audio/AudioManager";
+import { ToneAudioManager } from "../audio/tone/ToneAudioManager";
 import { Logger } from "../utils/Logger";
 
 /**
@@ -45,6 +45,12 @@ export class Game {
 
   /** Logger instance */
   private logger = Logger.getInstance();
+
+  /** Flag to track if the game has been initialized */
+  private isInitialized = false;
+
+  /** Performance tracking utility */
+  private performanceMonitor = new PerformanceMonitor();
 
   /**
    * Creates a new Game instance and initializes all subsystems.
@@ -162,7 +168,7 @@ export class Game {
             }
 
             // Play the procedural audio explicitly
-            this.audioSystem.playMenuThump(true);
+            this.audioSystem.playMenuMusic(true);
 
             this.logger.info(
               "DEV MODE: Audio enabled via enableDevAudio parameter"
@@ -211,15 +217,36 @@ export class Game {
    * @returns A promise that resolves when all systems are initialized
    */
   async init(): Promise<void> {
+    // Skip if already initialized
+    if (this.isInitialized) {
+      this.logger.debug("Game already initialized, skipping");
+      return;
+    }
+
     this.logger.info("Game initializing...");
+    this.performanceMonitor.startTimer("game-initialization");
 
     try {
-      // Initialize all systems in parallel
-      await Promise.all(this.systems.map((system) => system.init()));
+      // Filter out the AudioSystem which is already initialized in showLoadingScreen
+      const systemsToInitialize = this.systems.filter(
+        (system) => !(system instanceof AudioSystem)
+      );
+
+      // Initialize remaining systems in parallel
+      this.logger.debug(
+        "Initializing non-audio systems (audio already initialized)"
+      );
+      await Promise.all(systemsToInitialize.map((system) => system.init()));
 
       // Music will now be started in the UI System's showMenu method
 
-      this.logger.info("Game initialization complete");
+      // Mark as initialized
+      this.isInitialized = true;
+
+      const initTime = this.performanceMonitor.endTimer("game-initialization");
+      this.logger.info(
+        `Game initialization complete (${initTime.toFixed(1)}ms)`
+      );
     } catch (error: unknown) {
       this.logger.error("Error during game initialization:", error);
 
@@ -340,11 +367,10 @@ export class Game {
   }
 
   /**
-   * Gets the audio manager instance directly.
-   * @returns The game's AudioManager instance
-   * @deprecated Use getAudioSystem().getAudioManager() instead
+   * Gets the audio manager for direct audio control.
+   * @returns The audio manager instance
    */
-  getAudioManager(): AudioManager {
+  getAudioManager(): ToneAudioManager {
     return this.audioSystem.getAudioManager();
   }
 
@@ -397,86 +423,142 @@ export class Game {
   }
 
   /**
-   * Sets the audio mute state in dev mode without affecting localStorage
-   * This allows for temporary muting in dev mode while preserving user preferences
+   * Sets the mute state in dev mode
    * @param muted Whether audio should be muted
-   * @private
    */
   private setDevModeMuted(muted: boolean): void {
+    // Get the audio manager via the audio system
     const audioManager = this.audioSystem.getAudioManager();
 
-    // Save current localStorage mute value
-    const savedMuteState = localStorage.getItem("starWing_muted");
-
-    // Toggle mute state if needed (this will update localStorage)
-    if (audioManager.getMuteState() !== muted) {
+    // If we're trying to mute and not already muted, or unmute and already muted
+    if (
+      (muted && !audioManager.getMuteState()) ||
+      (!muted && audioManager.getMuteState())
+    ) {
+      // Toggle the mute state
       audioManager.toggleMute();
+
+      // Save to localStorage for persistence
+      const savedMuteState = muted ? "true" : "false";
+      localStorage.setItem("starWing_muted", savedMuteState);
+
+      this.logger.info(`DEV MODE: Audio ${muted ? "muted" : "unmuted"}`);
     }
 
-    // Restore the original localStorage value to preserve user preference
-    if (savedMuteState !== null) {
-      localStorage.setItem("starWing_muted", savedMuteState);
+    // If we just unmuted and dev audio is enabled, play procedural music
+    if (!muted && this.enableDevAudio) {
+      this.audioSystem.playMenuMusic(true);
+      this.logger.info("DEV MODE: Procedural audio started");
     }
   }
 
   /**
-   * Toggles the audio in devMode for testing purposes.
-   * This is useful when you want to hear the procedural audio in devMode.
-   * Access this via the browser console with: game.toggleDevModeAudio()
+   * Toggles developer mode audio
    */
   public toggleDevModeAudio(): void {
-    if (!this.devMode) {
-      this.logger.info("Toggle dev mode audio: Not in dev mode, ignoring");
-      return;
-    }
+    this.enableDevAudio = !this.enableDevAudio;
 
-    const audioManager = this.audioSystem.getAudioManager();
-
-    // Toggle the actual mute state
-    audioManager.toggleMute();
-
-    // Log the new state
-    const isMuted = audioManager.getMuteState();
-    this.logger.info(`DEV MODE: Audio is now ${isMuted ? "muted" : "unmuted"}`);
-
-    // If we just unmuted, make sure music is playing
-    if (!isMuted && !audioManager.isAudioPlaying()) {
-      this.logger.info("DEV MODE: Restarting procedural audio");
-      this.audioSystem.playMenuThump(true, true);
+    if (this.enableDevAudio) {
+      this.audioSystem.playMenuMusic(true, true);
+      this.logger.info("Game: Dev audio enabled - playing procedural music");
+    } else {
+      this.audioSystem.playMenuMusic(false, true);
+      this.logger.info("Game: Dev audio disabled - playing normal music");
     }
   }
 
   /**
-   * Attempts to ensure audio can play in the game.
-   * Automatically tries to resume the audio context if needed.
+   * Ensures that audio can be played by creating a context
+   * This should be called after a user interaction
    */
   public ensureAudioCanPlay(): void {
-    const audioManager = this.getAudioManager();
-
-    if (!audioManager) {
-      this.logger.warn(
-        "Cannot ensure audio playback - AudioManager not available"
-      );
-      return;
+    if (this.audioSystem) {
+      // With Tone.js, we can just try to start the context directly
+      try {
+        import("tone")
+          .then((Tone) => {
+            if (Tone.getContext().state === "suspended") {
+              Tone.start()
+                .then(() => {
+                  this.logger.info(
+                    "Tone.js audio context started successfully"
+                  );
+                })
+                .catch((error: Error) => {
+                  this.logger.error("Failed to start Tone.js context:", error);
+                });
+            } else {
+              this.logger.info("Tone.js audio context already running");
+            }
+          })
+          .catch((err) => {
+            this.logger.error("Failed to import Tone.js:", err);
+          });
+      } catch (error) {
+        this.logger.error("Error accessing Tone.js context:", error);
+      }
     }
+  }
 
-    // Check if audio can play already
-    if (audioManager.canPlayAudio()) {
-      this.logger.info("Audio context is already running");
-      return;
-    }
+  /**
+   * Simulates game completion for testing
+   * This is used to force a completed state for UI testing
+   */
+  public fakeCompleteGame(): void {
+    this.logger.info("DEV MODE: Simulating game completion");
+    // Show the completed game UI
+    this.uiSystem.showGameOver();
+    // Play menu music
+    this.audioSystem.playMenuMusic(this.devMode);
+  }
 
-    // Try to resume the audio context automatically
-    const audioContext = audioManager.getAudioContext();
-    if (audioContext && audioContext.state === "suspended") {
-      this.logger.info("Attempting to resume audio context automatically");
-      audioManager.tryResumeAudioContext().then((success) => {
-        if (success) {
-          this.logger.info("Audio context resumed successfully");
-        } else {
-          this.logger.warn("Could not resume audio context automatically");
-        }
+  /**
+   * Initializes debug tools for diagnosing issues.
+   * This should only be called in development mode.
+   */
+  initDebugTools(): void {
+    // Import and initialize the ship debugger
+    import("../debug/ShipDebugger")
+      .then((module) => {
+        const ShipDebugger = module.ShipDebugger;
+        const shipDebugger = new ShipDebugger(this);
+        shipDebugger.activate();
+        this.logger.info(
+          "Ship debugger initialized - Use Alt+V to force ship visibility"
+        );
+      })
+      .catch((error) => {
+        this.logger.error("Failed to initialize ship debugger:", error);
       });
-    }
+  }
+}
+
+/**
+ * Simple utility for monitoring performance of operations
+ */
+class PerformanceMonitor {
+  private timers = new Map<string, number>();
+  private logger = Logger.getInstance();
+
+  /**
+   * Starts a timer with the given key
+   * @param key Identifier for the timer
+   */
+  startTimer(key: string): void {
+    this.timers.set(key, performance.now());
+  }
+
+  /**
+   * Ends a timer and returns the elapsed time
+   * @param key Identifier for the timer
+   * @returns Elapsed time in milliseconds
+   */
+  endTimer(key: string): number {
+    const start = this.timers.get(key);
+    if (start === undefined) return 0;
+
+    const duration = performance.now() - start;
+    this.logger.debug(`[Performance] ${key}: ${duration.toFixed(2)}ms`);
+    return duration;
   }
 }

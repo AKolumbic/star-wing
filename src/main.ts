@@ -1,5 +1,6 @@
 import { Game } from "./core/Game";
 import { Logger } from "./utils/Logger";
+import { initializeAudioToggle } from "./ui/AudioToggle";
 
 // Initialize the logger
 const logger = Logger.getInstance();
@@ -28,6 +29,9 @@ window.addEventListener("DOMContentLoaded", () => {
   const devMode = urlParams.has("dev");
   const enableDevAudio = urlParams.has("enableDevAudio");
 
+  // Check if A/B testing for audio is enabled
+  const audioABTest = urlParams.has("audioTest");
+
   // Log dev mode status
   if (devMode) {
     logger.info("DEV MODE ENABLED: Skipping intro, muting audio");
@@ -50,6 +54,14 @@ window.addEventListener("DOMContentLoaded", () => {
       // After initialization, ensure audio can play with a proper UI element if needed
       setTimeout(() => {
         window.gameInstance.ensureAudioCanPlay();
+
+        // If audio A/B testing is enabled, initialize the audio toggle
+        if (audioABTest) {
+          logger.info(
+            "AUDIO A/B TESTING ENABLED: Initializing audio toggle UI"
+          );
+          initializeAudioToggle();
+        }
       }, 2000); // Wait 2 seconds to allow other UI to load first
     });
 

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Star Wing Sound Effect Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 10px;
+        font-size: 16px;
+      }
+      #status {
+        margin-top: 20px;
+        padding: 10px;
+        border: 1px solid #ccc;
+      }
+      #init {
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+      #init:hover {
+        background-color: #45a049;
+      }
+      .controls {
+        display: none;
+      }
+      .controls.active {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Star Wing Sound Effect Generator</h1>
+    <button id="init">Initialize Audio System</button>
+    <div id="controls" class="controls">
+      <p>Click the buttons below to generate and download sound effects:</p>
+      <div>
+        <button onclick="generateLaser()">Generate Laser Sound</button>
+        <button onclick="generateExplosion()">Generate Explosion Sound</button>
+        <button onclick="generateMenuSelect()">
+          Generate Menu Select Sound
+        </button>
+      </div>
+    </div>
+    <div id="status"></div>
+
+    <script>
+      const status = document.getElementById("status");
+      const controls = document.getElementById("controls");
+      const initButton = document.getElementById("init");
+
+      // Initialize audio system after user interaction
+      initButton.addEventListener("click", async () => {
+        try {
+          await Tone.start();
+          controls.classList.add("active");
+          initButton.style.display = "none";
+          status.textContent = "Audio system initialized!";
+        } catch (error) {
+          status.textContent =
+            "Failed to initialize audio system: " + error.message;
+        }
+      });
+
+      async function generateLaser() {
+        status.textContent = "Generating laser sound...";
+
+        try {
+          // Create an offline context for rendering
+          const context = new Tone.OfflineContext(2, 1, 44100);
+          Tone.setContext(context);
+
+          // Create a synth for the laser sound
+          const synth = new Tone.Synth({
+            oscillator: {
+              type: "sawtooth",
+            },
+            envelope: {
+              attack: 0.001,
+              decay: 0.1,
+              sustain: 0,
+              release: 0.1,
+            },
+          }).toDestination();
+
+          // Create a filter for the laser effect
+          const filter = new Tone.Filter({
+            type: "bandpass",
+            frequency: 1000,
+            Q: 5,
+          }).connect(Tone.getDestination());
+
+          // Connect the synth to the filter
+          synth.connect(filter);
+
+          // Schedule the laser sound
+          synth.triggerAttackRelease("C6", 0.1, 0);
+          filter.frequency.exponentialRampToValueAtTime(5000, 0.1);
+
+          // Render and download
+          const buffer = await context.render();
+          downloadBuffer(buffer, "laser.mp3");
+          status.textContent = "Laser sound generated and downloaded!";
+        } catch (error) {
+          status.textContent = "Error generating laser sound: " + error.message;
+        }
+      }
+
+      async function generateExplosion() {
+        status.textContent = "Generating explosion sound...";
+
+        try {
+          // Create an offline context for rendering
+          const context = new Tone.OfflineContext(2, 1.5, 44100);
+          Tone.setContext(context);
+
+          // Create a noise generator for the explosion
+          const noise = new Tone.NoiseSynth({
+            noise: {
+              type: "white",
+            },
+            envelope: {
+              attack: 0.001,
+              decay: 0.3,
+              sustain: 0.1,
+              release: 1,
+            },
+          }).toDestination();
+
+          // Create a filter for the explosion effect
+          const filter = new Tone.Filter({
+            type: "lowpass",
+            frequency: 800,
+            Q: 1,
+          }).connect(Tone.getDestination());
+
+          // Connect the noise to the filter
+          noise.connect(filter);
+
+          // Schedule the explosion sound
+          noise.triggerAttackRelease(0.5, 0);
+          filter.frequency.exponentialRampToValueAtTime(100, 0.5);
+
+          // Render and download
+          const buffer = await context.render();
+          downloadBuffer(buffer, "explosion.mp3");
+          status.textContent = "Explosion sound generated and downloaded!";
+        } catch (error) {
+          status.textContent =
+            "Error generating explosion sound: " + error.message;
+        }
+      }
+
+      async function generateMenuSelect() {
+        status.textContent = "Generating menu select sound...";
+
+        try {
+          // Create an offline context for rendering
+          const context = new Tone.OfflineContext(2, 0.5, 44100);
+          Tone.setContext(context);
+
+          // Create a synth for the menu select sound
+          const synth = new Tone.Synth({
+            oscillator: {
+              type: "sine",
+            },
+            envelope: {
+              attack: 0.001,
+              decay: 0.1,
+              sustain: 0,
+              release: 0.1,
+            },
+          }).toDestination();
+
+          // Schedule the menu select sound - two quick notes
+          synth.triggerAttackRelease("C5", 0.05, 0);
+          synth.triggerAttackRelease("G5", 0.05, 0.1);
+
+          // Render and download
+          const buffer = await context.render();
+          downloadBuffer(buffer, "menu_select.mp3");
+          status.textContent = "Menu select sound generated and downloaded!";
+        } catch (error) {
+          status.textContent =
+            "Error generating menu select sound: " + error.message;
+        }
+      }
+
+      function downloadBuffer(buffer, filename) {
+        // Convert AudioBuffer to WAV
+        const numberOfChannels = buffer.numberOfChannels;
+        const length = buffer.length;
+        const sampleRate = buffer.sampleRate;
+        const wavBuffer = new ArrayBuffer(44 + length * 2);
+        const view = new DataView(wavBuffer);
+
+        // Write WAV header
+        writeString(view, 0, "RIFF");
+        view.setUint32(4, 36 + length * 2, true);
+        writeString(view, 8, "WAVE");
+        writeString(view, 12, "fmt ");
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, numberOfChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2, true);
+        view.setUint16(32, numberOfChannels * 2, true);
+        view.setUint16(34, 16, true);
+        writeString(view, 36, "data");
+        view.setUint32(40, length * 2, true);
+
+        // Write audio data
+        const channelData = buffer.getChannelData(0);
+        let offset = 44;
+        for (let i = 0; i < length; i++) {
+          const sample = Math.max(-1, Math.min(1, channelData[i]));
+          view.setInt16(
+            offset,
+            sample < 0 ? sample * 0x8000 : sample * 0x7fff,
+            true
+          );
+          offset += 2;
+        }
+
+        // Create blob and download
+        const blob = new Blob([wavBuffer], { type: "audio/wav" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.style.display = "none";
+        a.href = url;
+        a.download = filename.replace(".mp3", ".wav");
+        document.body.appendChild(a);
+        a.click();
+        URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
+
+      function writeString(view, offset, string) {
+        for (let i = 0; i < string.length; i++) {
+          view.setUint8(offset + i, string.charCodeAt(i));
+        }
+      }
+    </script>
+  </body>
+</html>

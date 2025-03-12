@@ -95,7 +95,7 @@ export class Scene {
   private lastAsteroidSpawnTime: number = 0;
 
   /** Minimum time between asteroid spawns (in milliseconds) */
-  private asteroidSpawnInterval: number = 3250; // Reduced from 5000 (by 35%)
+  private asteroidSpawnInterval: number = 5000; // Original value - less frequent asteroid spawning
 
   /** Collection of active asteroids in the scene */
   private asteroids: Asteroid[] = [];
@@ -108,6 +108,12 @@ export class Scene {
 
   /** Maximum vertical distance from center (full height = 1400) */
   private verticalLimit: number = 700;
+
+  /** Add a private field for tracking initialization state */
+  private isInitialized = false;
+
+  /** Add a static instance for singleton pattern */
+  private static instance: Scene;
 
   /**
    * Creates a new scene with a WebGL renderer.
@@ -183,34 +189,66 @@ export class Scene {
   }
 
   /**
-   * Initializes the scene asynchronously.
-   * Sets up lighting and registers background types.
-   * @returns Promise that resolves when initialization is complete
+   * Starts the animation loop for the scene.
    */
-  async init(): Promise<void> {
-    this.logger.info("Scene: Initializing");
-
-    // Setup backgrounds
-    this.setupBackgrounds();
-
-    // Setup basic lighting
-    this.setupBasicLighting();
-
-    // Set the default background (starfield)
-    try {
-      this.logger.info("Scene: Setting initial starfield background");
-      await this.backgroundManager.setBackground(BackgroundType.STARFIELD);
-      this.logger.info("Scene: Starfield background initialized successfully");
-    } catch (error) {
-      this.logger.error("Scene: Error setting starfield background", error);
+  startAnimationLoop(): void {
+    if (this.animationFrameId !== null) {
+      // Animation loop is already running
+      return;
     }
 
-    // Rest of initialization
+    const animate = () => {
+      // Update scene with delta time
+      const currentTime = performance.now();
+      const deltaTime = (currentTime - this.lastTime) / 1000;
+      this.lastTime = currentTime;
+
+      // Update scene
+      this.update(deltaTime);
+
+      // Render scene
+      this.render();
+
+      // Request next frame
+      this.animationFrameId = requestAnimationFrame(animate);
+    };
+
+    // Start the animation loop
+    this.logger.info("Starting scene animation loop");
+    this.lastTime = performance.now();
+    this.animationFrameId = requestAnimationFrame(animate);
+  }
+
+  /**
+   * Initializes the scene.
+   * @returns A promise that resolves when initialization is complete
+   */
+  async init(): Promise<void> {
+    // Skip if already initialized
+    if (this.isInitialized) {
+      this.logger.debug("Scene already initialized, skipping");
+      return;
+    }
+
+    // Set up the background manager - this is done only once now
+    this.logger.info("Scene: Setting up background manager");
+    // Setup of background is handled in the constructor via setupBackgrounds() already
+    this.logger.info("Scene: Background manager setup complete");
+
+    // Set initial background to starfield
+    this.logger.info("Scene: Setting initial starfield background");
+    await this.backgroundManager.setBackground(BackgroundType.STARFIELD);
+    this.logger.info("Scene: Starfield background initialized successfully");
+
+    // Set up event listeners - avoid duplication with setupEventListeners
     this.setupEventListeners();
+    this.logger.info("Scene: Event listeners set up");
 
+    // Start the animation loop
+    this.startAnimationLoop();
+
+    this.isInitialized = true;
     this.logger.info("Scene initialized successfully");
-
-    return Promise.resolve();
   }
 
   /**
@@ -776,10 +814,10 @@ export class Scene {
       this.spawnAsteroid();
       this.lastAsteroidSpawnTime = currentTime;
 
-      // Spawn asteroids more frequently (min 650ms, reduced from 1000ms)
+      // Spawn asteroids at a reasonable pace - original values
       this.asteroidSpawnInterval = Math.max(
-        650, // Reduced from 1000 by 35% - faster minimum spawn time
-        1950 - (this.currentZone - 1) * 325 // Reduced from 3000 by 35% - faster initial spawn time with same reduction per zone
+        1000, // Original minimum spawn interval
+        5000 - (this.currentZone - 1) * 500 // Original zone progression
       );
     }
   }
@@ -806,8 +844,8 @@ export class Scene {
 
     // Direction vector pointing toward the player's general area
     const targetPos = new THREE.Vector3(
-      playerPos.x + (Math.random() * 200 - 100), // Reduced randomness for better targeting
-      playerPos.y + (Math.random() * 200 - 100), // Reduced randomness for better targeting
+      playerPos.x + (Math.random() * 300 - 150), // Increased randomness for less precise targeting
+      playerPos.y + (Math.random() * 300 - 150), // Increased randomness for less precise targeting
       playerPos.z + 100 // Aim closer to the player's position
     );
 
@@ -815,10 +853,10 @@ export class Scene {
       .subVectors(targetPos, asteroidPosition)
       .normalize();
 
-    // Randomize asteroid properties - speed increased by 35%
-    const speed = (300 + Math.random() * 150) * 1.35; // Increased by 35% (was 300-450)
+    // Randomize asteroid properties - reverted to original values
+    const speed = 300 + Math.random() * 150; // Original speed range (300-450)
     const size = 20 + Math.random() * 30; // 20-50 units radius
-    const damage = (10 + Math.floor(Math.random() * 20)) * 2; // 20-60 damage (doubled from 10-30)
+    const damage = 10 + Math.floor(Math.random() * 20); // Original damage (10-30)
 
     // Create and add the asteroid
     const asteroid = new Asteroid(
@@ -939,8 +977,16 @@ export class Scene {
             // Play sound effect
             if (this.game) {
               try {
-                // Use asteroid collision sound instead, with small intensity
-                this.game.getAudioManager().playAsteroidCollisionSound("small");
+                // Use laser-asteroid explosion sound for a more sci-fi effect
+                const sizeDescription =
+                  asteroidSize > 40
+                    ? "large"
+                    : asteroidSize > 25
+                    ? "medium"
+                    : "small";
+                this.game
+                  .getAudioManager()
+                  .playLaserAsteroidExplosion(sizeDescription);
               } catch (error) {
                 this.logger.warn("Failed to play explosion sound:", error);
               }
@@ -962,9 +1008,18 @@ export class Scene {
         // Play collision sound effect if game object is available
         if (this.game) {
           try {
-            // Play impact sound using the audio manager
-            this.game.getAudioManager().playAsteroidCollisionSound("medium");
-            this.logger.info("Playing asteroid collision sound");
+            // Play impact sound using the specialized ship-asteroid collision sound
+            const asteroidSize = asteroid.getSize();
+            const sizeDescription =
+              asteroidSize > 40
+                ? "large"
+                : asteroidSize > 25
+                ? "medium"
+                : "small";
+            this.game
+              .getAudioManager()
+              .playShipAsteroidCollision(sizeDescription);
+            this.logger.info("Playing ship-asteroid collision sound");
           } catch (error) {
             this.logger.warn("Failed to play collision sound:", error);
           }
@@ -997,8 +1052,8 @@ export class Scene {
       return !asteroidDestroyed; // Keep asteroid if not destroyed
     });
 
-    // Check if player has reached 500 points to complete Zone 1
-    if (this.score >= 500 && this.currentZone === 1) {
+    // Check if player has reached 100 points to complete Zone 1
+    if (this.score >= 100 && this.currentZone === 1) {
       this.completeCurrentZone();
     }
   }
@@ -1055,40 +1110,28 @@ export class Scene {
 
     // Reset asteroid spawn timer and settings
     this.lastAsteroidSpawnTime = 0;
-    this.asteroidSpawnInterval = 3250;
+    this.asteroidSpawnInterval = 5000;
     this.maxAsteroids = 20;
 
-    // Reset player ship if it exists
+    // Clean up existing ship completely
     if (this.playerShip) {
-      // Reset health and shields
-      this.playerShip.setHealth(100);
-      this.playerShip.setShield(100);
-
-      // Force ship to entry start position and reset velocity
-      this.playerShip.resetPosition();
-
-      // Start entry animation with proper callback to restore game state
-      this.startShipEntry(() => {
-        this.logger.info("Ship entry complete after reset");
-        this.setGameActive(true);
-        // Use skipCallback to prevent recursion
-        this.playerShip?.setPlayerControlled(true, true);
-      });
-    } else {
-      // If ship doesn't exist, initialize it
-      this.initPlayerShip()
-        .then(() => {
-          this.startShipEntry(() => {
-            this.logger.info("Ship entry complete after init in reset");
-            this.setGameActive(true);
-            // Use skipCallback to prevent recursion
-            this.playerShip?.setPlayerControlled(true, true);
-          });
-        })
-        .catch((error) => {
-          this.logger.error("Failed to initialize ship during reset:", error);
-        });
+      this.playerShip.dispose();
+      this.playerShip = null;
     }
+
+    // Always initialize a new ship instance
+    this.initPlayerShip()
+      .then(() => {
+        this.startShipEntry(() => {
+          this.logger.info("Ship entry complete after reset");
+          this.setGameActive(true);
+          // Use skipCallback to prevent recursion
+          this.playerShip?.setPlayerControlled(true, true);
+        });
+      })
+      .catch((error) => {
+        this.logger.error("Failed to initialize ship during reset:", error);
+      });
   }
 
   /**
@@ -1108,7 +1151,7 @@ export class Scene {
 
   /**
    * Completes the current zone and progresses to the next zone.
-   * Called when the player reaches the point threshold (500 points for Zone 1).
+   * Called when the player reaches the point threshold (100 points for Zone 1).
    */
   completeCurrentZone(): void {
     this.logger.info(`Completing Zone ${this.currentZone}`);
@@ -1210,5 +1253,90 @@ export class Scene {
    */
   getAsteroids(): Asteroid[] {
     return this.asteroids;
+  }
+
+  /**
+   * Debug method to force the ship to be visible.
+   * This is used to diagnose issues with the ship entry animation.
+   */
+  debugForceShipVisible(): void {
+    if (this.playerShip) {
+      this.logger.info("DEBUG: Forcing ship to appear");
+      this.playerShip.forceVisibility();
+
+      // Ensure game is active
+      this.gameActive = true;
+      this.shipDestroyed = false;
+
+      this.logger.info(
+        "DEBUG: Ship visibility forced, game state set to active"
+      );
+    } else {
+      this.logger.error(
+        "DEBUG: Cannot force ship visibility - playerShip is null"
+      );
+
+      // Try to initialize a new ship
+      this.logger.info("DEBUG: Attempting to initialize a new ship");
+      this.initPlayerShip()
+        .then(() => {
+          if (this.playerShip) {
+            this.playerShip.forceVisibility();
+            this.gameActive = true;
+            this.shipDestroyed = false;
+            this.logger.info("DEBUG: New ship created and forced visible");
+          } else {
+            this.logger.error(
+              "DEBUG: Failed to create and force visibility of new ship"
+            );
+          }
+        })
+        .catch((error) => {
+          this.logger.error("DEBUG: Error initializing new ship:", error);
+        });
+    }
+  }
+
+  /**
+   * Gets the singleton instance of Scene.
+   * @returns The Scene instance
+   */
+  public static getInstance(): Scene {
+    if (!Scene.instance) {
+      Scene.instance = new Scene();
+    }
+    return Scene.instance;
+  }
+
+  /**
+   * Sets the canvas element for rendering
+   * @param canvas The canvas element to render on
+   */
+  setCanvas(canvas: HTMLCanvasElement): void {
+    // Only update if the canvas has changed
+    if (canvas !== this.canvas) {
+      this.logger.debug("Scene: Setting new canvas element");
+
+      // Store the new canvas
+      this.canvas = canvas;
+
+      // Update the renderer with the new canvas
+      if (this.renderer) {
+        this.renderer.setSize(this.width, this.height, true);
+        // If we need to completely replace the renderer's canvas:
+        // this.renderer.domElement = canvas;
+      }
+    }
+  }
+
+  /**
+   * Sets the development mode flag
+   * @param devMode Whether to enable development mode
+   */
+  setDevMode(devMode: boolean): void {
+    this.devMode = devMode;
+    this.logger.debug(
+      `Scene: Development mode ${devMode ? "enabled" : "disabled"}`
+    );
   }
 }
