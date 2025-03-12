@@ -389,7 +389,7 @@ export class GameHUD {
    * Check if zone has been completed
    */
   private checkZoneCompletion(scene: Scene): void {
-    if (this.currentScore >= 500 && scene.getCurrentZone() === 1) {
+    if (this.currentScore >= 100 && scene.getCurrentZone() === 1) {
       // Zone 1 completed
       this.addCombatLogMessage(
         "ZONE 1 CLEARED! WELL DONE, PILOT!",

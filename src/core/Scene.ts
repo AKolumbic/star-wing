@@ -1052,8 +1052,8 @@ export class Scene {
       return !asteroidDestroyed; // Keep asteroid if not destroyed
     });
 
-    // Check if player has reached 500 points to complete Zone 1
-    if (this.score >= 500 && this.currentZone === 1) {
+    // Check if player has reached 100 points to complete Zone 1
+    if (this.score >= 100 && this.currentZone === 1) {
       this.completeCurrentZone();
     }
   }
@@ -1151,7 +1151,7 @@ export class Scene {
 
   /**
    * Completes the current zone and progresses to the next zone.
-   * Called when the player reaches the point threshold (500 points for Zone 1).
+   * Called when the player reaches the point threshold (100 points for Zone 1).
    */
   completeCurrentZone(): void {
     this.logger.info(`Completing Zone ${this.currentZone}`);
