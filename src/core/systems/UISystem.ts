@@ -130,25 +130,9 @@ export class UISystem implements GameSystem {
    * Sets up the Escape key handler for toggling the in-game menu
    */
   private setupEscapeKeyHandler(): void {
-    this.escapeKeyHandler = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && this.gameActive) {
-        // Let the InGameMenu handle the ESC key if it's visible
-        // (it needs to handle the confirmation dialog if visible)
-        if (this.isInGameMenuVisible()) {
-          // The menu is already handling this via its own key event handler
-          return;
-        } else {
-          // Menu is not visible, so show it
-          this.showInGameMenu();
-        }
-
-        // Prevent default action (browser escape)
-        e.preventDefault();
-      }
-    };
-
-    // Add the event listener
-    document.addEventListener("keydown", this.escapeKeyHandler);
+    // Implementation removed as requested
+    // The escape key no longer shows the in-game menu
+    this.escapeKeyHandler = null;
   }
 
   /**
@@ -228,39 +212,21 @@ export class UISystem implements GameSystem {
    * Shows the in-game menu (pause menu during gameplay).
    */
   showInGameMenu(): void {
-    // Pause the game while the menu is shown
-    if (this.game) {
-      this.game.pause();
-    }
-
-    // Show the in-game menu
-    this.inGameMenu.show();
-
-    // Hide the HUD when menu is shown
-    this.gameHUD.hide();
-
-    // Log the action
-    this.logger.info("In-game menu displayed (paused)");
+    // Implementation removed as requested
+    // The in-game menu no longer affects the game state
+    this.logger.info("In-game menu display disabled");
   }
 
   /**
    * Resumes the game by hiding the menu and showing the HUD
    */
   resumeGame(): void {
-    // Set flag to indicate game is active
+    // Implementation partially removed as requested
+    // Keep the HUD-related functionality
     this.gameActive = true;
-
-    // Hide the menu and in-game menu
     this.menu.hide();
     this.inGameMenu.hide();
-
-    // Show the HUD
     this.gameHUD.show();
-
-    // Resume the game
-    if (this.game) {
-      this.game.resume();
-    }
 
     this.logger.info("Game resumed from pause menu");
   }

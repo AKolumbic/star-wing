@@ -404,9 +404,8 @@ export class InGameMenu {
    */
   private resumeGame(): void {
     this.hide();
-    if (this.game) {
-      this.game.getUISystem().resumeGame();
-    }
+    // Implementation removed as requested
+    // We no longer call game.getUISystem().resumeGame()
   }
 
   /**
