@@ -30,6 +30,9 @@ export class Logger {
     this.isProduction =
       typeof __APP_ENV__ !== "undefined" && __APP_ENV__ === "production";
 
+    // Set log level based on environment - use DEBUG level in development
+    this.globalLogLevel = this.isProduction ? LogLevel.INFO : LogLevel.DEBUG;
+
     // Set up default component log levels
     this.setupDefaultComponentLogLevels();
 
