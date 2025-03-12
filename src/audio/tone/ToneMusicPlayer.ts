@@ -43,62 +43,39 @@ export class ToneMusicPlayer {
   ) {
     this.contextManager = contextManager;
     this.bufferManager = bufferManager;
-    this.logger.info("ToneMusicPlayer: Initialized");
   }
 
   /**
-   * Creates a menu music player without starting it,
-   * used for preloading to eliminate startup delay.
+   * Pre-creates a menu music player to eliminate startup delay
    */
   public createMenuMusicPlayer(): Tone.Player | null {
+    // Check if the menu music buffer is available
+    const buffer = this.bufferManager.getBuffer("menu_music");
+    if (!buffer) {
+      return null;
+    }
+
     try {
-      // Check if the buffer exists
-      if (!this.bufferManager.hasBuffer("menu_music")) {
-        this.logger.warn("ToneMusicPlayer: Menu music buffer not found");
-        return null;
+      // Create a new player with the buffer
+      if (buffer.duration) {
+        this.logger.info(
+          `ToneMusicPlayer: Pre-creating player with buffer duration: ${buffer.duration}s`
+        );
       }
 
-      // Check if we already have a player
-      if (this.activePlayers.has("menu_music")) {
-        return this.activePlayers.get("menu_music") || null;
-      }
+      const player = new Tone.Player({
+        url: buffer,
+        loop: true,
+        autostart: false,
+        volume: -8,
+      }).toDestination();
 
-      // Get the buffer
-      const buffer = this.bufferManager.getBuffer("menu_music");
-      if (!buffer) {
-        this.logger.warn("ToneMusicPlayer: Menu music buffer is null");
-        return null;
-      }
+      // Store for future use
+      this.activePlayers.set("menu_music_preloaded", player);
 
-      this.logger.info(
-        `ToneMusicPlayer: Pre-creating player with buffer duration: ${buffer.duration}s`
-      );
-
-      // Ensure Tone.js context is running
-      if (Tone.context.state !== "running") {
-        this.logger.info("ToneMusicPlayer: Starting audio context");
-        Tone.context.resume();
-        Tone.start();
-      }
-
-      // Create a new player with the loaded AudioBuffer
-      const audioBuffer = buffer.get() as AudioBuffer;
-      const player = new Tone.Player(audioBuffer, () => {
-        this.logger.info("ToneMusicPlayer: Player preloaded and ready");
-      });
-      player.loop = true;
-      player.autostart = false;
-      player.volume.value = -60; // Start silent
-      player.toDestination();
-
-      // Store the player
-      this.activePlayers.set("menu_music", player);
       return player;
     } catch (error) {
-      this.logger.error(
-        "ToneMusicPlayer: Error creating menu music player",
-        error
-      );
+      this.logger.error("Failed to create menu music player:", error);
       return null;
     }
   }
@@ -419,18 +396,15 @@ export class ToneMusicPlayer {
   }
 
   /**
-   * Disposes all active players and resources
+   * Disposes of resources
    */
   public dispose(): void {
-    this.logger.info("ToneMusicPlayer: Disposing resources");
+    // Stop all ongoing players
+    this.stopMenuMusic();
+    this.stopGameMusic();
+    this.stopLayeredMusic();
 
-    // Stop any active fadeout timers
-    this.fadeoutTimers.forEach((timerId) => {
-      clearTimeout(timerId);
-    });
-    this.fadeoutTimers.clear();
-
-    // Stop and dispose all active players
+    // Dispose of all players
     this.activePlayers.forEach((player) => {
       try {
         player.stop();
@@ -439,21 +413,16 @@ export class ToneMusicPlayer {
         this.logger.warn("Error disposing player:", error);
       }
     });
-    this.activePlayers.clear();
 
-    // Stop and dispose all active layers
-    this.activeLayers.forEach((layer) => {
-      try {
-        layer.player.stop();
-        layer.player.dispose();
-        layer.gain.dispose();
-      } catch (error) {
-        this.logger.warn("Error disposing layer:", error);
-      }
-    });
+    // Clear collections
+    this.activePlayers.clear();
     this.activeLayers.clear();
 
-    this.logger.info("ToneMusicPlayer: All resources disposed");
+    // Clear timers
+    this.fadeoutTimers.forEach((timerId) => {
+      window.clearTimeout(timerId);
+    });
+    this.fadeoutTimers.clear();
   }
 
   /**

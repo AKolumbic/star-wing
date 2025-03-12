@@ -1082,37 +1082,25 @@ export class Scene {
     this.asteroidSpawnInterval = 3250;
     this.maxAsteroids = 20;
 
-    // Reset player ship if it exists
+    // Clean up existing ship completely
     if (this.playerShip) {
-      // Reset health and shields
-      this.playerShip.setHealth(100);
-      this.playerShip.setShield(100);
-
-      // Force ship to entry start position and reset velocity
-      this.playerShip.resetPosition();
-
-      // Start entry animation with proper callback to restore game state
-      this.startShipEntry(() => {
-        this.logger.info("Ship entry complete after reset");
-        this.setGameActive(true);
-        // Use skipCallback to prevent recursion
-        this.playerShip?.setPlayerControlled(true, true);
-      });
-    } else {
-      // If ship doesn't exist, initialize it
-      this.initPlayerShip()
-        .then(() => {
-          this.startShipEntry(() => {
-            this.logger.info("Ship entry complete after init in reset");
-            this.setGameActive(true);
-            // Use skipCallback to prevent recursion
-            this.playerShip?.setPlayerControlled(true, true);
-          });
-        })
-        .catch((error) => {
-          this.logger.error("Failed to initialize ship during reset:", error);
-        });
+      this.playerShip.dispose();
+      this.playerShip = null;
     }
+
+    // Always initialize a new ship instance
+    this.initPlayerShip()
+      .then(() => {
+        this.startShipEntry(() => {
+          this.logger.info("Ship entry complete after reset");
+          this.setGameActive(true);
+          // Use skipCallback to prevent recursion
+          this.playerShip?.setPlayerControlled(true, true);
+        });
+      })
+      .catch((error) => {
+        this.logger.error("Failed to initialize ship during reset:", error);
+      });
   }
 
   /**
@@ -1234,5 +1222,47 @@ export class Scene {
    */
   getAsteroids(): Asteroid[] {
     return this.asteroids;
+  }
+
+  /**
+   * Debug method to force the ship to be visible.
+   * This is used to diagnose issues with the ship entry animation.
+   */
+  debugForceShipVisible(): void {
+    if (this.playerShip) {
+      this.logger.info("DEBUG: Forcing ship to appear");
+      this.playerShip.forceVisibility();
+
+      // Ensure game is active
+      this.gameActive = true;
+      this.shipDestroyed = false;
+
+      this.logger.info(
+        "DEBUG: Ship visibility forced, game state set to active"
+      );
+    } else {
+      this.logger.error(
+        "DEBUG: Cannot force ship visibility - playerShip is null"
+      );
+
+      // Try to initialize a new ship
+      this.logger.info("DEBUG: Attempting to initialize a new ship");
+      this.initPlayerShip()
+        .then(() => {
+          if (this.playerShip) {
+            this.playerShip.forceVisibility();
+            this.gameActive = true;
+            this.shipDestroyed = false;
+            this.logger.info("DEBUG: New ship created and forced visible");
+          } else {
+            this.logger.error(
+              "DEBUG: Failed to create and force visibility of new ship"
+            );
+          }
+        })
+        .catch((error) => {
+          this.logger.error("DEBUG: Error initializing new ship:", error);
+        });
+    }
   }
 }

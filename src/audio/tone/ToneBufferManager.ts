@@ -30,19 +30,12 @@ export class ToneBufferManager {
    */
   public getBuffer(id: string): Tone.ToneAudioBuffer | null {
     if (!this.hasBuffer(id)) {
-      this.logger.warn(`ToneBufferManager: Buffer ${id} not found in cache`);
       return null;
     }
     const buffer = (this.bufferCache as any)._buffers[id];
     if (!buffer) {
-      this.logger.warn(`ToneBufferManager: Buffer ${id} exists but is null`);
       return null;
     }
-    this.logger.info(
-      `ToneBufferManager: Retrieved buffer ${id} (${buffer.duration.toFixed(
-        2
-      )}s)`
-    );
     return buffer;
   }
 
@@ -51,9 +44,6 @@ export class ToneBufferManager {
    */
   public hasBuffer(id: string): boolean {
     const exists = id in (this.bufferCache as any)._buffers;
-    this.logger.debug(
-      `ToneBufferManager: Checking buffer ${id} exists: ${exists}`
-    );
     return exists;
   }
 
@@ -70,16 +60,10 @@ export class ToneBufferManager {
    */
   public storeBuffer(id: string, buffer: Tone.ToneAudioBuffer): void {
     if (!buffer) {
-      this.logger.warn(
-        `ToneBufferManager: Attempted to store null buffer for ${id}`
-      );
       return;
     }
     // Need to manually add since we're not using the built-in loading
     (this.bufferCache as any)._buffers[id] = buffer;
-    this.logger.info(
-      `ToneBufferManager: Stored buffer ${id} (${buffer.duration.toFixed(2)}s)`
-    );
   }
 
   /**
@@ -91,22 +75,12 @@ export class ToneBufferManager {
     isEssential: boolean = false
   ): Promise<void> {
     try {
-      this.logger.info(
-        `ToneBufferManager: Loading audio sample ${id} from ${url}`
-      );
-
       // Create a promise to handle the buffer loading
       return new Promise((resolve, reject) => {
         // Use ToneAudioBuffer to load the file
         const buffer = new Tone.ToneAudioBuffer(
           url,
           () => {
-            this.logger.info(
-              `ToneBufferManager: Loaded buffer ${id} (${buffer.duration.toFixed(
-                2
-              )}s)`
-            );
-
             // Add to buffer cache
             this.storeBuffer(id, buffer);
 
@@ -194,9 +168,6 @@ export class ToneBufferManager {
     // Identify buffers to remove
     this.getBufferIds().forEach((id) => {
       if (preserveEssential && this.essentialBuffers.has(id)) {
-        this.logger.info(
-          `ToneBufferManager: Preserving essential buffer ${id}`
-        );
         return;
       }
       idsToRemove.push(id);
@@ -209,7 +180,6 @@ export class ToneBufferManager {
         if (buffer) {
           buffer.dispose();
           delete (this.bufferCache as any)._buffers[id];
-          this.logger.info(`ToneBufferManager: Removed buffer ${id}`);
         }
       }
     });

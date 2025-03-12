@@ -7,25 +7,23 @@ import { AudioManagerFactory } from "./AudioManagerFactory";
 import { Logger } from "../utils/Logger";
 
 /**
- * Initializes the audio system with Tone.js
- * Call this early in your application startup
+ * Initializes the audio system for the game.
  */
 export async function initializeAudioSystem(): Promise<void> {
   const logger = Logger.getInstance();
-  logger.info("Initializing audio system with Tone.js");
-
-  // Get the audio manager (which will be the Tone.js implementation)
   const audioManager = AudioManagerFactory.getAudioManager();
 
   try {
-    // Initialize the audio system
+    // Initialize audio
     await audioManager.initialize();
-    logger.info("Audio system initialized successfully with Tone.js");
 
-    return Promise.resolve();
+    // Preload essential audio files
+    await audioManager.preloadEssentialAudio();
+
+    logger.info("Audio system initialized successfully with Tone.js");
   } catch (error) {
-    logger.error("Failed to initialize audio system", error);
-    return Promise.reject(error);
+    logger.error("Failed to initialize audio system:", error);
+    throw error;
   }
 }
 

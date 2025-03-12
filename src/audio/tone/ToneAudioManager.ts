@@ -98,7 +98,6 @@ export class ToneAudioManager {
    */
   public async initialize(): Promise<void> {
     if (this.isInitialized) {
-      this.logger.info("ToneAudioManager: Already initialized");
       return;
     }
 
@@ -202,56 +201,36 @@ export class ToneAudioManager {
    * If procedural is true, generates music instead of loading a file
    */
   public async playMenuMusic(procedural: boolean = false): Promise<void> {
-    this.logger.info(
-      `ToneAudioManager: Playing menu music (procedural: ${procedural})`
-    );
+    // Ensure we have a valid audio context
+    await this.contextManager.startAudioContext();
 
-    if (procedural) {
-      // Use procedural generator
-      await this.proceduralMusic.startMenuMusic();
-    } else {
-      // Check if we have the menu music buffer
+    // Don't do anything if the menu music is already playing
+    if (this.isPlaying && this.musicPlayer.hasLayer("menu_music")) {
+      return;
+    }
+
+    // Try to play menu music sample if not in procedural mode
+    if (!procedural) {
       const hasBuffer = this.bufferManager.hasBuffer("menu_music");
-      const buffer = this.bufferManager.getBuffer("menu_music");
-      this.logger.info(
-        `ToneAudioManager: Menu music buffer status - exists: ${hasBuffer}, buffer: ${
-          buffer ? "valid" : "null"
-        }`
-      );
+      const buffer = hasBuffer
+        ? this.bufferManager.getBuffer("menu_music")
+        : null;
 
-      // If buffer isn't loaded yet, immediately fallback to procedural music and load sample in background
-      if (!hasBuffer || !buffer) {
-        this.logger.warn(
-          "ToneAudioManager: Menu music sample not preloaded, falling back to procedural music immediately"
-        );
-        await this.proceduralMusic.startMenuMusic();
-        // Initiate background loading of the menu music sample
-        this.bufferManager
-          .loadAudioSample(
-            "assets/audio/star-wing_menu-loop.mp3",
-            "menu_music",
-            true
-          )
-          .then(() =>
-            this.logger.info(
-              "ToneAudioManager: Menu music sample loaded in background"
-            )
-          )
-          .catch((error) =>
-            this.logger.error(
-              "ToneAudioManager: Failed to load menu music sample in background",
-              error
-            )
-          );
-      } else {
-        const player = this.musicPlayer.playMenuMusic();
-        if (!player) {
-          this.logger.warn(
-            "ToneAudioManager: Failed to create player, falling back to procedural"
-          );
-          await this.proceduralMusic.startMenuMusic();
-        }
+      if (!buffer) {
+        // Fall back to procedural music if sample not loaded
+        this.proceduralMusic.startMenuMusic();
+        return;
       }
+
+      try {
+        this.musicPlayer.playMenuMusic();
+      } catch (error) {
+        // Fall back to procedural if there's an error
+        this.proceduralMusic.startMenuMusic();
+      }
+    } else {
+      // Play procedural music if procedural was requested
+      this.proceduralMusic.startMenuMusic();
     }
 
     this.isPlaying = true;
@@ -261,13 +240,9 @@ export class ToneAudioManager {
    * Stops menu music playback
    */
   public stopMenuMusic(): void {
-    this.logger.info("ToneAudioManager: Stopping menu music");
-
-    // Stop both regular and procedural music
     this.musicPlayer.stopMenuMusic();
     this.proceduralMusic.stopMusic();
-
-    this.isPlaying = false;
+    this.logger.info("ToneAudioManager: Stopping menu music");
   }
 
   /**
@@ -668,19 +643,19 @@ export class ToneAudioManager {
   public dispose(): void {
     this.logger.info("ToneAudioManager: Disposing");
 
-    // Stop all active sounds
-    if (this.isPlaying) {
-      this.proceduralMusic.stopMusic();
-      this.stopLayeredMusic();
-    }
+    // Stop all music first
+    this.stopMusic();
 
-    // Dispose all components
-    this.proceduralMusic.dispose();
+    // Then dispose of all underlying components
     this.musicPlayer.dispose();
     this.sfxPlayer.dispose();
-    this.bufferManager.dispose();
+    this.proceduralMusic.dispose();
     this.spatialAudio.dispose();
     this.effectsChain.dispose();
+    this.contextManager.dispose();
+
+    // Clear the buffer cache and release memory
+    this.bufferManager.dispose();
 
     // Reset state
     this.isInitialized = false;
@@ -713,19 +688,10 @@ export class ToneAudioManager {
    */
   public stopMusic(): void {
     this.logger.info("ToneAudioManager: Stopping all music");
-
-    // Stop menu music with a short fade
-    this.musicPlayer.stopMenuMusic(0.5);
-
-    // Stop game loop music with a short fade
-    this.musicPlayer.stopGameMusic(0.5);
-
-    // Stop layered music with a short fade
+    this.musicPlayer.stopMenuMusic();
+    this.musicPlayer.stopGameMusic();
+    this.proceduralMusic.stopMusic();
     this.stopLayeredMusic();
-
-    // Stop procedural music with a short fade
-    this.proceduralMusic.stopMusic(0.5);
-
     this.isPlaying = false;
   }
 }

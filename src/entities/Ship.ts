@@ -653,204 +653,42 @@ export class Ship {
 
     // Player doesn't have control during the entry animation
     this.playerControlled = false;
-
-    this.logger.info("🚀 SHIP: Entry animation set up complete");
   }
 
   /**
-   * Updates the ship position, rotation, and applies physics.
-   * @param deltaTime Time elapsed since the last frame in seconds
-   */
-  update(deltaTime: number): void {
-    if (this.playingEntryAnimation) {
-      // Update entry animation if playing
-      this.updateEntryAnimation(deltaTime);
-      return;
-    }
-
-    // Update weapons
-    if (this.weaponSystem) {
-      this.weaponSystem.update(deltaTime);
-    }
-
-    // Only handle input if player controlled
-    if (this.playerControlled) {
-      this.handleInput(deltaTime);
-
-      // Add some drag/friction to make controls feel better
-      this.velocity.x *= 0.95;
-      this.velocity.y *= 0.95;
-
-      // Animate engine glow
-      this.updateEngineGlow(deltaTime);
-    }
-
-    // Update position based on velocity
-    this.position.add(this.velocity);
-
-    // Constrain ship within screen bounds
-    this.constrainToBounds();
-
-    // Update the 3D model position and rotation
-    this.updateModelPosition();
-    this.updateModelRotation();
-
-    // Update hitbox position
-    if (this.hitbox) {
-      this.hitbox.position.copy(this.position);
-    }
-
-    // Debug ship position occasionally
-    if (this.playerControlled && Math.random() < 0.01) {
-      this.logger.debug(
-        `SHIP POSITION: x=${this.position.x.toFixed(
-          2
-        )}, y=${this.position.y.toFixed(2)}, z=${this.position.z.toFixed(2)}`
-      );
-    }
-  }
-
-  /**
-   * Updates the entry animation based on elapsed time.
-   * Creates a retro arcade style entry with "steps" of movement.
+   * Updates the ship's entry animation
    * @param deltaTime Time elapsed since the last frame in seconds
    */
   private updateEntryAnimation(deltaTime: number): void {
+    // Calculate normalized progress (0 to 1)
     const elapsed = (performance.now() - this.entryStartTime) / 1000;
     const progress = Math.min(elapsed / this.ENTRY_DURATION, 1.0);
 
-    // Log animation progress at 10% intervals
-    if (
-      Math.floor(progress * 10) >
-      Math.floor(((elapsed - deltaTime) / this.ENTRY_DURATION) * 10)
-    ) {
-      this.logger.debug(
-        `🚀 SHIP: Animation progress: ${Math.floor(
-          progress * 100
-        )}%, position:`,
-        this.position
-      );
-    }
+    // Interpolate position from start to end position
+    const startPos = this.ENTRY_START_POSITION.clone();
+    const endPos = this.ENTRY_END_POSITION.clone();
 
-    // Create a retro-style "step" movement instead of smooth interpolation
-    // Divide the animation into discrete steps
-    // const numberOfSteps = 8;
-    // const stepIndex = Math.floor(progress * numberOfSteps);
-    // const steppedProgress = stepIndex / numberOfSteps;
+    // Use easing function for smoother animation
+    const easedProgress = this.easeInOutCubic(progress);
 
-    // Phase 1: Enter from right side with "digital" steps (0-60%)
-    if (progress < 0.6) {
-      // Normalize progress for this phase (0-1)
-      const phaseProgress = progress / 0.6;
+    // Interpolate between start and end positions
+    const newPosition = new THREE.Vector3();
+    newPosition.lerpVectors(startPos, endPos, easedProgress);
+    this.position.copy(newPosition);
 
-      // Calculate the current step for this phase
-      const phaseSteps = 5;
-      const phaseStepIndex = Math.floor(phaseProgress * phaseSteps);
-      const phaseStepProgress = phaseStepIndex / phaseSteps;
-
-      // Start from right side, move left in steps
-      const startX = 700;
-      const endX = 0;
-
-      // Apply step function for X position
-      const x = startX - (startX - endX) * phaseStepProgress;
-      // Y position oscillates like old arcade games
-      const y = Math.sin(phaseProgress * Math.PI * 2) * 30;
-      const z = this.ENTRY_END_POSITION.z;
-
-      this.position.set(x, y, z);
-
-      // Simple rotation that emphasizes the "steps"
-      const tiltAmount = 0.3;
-      // Tilt based on direction of movement
-      this.rotation.z =
-        -tiltAmount + ((y > 0 ? 0.1 : -0.1) * 2 * Math.abs(y)) / 30;
-    }
-    // Phase 2: Digital stop at center with slight bounce (60-100%)
-    else {
-      // Normalize progress for this phase
-      const phaseProgress = (progress - 0.6) / 0.4;
-
-      // Calculate current step for this phase
-      const phaseSteps = 3;
-      const phaseStepIndex = Math.floor(phaseProgress * phaseSteps);
-
-      // Simple "bounce" effect at position steps
-      const bouncePositions = [
-        new THREE.Vector3(30, 20, this.ENTRY_END_POSITION.z),
-        new THREE.Vector3(-20, -10, this.ENTRY_END_POSITION.z),
-        new THREE.Vector3(0, 0, this.ENTRY_END_POSITION.z),
-      ];
-
-      // Set position to the current bounce step
-      const targetPosition =
-        bouncePositions[Math.min(phaseStepIndex, bouncePositions.length - 1)];
-      this.position.copy(targetPosition);
-
-      // Simple rotation effect with "digital" steps
-      const rotationSteps = [-0.15, 0.1, 0];
-      this.rotation.z =
-        rotationSteps[Math.min(phaseStepIndex, rotationSteps.length - 1)];
-    }
-
-    // Force update model position
+    // Update the 3D model position
     this.updateModelPosition();
-    this.updateModelRotation();
 
-    // Add digital "teleport" effect for engines during entry
-    if (this.engineGlowMeshes && this.engineGlowMeshes.length > 0) {
-      const engineState = Math.floor(elapsed * 10) % 2; // Blink at 5Hz
-
-      this.engineGlowMeshes.forEach((engine) => {
-        if (engine && engine.material) {
-          // Digital on/off for engines
-          if (engineState === 0) {
-            (engine.material as THREE.MeshBasicMaterial).opacity = 0.9;
-            const scale = 1.2;
-            engine.scale.set(scale, scale, scale * 1.5);
-          } else {
-            (engine.material as THREE.MeshBasicMaterial).opacity = 0.3;
-            const scale = 0.8;
-            engine.scale.set(scale, scale, scale);
-          }
-        }
-      });
-    }
-
-    // Check if animation is complete
+    // If we've reached the end of the animation
     if (progress >= 1.0) {
-      this.logger.info(
-        "🚀 SHIP: Entry animation complete, position:",
-        this.position
-      );
+      // Animation complete - give control to player
       this.playingEntryAnimation = false;
-      this.position.copy(this.ENTRY_END_POSITION);
-      this.rotation.set(0, 0, 0);
-
-      // Update model position one last time
-      this.updateModelPosition();
-      this.updateModelRotation();
-
-      // Reset engine effects
-      if (this.engineGlowMeshes) {
-        this.engineGlowMeshes.forEach((engine) => {
-          if (engine) {
-            engine.scale.set(1, 1, 1);
-          }
-        });
-      }
-
-      // Enable player control
       this.setPlayerControlled(true);
-      this.logger.info("🚀 SHIP: Player control enabled");
 
-      // Call completion callback if set
+      // Execute callback if one was provided
       if (this.onEntryCompleteCallback) {
         this.logger.info("🚀 SHIP: Executing entry complete callback");
         this.onEntryCompleteCallback();
-        this.onEntryCompleteCallback = null;
-      } else {
-        this.logger.info("🚀 SHIP: No completion callback was provided");
       }
     }
   }
@@ -1116,30 +954,28 @@ export class Ship {
   }
 
   /**
-   * Sets whether the ship is under player control.
-   * @param controlled Whether the ship is controlled by the player
-   * @param skipCallback Optional flag to skip executing the onEntryCompleteCallback
+   * Sets whether the ship is controlled by the player
+   * @param controlled Whether player control is enabled
+   * @param skipCallback Whether to skip the callback execution
    */
   setPlayerControlled(
     controlled: boolean,
     skipCallback: boolean = false
   ): void {
-    // Only update if the state is actually changing
-    if (this.playerControlled !== controlled) {
-      this.playerControlled = controlled;
+    this.playerControlled = controlled;
 
-      if (controlled) {
-        this.logger.info("🚀 SHIP: Player control enabled");
+    if (controlled) {
+      this.logger.info("🚀 SHIP: Player control enabled");
 
-        // Only execute the callback if not explicitly skipped and we have one
-        if (this.onEntryCompleteCallback && !skipCallback) {
-          this.logger.info("🚀 SHIP: Executing entry complete callback");
-          const callback = this.onEntryCompleteCallback;
-          this.onEntryCompleteCallback = null; // Clear before executing to prevent recursion
-          callback();
-        } else {
-          this.logger.info("🚀 SHIP: No completion callback was executed");
-        }
+      // Execute entry completion callback if we're exiting the entry animation
+      // and there is a callback registered, unless skipCallback is true
+      if (
+        this.onEntryCompleteCallback &&
+        !skipCallback &&
+        this.playingEntryAnimation
+      ) {
+        this.playingEntryAnimation = false;
+        this.onEntryCompleteCallback();
       }
     }
   }
@@ -1410,5 +1246,94 @@ export class Ship {
    */
   getWeaponSystem(): WeaponSystem | null {
     return this.weaponSystem;
+  }
+
+  /**
+   * Forces the ship to be visible at the end position.
+   * This is a debug function used to diagnose animation issues.
+   */
+  forceVisibility(): void {
+    this.logger.info("DEBUG: Forcing ship visibility");
+    this.playingEntryAnimation = false;
+    this.position.copy(this.ENTRY_END_POSITION);
+    this.rotation.set(0, 0, 0);
+    this.updateModelPosition();
+    this.updateModelRotation();
+    this.setPlayerControlled(true);
+
+    // Make sure model is visible
+    if (this.model) {
+      this.model.visible = true;
+      this.logger.info(
+        `DEBUG: Model visibility set to true, position: ${this.model.position.x.toFixed(
+          2
+        )}, ${this.model.position.y.toFixed(
+          2
+        )}, ${this.model.position.z.toFixed(2)}`
+      );
+    } else {
+      this.logger.error("DEBUG: Cannot force visibility - model is null!");
+    }
+  }
+
+  /**
+   * Checks if the ship is currently playing its entry animation.
+   * @returns True if the entry animation is playing
+   */
+  isInEntryAnimation(): boolean {
+    return this.playingEntryAnimation;
+  }
+
+  /**
+   * Implements a simple easing function for smoother animation
+   * @param x The input value (0 to 1)
+   * @returns The eased output value (0 to 1)
+   */
+  private easeInOutCubic(x: number): number {
+    return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+  }
+
+  /**
+   * Updates the ship position, rotation, and applies physics.
+   * @param deltaTime Time elapsed since the last frame in seconds
+   */
+  update(deltaTime: number): void {
+    if (this.playingEntryAnimation) {
+      // Update entry animation if playing
+      this.updateEntryAnimation(deltaTime);
+      return;
+    }
+
+    // Update weapons
+    if (this.weaponSystem) {
+      this.weaponSystem.update(deltaTime);
+    }
+
+    // Only handle input if player controlled
+    if (this.playerControlled) {
+      this.handleInput(deltaTime);
+
+      // Add some drag/friction to make controls feel better
+      this.velocity.x *= 0.95;
+      this.velocity.y *= 0.95;
+
+      // Animate engine glow
+      this.updateEngineGlow(deltaTime);
+    }
+
+    // Update position based on velocity
+    this.position.add(this.velocity);
+
+    // Constrain ship within screen bounds
+    this.constrainToBounds();
+
+    // Update the 3D model position and rotation
+    this.updateModelPosition();
+    this.updateModelRotation();
+
+    // Update hitbox position
+    if (this.hitbox) {
+      this.hitbox.position.copy(this.position);
+    }
   }
 }

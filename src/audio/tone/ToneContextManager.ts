@@ -15,8 +15,6 @@ export class ToneContextManager {
   private isInitialized = false;
 
   constructor() {
-    this.logger.info("ToneContextManager: Created");
-
     // Load mute state from localStorage
     this.loadMuteState();
   }
@@ -26,11 +24,8 @@ export class ToneContextManager {
    */
   public async initialize(): Promise<void> {
     if (this.isInitialized) {
-      this.logger.info("ToneContextManager: Already initialized");
       return;
     }
-
-    this.logger.info("ToneContextManager: Initializing");
 
     try {
       // Attempt to resume the context if it's suspended
@@ -41,11 +36,6 @@ export class ToneContextManager {
       // Default is 32, we'll increase it to 64
       if (Tone.context && (Tone.context as any).options) {
         (Tone.context as any).options.maxPolyphony = 64;
-        this.logger.info("ToneContextManager: Set maxPolyphony to 64");
-      } else {
-        this.logger.warn(
-          "ToneContextManager: Could not set maxPolyphony - context not fully initialized"
-        );
       }
 
       this.isInitialized = true;
@@ -60,13 +50,8 @@ export class ToneContextManager {
    */
   private async startContext(): Promise<void> {
     try {
-      this.logger.info(
-        `ToneContextManager: Starting context (current state: ${Tone.context.state})`
-      );
-
       // First try to resume if suspended
       if (Tone.context.state === "suspended") {
-        this.logger.info("ToneContextManager: Resuming suspended context");
         await Tone.context.resume();
       }
 
@@ -78,15 +63,8 @@ export class ToneContextManager {
 
       // Double-check the context state
       if (Tone.context.state !== "running") {
-        this.logger.warn(
-          `ToneContextManager: Context still not running (state: ${Tone.context.state})`
-        );
         throw new Error("Context failed to start");
       }
-
-      this.logger.info(
-        "ToneContextManager: Tone.js context started successfully"
-      );
     } catch (error) {
       this.logger.error(
         "ToneContextManager: Failed to start Tone.js context",

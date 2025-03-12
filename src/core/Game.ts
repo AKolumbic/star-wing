@@ -484,4 +484,24 @@ export class Game {
     // Play menu music
     this.audioSystem.playMenuMusic(this.devMode);
   }
+
+  /**
+   * Initializes debug tools for diagnosing issues.
+   * This should only be called in development mode.
+   */
+  initDebugTools(): void {
+    // Import and initialize the ship debugger
+    import("../debug/ShipDebugger")
+      .then((module) => {
+        const ShipDebugger = module.ShipDebugger;
+        const shipDebugger = new ShipDebugger(this);
+        shipDebugger.activate();
+        this.logger.info(
+          "Ship debugger initialized - Use Alt+V to force ship visibility"
+        );
+      })
+      .catch((error) => {
+        this.logger.error("Failed to initialize ship debugger:", error);
+      });
+  }
 }

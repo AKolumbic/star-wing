@@ -96,13 +96,11 @@ export class ToneEffectsChain {
    * Creates a new effects chain
    */
   constructor() {
-    this.logger.info("ToneEffectsChain: Creating new effects chain");
-
-    // Create the input and output nodes
+    // Create input and output nodes
     this.inputNode = new Tone.Gain();
     this.outputNode = new Tone.Gain();
 
-    // Default connection (dry signal)
+    // Connect input directly to output by default
     this.inputNode.connect(this.outputNode);
   }
 
@@ -113,50 +111,34 @@ export class ToneEffectsChain {
     id: string,
     type: EffectType,
     params: EffectParams = {}
-  ): void {
-    this.logger.info(`ToneEffectsChain: Adding ${type} effect with ID ${id}`);
-
-    // Check if the effect already exists
-    if (this.effects.has(id)) {
-      this.logger.warn(
-        `ToneEffectsChain: Effect ${id} already exists, replacing it`
-      );
-      this.removeEffect(id);
-    }
-
+  ): boolean {
     // Create the effect
     const effect = this.createEffect(type, params);
     if (!effect) {
-      this.logger.error(
-        `ToneEffectsChain: Failed to create effect of type ${type}`
-      );
-      return;
+      return false;
     }
 
-    // Store the effect
+    // Add to effects map
     this.effects.set(id, effect);
     this.activeEffects.push(id);
 
-    // Rebuild the chain
+    // Rebuild the effects chain
     this.rebuildChain();
+
+    return true;
   }
 
   /**
    * Removes an effect from the chain
    */
-  public removeEffect(id: string): void {
-    this.logger.info(`ToneEffectsChain: Removing effect ${id}`);
-
-    // Check if the effect exists
+  public removeEffect(id: string): boolean {
+    // Check if effect exists
     if (!this.effects.has(id)) {
-      this.logger.warn(`ToneEffectsChain: Effect ${id} does not exist`);
-      return;
+      return false;
     }
 
-    // Get the effect
+    // Get the effect to dispose it
     const effect = this.effects.get(id);
-
-    // Dispose of the effect
     if (effect) {
       effect.dispose();
     }
@@ -169,6 +151,8 @@ export class ToneEffectsChain {
 
     // Rebuild the chain
     this.rebuildChain();
+
+    return true;
   }
 
   /**
@@ -223,12 +207,10 @@ export class ToneEffectsChain {
    * Applies a preset to the chain
    */
   public applyPreset(preset: EffectPreset): void {
-    this.logger.info(`ToneEffectsChain: Applying preset ${preset.name}`);
-
     // Clear existing effects
     this.clearEffects();
 
-    // Add each effect from the preset
+    // Add each effect in the preset
     preset.effects.forEach((effect, index) => {
       const id = `${preset.name}_${effect.type}_${index}`;
       this.addEffect(id, effect.type, effect.params);
@@ -239,13 +221,12 @@ export class ToneEffectsChain {
    * Clears all effects from the chain
    */
   public clearEffects(): void {
-    this.logger.info("ToneEffectsChain: Clearing all effects");
-
     // Dispose and clear all effects
     this.effects.forEach((effect) => {
       effect.dispose();
     });
 
+    // Clear collections
     this.effects.clear();
     this.activeEffects = [];
 
@@ -449,8 +430,6 @@ export class ToneEffectsChain {
    * Rebuilds the effects chain
    */
   private rebuildChain(): void {
-    this.logger.info("ToneEffectsChain: Rebuilding effects chain");
-
     // Disconnect all nodes
     this.inputNode.disconnect();
     this.effects.forEach((effect) => {
