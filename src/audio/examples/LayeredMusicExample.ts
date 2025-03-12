@@ -5,17 +5,22 @@
  * It shows how to preload tracks, start layered music, add layers, adjust volumes,
  * and remove layers.
  */
-import { AudioManager } from "../AudioManager";
+import { AudioManagerFactory } from "../AudioManagerFactory";
+import { ToneAudioManager } from "../tone/ToneAudioManager";
 
 /**
  * Example class that demonstrates the layered music system
+ *
+ * NOTE: This is an example file and is not used in production.
+ * It is kept for reference purposes only.
+ * Some methods may be commented out to prevent build errors.
  */
 export class LayeredMusicExample {
-  private audioManager: AudioManager;
+  private audioManager: ToneAudioManager;
 
   constructor() {
     // Get the AudioManager instance
-    this.audioManager = AudioManager.getInstance();
+    this.audioManager = AudioManagerFactory.getAudioManager();
   }
 
   /**
@@ -28,8 +33,8 @@ export class LayeredMusicExample {
       // Initialize the audio manager
       await this.audioManager.initialize();
 
-      // Preload level 1 music
-      await this.audioManager.preloadLevelMusic("level1");
+      // Preload essential audio (which includes music)
+      await this.audioManager.preloadEssentialAudio();
 
       console.log("Initialization complete. Music files loaded.");
     } catch (error) {
@@ -42,6 +47,7 @@ export class LayeredMusicExample {
    */
   public startBaseMusic(): void {
     console.log("Starting base game music...");
+    // Using playLevelMusic instead which is available in ToneAudioManager
     this.audioManager.playLevelMusic("level1");
   }
 
@@ -51,11 +57,12 @@ export class LayeredMusicExample {
    */
   public addMenuMusicLayer(): void {
     console.log("Adding menu music layer at reduced volume...");
-    this.audioManager.addMusicLayer("menuMusic", 0.07, 2.0);
+    // Updated to match ToneAudioManager API
+    this.audioManager.addMusicLayer("menuMusic", 0.07);
 
     // Ensure game music is at full volume
     setTimeout(() => {
-      this.audioManager.setLayerVolume("gameMusic", 1.0, 0.5);
+      this.audioManager.setLayerVolume("gameMusic", 1.0);
       console.log("Set game music to full volume");
     }, 200);
   }
@@ -67,7 +74,7 @@ export class LayeredMusicExample {
    */
   public adjustLayerVolume(trackId: string, volume: number): void {
     console.log(`Adjusting ${trackId} volume to ${volume}...`);
-    this.audioManager.setLayerVolume(trackId, volume, 1.0);
+    this.audioManager.setLayerVolume(trackId, volume);
   }
 
   /**
@@ -76,7 +83,7 @@ export class LayeredMusicExample {
    */
   public removeLayer(trackId: string): void {
     console.log(`Removing ${trackId} layer...`);
-    this.audioManager.removeMusicLayer(trackId, 2.0);
+    this.audioManager.removeMusicLayer(trackId);
   }
 
   /**
@@ -84,7 +91,7 @@ export class LayeredMusicExample {
    */
   public stopAllMusic(): void {
     console.log("Stopping all music...");
-    this.audioManager.stopMusic(2.0);
+    this.audioManager.stopMusic();
   }
 }
 

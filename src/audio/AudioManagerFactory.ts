@@ -34,4 +34,35 @@ export class AudioManagerFactory {
       this.toneInstance = undefined as any;
     }
   }
+
+  /**
+   * Enable Tone.js feature - stub method for backward compatibility
+   * @deprecated This method is no longer needed as we fully migrated to Tone.js
+   */
+  public static enableToneJsFeature(feature: string): void {
+    this.logger.info(`[DEPRECATED] enableToneJsFeature called for: ${feature}`);
+    // No-op as we have fully migrated to Tone.js
+  }
+
+  /**
+   * Disable Tone.js feature - stub method for backward compatibility
+   * @deprecated This method is no longer needed as we fully migrated to Tone.js
+   */
+  public static disableToneJsFeature(feature: string): void {
+    this.logger.info(
+      `[DEPRECATED] disableToneJsFeature called for: ${feature}`
+    );
+    // No-op as we have fully migrated to Tone.js
+  }
+
+  /**
+   * Switch implementation - stub method for backward compatibility
+   * @deprecated This method is no longer needed as we fully migrated to Tone.js
+   */
+  public static switchImplementation(useToneJs: boolean): void {
+    this.logger.info(
+      `[DEPRECATED] switchImplementation called with: ${useToneJs}`
+    );
+    // No-op as we have fully migrated to Tone.js
+  }
 }

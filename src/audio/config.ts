@@ -20,6 +20,19 @@ export const AudioConfig = {
   enableDebugLogging: true,
 
   /**
+   * Use Tone.js implementation (this is now always true in production)
+   */
+  useToneJs: true,
+
+  /**
+   * Feature toggles for gradual migration
+   * These are now deprecated but kept for backward compatibility
+   */
+  featureToggles: {
+    // Empty but provided for interface compatibility
+  },
+
+  /**
    * Performance monitoring for audio
    */
   performance: {

@@ -184,14 +184,14 @@ export class AudioToggle {
       toggle.style.cursor = "pointer";
 
       // Store reference to the toggle
-      this.featureToggles[toggleKey] = toggle;
+      this.featureToggles[String(toggleKey)] = toggle;
 
       // Add event listener
       toggle.addEventListener("change", () => {
         if (toggle.checked) {
-          AudioManagerFactory.enableToneJsFeature(toggleKey);
+          AudioManagerFactory.enableToneJsFeature(String(toggleKey));
         } else {
-          AudioManagerFactory.disableToneJsFeature(toggleKey);
+          AudioManagerFactory.disableToneJsFeature(String(toggleKey));
         }
 
         // Update UI
@@ -227,11 +227,15 @@ export class AudioToggle {
       this.statusLabel.textContent = `Using: Tone.js (Full)`;
     } else {
       // Check if any features are enabled
-      const enabledFeatures = Object.values(AudioConfig.featureToggles).filter(
-        Boolean
-      ).length;
-      if (enabledFeatures > 0) {
-        this.statusLabel.textContent = `Using: Hybrid (${enabledFeatures} Tone.js features)`;
+      const enabledFeatures = Object.entries(
+        AudioConfig.featureToggles as Record<string, any>
+      )
+        .filter(([_, value]) => Boolean(value))
+        .map(([key]) => this.formatFeatureName(key));
+      if (enabledFeatures.length > 0) {
+        this.statusLabel.textContent = `Using: Hybrid (${enabledFeatures.join(
+          ", "
+        )})`;
       } else {
         this.statusLabel.textContent = `Using: Web Audio API (Original)`;
       }
@@ -254,10 +258,9 @@ export class AudioToggle {
 
       // Update toggle states
       Object.keys(AudioConfig.featureToggles).forEach((key) => {
-        const toggleKey = key as keyof typeof AudioConfig.featureToggles;
-        const toggle = this.featureToggles[toggleKey];
+        const toggle = this.featureToggles[key];
         if (toggle) {
-          toggle.checked = AudioConfig.featureToggles[toggleKey];
+          toggle.checked = Boolean((AudioConfig.featureToggles as any)[key]);
         }
       });
     }
@@ -413,8 +416,10 @@ export class AudioToggle {
       info.textContent = `Current implementation: Tone.js (Full)`;
     } else {
       // Check if any features are enabled
-      const enabledFeatures = Object.entries(AudioConfig.featureToggles)
-        .filter(([_, value]) => value)
+      const enabledFeatures = Object.entries(
+        AudioConfig.featureToggles as Record<string, any>
+      )
+        .filter(([_, value]) => Boolean(value))
         .map(([key]) => this.formatFeatureName(key));
 
       if (enabledFeatures.length > 0) {
