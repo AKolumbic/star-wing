@@ -51,16 +51,17 @@ See [Core Systems README](./core/README.md) for detailed documentation.
 
 ## Audio System (`/audio`)
 
-A sophisticated modular audio system that handles:
+A sophisticated modular audio system built with Tone.js that handles:
 
-- Background music playback with smooth transitions
-- Procedurally generated synthesized music
-- Sound effect playback with spatial positioning
+- Background music playback with smooth transitions between game states
+- Procedurally generated synthesized music that adapts to gameplay
+- Spatial audio for immersive 3D sound positioning
+- Advanced audio effects with environment-specific presets
+- Layer-based music system for dynamic soundtrack composition
+- Real-time audio processing via the Web Audio API
+- Auto-resume functionality for mobile device audio context
 - Volume controls and settings persistence
 - Optimized buffer management and memory usage
-- Proper music transitions between menu and gameplay
-
-The audio system follows a modular architecture with specialized components for different audio functions, leveraging both the Web Audio API and Howler.js.
 
 See [Audio System README](./audio/README.md) for detailed documentation.
 

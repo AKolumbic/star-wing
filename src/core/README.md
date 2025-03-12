@@ -115,14 +115,20 @@ Specialized adapters that implement the GameSystem interface:
 
 #### AudioSystem
 
-- Controls game sound and music through the modular audio architecture
-- Interfaces with the AudioManager facade class
-- Preloads essential audio assets during initialization
+- Controls game sound and music through the modular Tone.js-based audio architecture
+- Interfaces with the ToneAudioManager facade class, which provides advanced audio capabilities
+- Supports both traditional audio file playback and procedural audio generation
+- Preloads essential audio assets during initialization for optimal performance
+- Offers comprehensive audio features including:
+  - Spatial audio for immersive 3D sound positioning
+  - Procedural music generation that adapts to gameplay
+  - Audio effects with environment-specific presets
+  - Layer-based music system for dynamic soundtrack composition
+  - Real-time audio processing via the Web Audio API
 - Manages audio settings persistence and volume controls
-- Provides access to music playback and sound effect functionality
-- Handles music transitions between menu and gameplay
-- Integrates with Howler.js for complex audio scenarios
-- See `/src/audio/README.md` for detailed documentation on the audio architecture
+- Provides auto-resume functionality for mobile device audio context
+- Handles smooth music transitions between menu and gameplay states
+- See `/src/audio/README.md` for detailed documentation on the Tone.js audio architecture
 
 #### UISystem
 
@@ -198,8 +204,8 @@ Robust error handling is implemented throughout the core systems:
 
 - **Three.js**: For 3D rendering (Scene.ts)
 - **Browser DOM API**: For input handling (Input.ts)
-- **Web Audio API**: Through the modular audio architecture (referenced in AudioSystem)
-- **Howler.js**: For advanced audio capabilities
+- **Web Audio API**: Through Tone.js for high-quality audio processing
+- **Tone.js**: For advanced audio capabilities including synthesis and effects
 - **GSAP**: For animations and transitions
 - **UI Components**: Through Menu, LoadingScreen, etc. (referenced in UISystem)
 
