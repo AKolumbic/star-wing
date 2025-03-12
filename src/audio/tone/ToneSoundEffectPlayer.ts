@@ -335,6 +335,310 @@ export class ToneSoundEffectPlayer {
   }
 
   /**
+   * Plays a specialized sound for asteroids destroyed by laser hits
+   * Uses a combination of noise and synth for a more sci-fi explosion
+   */
+  public playLaserAsteroidExplosion(size: string = "medium"): void {
+    try {
+      this.logger.info(
+        `ToneSoundEffectPlayer: Playing laser-asteroid explosion of size ${size}`
+      );
+
+      // 1. Create a basic explosion noise component
+      const noiseSettings = {
+        small: {
+          noiseType: "white",
+          attack: 0.001,
+          decay: 0.1,
+          sustain: 0,
+          release: 0.1,
+          duration: 0.15,
+          filter: 3000,
+          volume: -15,
+        },
+        medium: {
+          noiseType: "pink",
+          attack: 0.001,
+          decay: 0.15,
+          sustain: 0.05,
+          release: 0.2,
+          duration: 0.25,
+          filter: 2000,
+          volume: -10,
+        },
+        large: {
+          noiseType: "brown",
+          attack: 0.005,
+          decay: 0.2,
+          sustain: 0.1,
+          release: 0.3,
+          duration: 0.4,
+          filter: 1500,
+          volume: -5,
+        },
+      };
+
+      // Get appropriate settings based on size
+      const settings =
+        noiseSettings[size as keyof typeof noiseSettings] ||
+        noiseSettings.medium;
+
+      // Create noise component for the explosion body
+      const noise = new Tone.NoiseSynth({
+        noise: { type: settings.noiseType as any },
+        envelope: {
+          attack: settings.attack,
+          decay: settings.decay,
+          sustain: settings.sustain,
+          release: settings.release,
+        },
+        volume: settings.volume,
+      });
+
+      // Add a filter
+      const filter = new Tone.Filter({
+        frequency: settings.filter,
+        type: "lowpass",
+        rolloff: -24,
+      });
+
+      // Add a bit of distortion for texture
+      const distortion = new Tone.Distortion({
+        distortion: 0.3,
+        wet: 0.2,
+      });
+
+      // Add some reverb to make it sound more "space-like"
+      const reverb = new Tone.Reverb({
+        decay: 0.8,
+        wet: 0.1,
+      });
+
+      // Connect the noise chain
+      noise.chain(filter, distortion, reverb, Tone.getDestination());
+
+      // 2. Add a synth component for a more "electronic/sci-fi" zap sound
+      const synth = new Tone.Synth({
+        oscillator: {
+          type: "sawtooth",
+        },
+        envelope: {
+          attack: 0.001,
+          decay: 0.1,
+          sustain: 0,
+          release: 0.1,
+        },
+        volume: -5,
+      });
+
+      // Add some effects to the synth
+      const synthFilter = new Tone.Filter({
+        frequency: 3000,
+        type: "bandpass",
+      });
+
+      // A bit of phaser for sci-fi feel
+      const phaser = new Tone.Phaser({
+        frequency: 15,
+        octaves: 5,
+        baseFrequency: 1000,
+        wet: 0.3,
+      });
+
+      // Connect the synth chain
+      synth.chain(synthFilter, phaser, Tone.getDestination());
+
+      // Staggered playback for more interesting sound
+      noise.triggerAttackRelease(settings.duration);
+
+      // Random note based on size for variation
+      const notes =
+        size === "small"
+          ? ["C6", "D6", "E6"]
+          : size === "medium"
+          ? ["G5", "A5", "B5"]
+          : ["C5", "D5", "E5"];
+      const randomNote = notes[Math.floor(Math.random() * notes.length)];
+
+      // Slight delay for synth component
+      setTimeout(() => {
+        synth.triggerAttackRelease(randomNote, 0.05);
+      }, 20);
+
+      // Cleanup
+      setTimeout(() => {
+        noise.dispose();
+        filter.dispose();
+        distortion.dispose();
+        reverb.dispose();
+        synth.dispose();
+        synthFilter.dispose();
+        phaser.dispose();
+      }, (settings.duration + 0.5) * 1000);
+    } catch (error) {
+      this.logger.error(
+        "ToneSoundEffectPlayer: Error playing laser-asteroid explosion sound",
+        error
+      );
+    }
+  }
+
+  /**
+   * Plays a specialized sound for asteroids colliding with the ship
+   * Creates a heavier, more impactful sound to emphasize the collision
+   */
+  public playShipAsteroidCollision(size: string = "medium"): void {
+    try {
+      this.logger.info(
+        `ToneSoundEffectPlayer: Playing ship-asteroid collision of size ${size}`
+      );
+
+      // Define settings based on collision size
+      const collisionSettings = {
+        small: {
+          volume: -10,
+          lowFreq: 100,
+          highFreq: 2000,
+          duration: 0.3,
+          distortion: 0.3,
+        },
+        medium: {
+          volume: -5,
+          lowFreq: 80,
+          highFreq: 1500,
+          duration: 0.5,
+          distortion: 0.4,
+        },
+        large: {
+          volume: 0,
+          lowFreq: 60,
+          highFreq: 1000,
+          duration: 0.8,
+          distortion: 0.5,
+        },
+      };
+
+      // Get appropriate settings
+      const settings =
+        collisionSettings[size as keyof typeof collisionSettings] ||
+        collisionSettings.medium;
+
+      // 1. Create a primary impact noise - deeper and more rumbly than laser explosion
+      const impactNoise = new Tone.NoiseSynth({
+        noise: { type: "brown" },
+        envelope: {
+          attack: 0.001, // Very quick attack for impact
+          decay: 0.1,
+          sustain: 0.2,
+          release: 0.4,
+        },
+        volume: settings.volume,
+      });
+
+      // Create a metallic crash component with white noise
+      const crashNoise = new Tone.NoiseSynth({
+        noise: { type: "white" },
+        envelope: {
+          attack: 0.001,
+          decay: 0.2,
+          sustain: 0,
+          release: 0.1,
+        },
+        volume: settings.volume - 10, // Slightly quieter than main impact
+      });
+
+      // Set up a dual-filter setup for more complex sound shaping
+      const lowFilter = new Tone.Filter({
+        frequency: settings.lowFreq,
+        type: "lowpass",
+        Q: 1.5,
+      });
+
+      const highFilter = new Tone.Filter({
+        frequency: settings.highFreq,
+        type: "highpass",
+        Q: 0.5,
+      });
+
+      // Compressor to make it punch more
+      const compressor = new Tone.Compressor({
+        threshold: -20,
+        ratio: 6,
+        attack: 0.003,
+        release: 0.1,
+      });
+
+      // Distortion for impact harshness
+      const distortion = new Tone.Distortion({
+        distortion: settings.distortion,
+        wet: 0.3,
+      });
+
+      // Slight reverb
+      const reverb = new Tone.Reverb({
+        decay: 1.0,
+        wet: 0.2,
+      });
+
+      // Connect the processing chains
+      impactNoise.chain(
+        lowFilter,
+        compressor,
+        distortion,
+        reverb,
+        Tone.getDestination()
+      );
+      crashNoise.chain(highFilter, compressor, Tone.getDestination());
+
+      // Metal impact synth for ship hull sound
+      const metalSynth = new Tone.MetalSynth({
+        envelope: {
+          attack: 0.001,
+          decay: 0.1,
+          release: 0.2,
+        },
+        harmonicity: 3.1,
+        modulationIndex: 16,
+        resonance: 4000,
+        octaves: 1.5,
+        volume: settings.volume - 15,
+      });
+
+      // Connect the metal synth
+      metalSynth.chain(distortion, Tone.getDestination());
+
+      // Staggered playback for more realistic collision sound
+      impactNoise.triggerAttackRelease(settings.duration);
+
+      // Slight delay for metal and crash components
+      setTimeout(() => {
+        metalSynth.triggerAttackRelease("C3", 0.05);
+      }, 10);
+
+      setTimeout(() => {
+        crashNoise.triggerAttackRelease(settings.duration * 0.5);
+      }, 20);
+
+      // Cleanup
+      setTimeout(() => {
+        impactNoise.dispose();
+        crashNoise.dispose();
+        metalSynth.dispose();
+        lowFilter.dispose();
+        highFilter.dispose();
+        compressor.dispose();
+        distortion.dispose();
+        reverb.dispose();
+      }, (settings.duration + 0.5) * 1000);
+    } catch (error) {
+      this.logger.error(
+        "ToneSoundEffectPlayer: Error playing ship-asteroid collision sound",
+        error
+      );
+    }
+  }
+
+  /**
    * Stops all currently playing sound effects
    */
   public stopAllEffects(fadeOutTime: number = 0.1): void {

@@ -284,11 +284,32 @@ export class ToneAudioManager {
   }
 
   /**
-   * Plays the asteroid collision sound. Alias for playCollisionSound.
+   * Plays the asteroid destruction sound when asteroid is destroyed by collision.
+   * This should only be used for actual collisions, not for off-screen cleanup.
    */
   public playAsteroidCollisionSound(size: string = "medium"): void {
     this.logger.info("ToneAudioManager: Playing asteroid collision sound");
     this.playCollisionSound(size);
+  }
+
+  /**
+   * Plays a specialized sound for when a laser hits an asteroid
+   * @param size The size of the explosion ("small", "medium", or "large")
+   */
+  public playLaserAsteroidExplosion(size: string = "medium"): void {
+    this.logger.info(
+      "ToneAudioManager: Playing laser-asteroid explosion sound"
+    );
+    this.sfxPlayer.playLaserAsteroidExplosion(size);
+  }
+
+  /**
+   * Plays a specialized sound for when an asteroid collides with the ship
+   * @param size The size of the collision ("small", "medium", or "large")
+   */
+  public playShipAsteroidCollision(size: string = "medium"): void {
+    this.logger.info("ToneAudioManager: Playing ship-asteroid collision sound");
+    this.sfxPlayer.playShipAsteroidCollision(size);
   }
 
   /**

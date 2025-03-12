@@ -977,8 +977,16 @@ export class Scene {
             // Play sound effect
             if (this.game) {
               try {
-                // Use asteroid collision sound instead, with small intensity
-                this.game.getAudioManager().playAsteroidCollisionSound("small");
+                // Use laser-asteroid explosion sound for a more sci-fi effect
+                const sizeDescription =
+                  asteroidSize > 40
+                    ? "large"
+                    : asteroidSize > 25
+                    ? "medium"
+                    : "small";
+                this.game
+                  .getAudioManager()
+                  .playLaserAsteroidExplosion(sizeDescription);
               } catch (error) {
                 this.logger.warn("Failed to play explosion sound:", error);
               }
@@ -1000,9 +1008,18 @@ export class Scene {
         // Play collision sound effect if game object is available
         if (this.game) {
           try {
-            // Play impact sound using the audio manager
-            this.game.getAudioManager().playAsteroidCollisionSound("medium");
-            this.logger.info("Playing asteroid collision sound");
+            // Play impact sound using the specialized ship-asteroid collision sound
+            const asteroidSize = asteroid.getSize();
+            const sizeDescription =
+              asteroidSize > 40
+                ? "large"
+                : asteroidSize > 25
+                ? "medium"
+                : "small";
+            this.game
+              .getAudioManager()
+              .playShipAsteroidCollision(sizeDescription);
+            this.logger.info("Playing ship-asteroid collision sound");
           } catch (error) {
             this.logger.warn("Failed to play collision sound:", error);
           }
