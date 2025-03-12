@@ -14,11 +14,10 @@ export async function initializeAudioSystem(): Promise<void> {
   const audioManager = AudioManagerFactory.getAudioManager();
 
   try {
-    // Initialize audio
+    // Initialize audio - this now includes preloading essential audio internally
     await audioManager.initialize();
 
-    // Preload essential audio files
-    await audioManager.preloadEssentialAudio();
+    // No need to call preloadEssentialAudio separately - it's handled in initialize()
 
     logger.info("Audio system initialized successfully with Tone.js");
   } catch (error) {

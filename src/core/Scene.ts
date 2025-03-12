@@ -109,6 +109,12 @@ export class Scene {
   /** Maximum vertical distance from center (full height = 1400) */
   private verticalLimit: number = 700;
 
+  /** Add a private field for tracking initialization state */
+  private isInitialized = false;
+
+  /** Add a static instance for singleton pattern */
+  private static instance: Scene;
+
   /**
    * Creates a new scene with a WebGL renderer.
    * @param canvas Optional canvas element to render on. If not provided, one will be created.
@@ -218,8 +224,15 @@ export class Scene {
    * @returns A promise that resolves when initialization is complete
    */
   async init(): Promise<void> {
-    // Set up the background manager
+    // Skip if already initialized
+    if (this.isInitialized) {
+      this.logger.debug("Scene already initialized, skipping");
+      return;
+    }
+
+    // Set up the background manager - this is done only once now
     this.logger.info("Scene: Setting up background manager");
+    // Setup of background is handled in the constructor via setupBackgrounds() already
     this.logger.info("Scene: Background manager setup complete");
 
     // Set initial background to starfield
@@ -227,13 +240,14 @@ export class Scene {
     await this.backgroundManager.setBackground(BackgroundType.STARFIELD);
     this.logger.info("Scene: Starfield background initialized successfully");
 
-    // Set up event listeners
-    window.addEventListener("resize", this.onWindowResize.bind(this));
+    // Set up event listeners - avoid duplication with setupEventListeners
+    this.setupEventListeners();
     this.logger.info("Scene: Event listeners set up");
 
     // Start the animation loop
     this.startAnimationLoop();
 
+    this.isInitialized = true;
     this.logger.info("Scene initialized successfully");
   }
 
@@ -1264,5 +1278,48 @@ export class Scene {
           this.logger.error("DEBUG: Error initializing new ship:", error);
         });
     }
+  }
+
+  /**
+   * Gets the singleton instance of Scene.
+   * @returns The Scene instance
+   */
+  public static getInstance(): Scene {
+    if (!Scene.instance) {
+      Scene.instance = new Scene();
+    }
+    return Scene.instance;
+  }
+
+  /**
+   * Sets the canvas element for rendering
+   * @param canvas The canvas element to render on
+   */
+  setCanvas(canvas: HTMLCanvasElement): void {
+    // Only update if the canvas has changed
+    if (canvas !== this.canvas) {
+      this.logger.debug("Scene: Setting new canvas element");
+
+      // Store the new canvas
+      this.canvas = canvas;
+
+      // Update the renderer with the new canvas
+      if (this.renderer) {
+        this.renderer.setSize(this.width, this.height, true);
+        // If we need to completely replace the renderer's canvas:
+        // this.renderer.domElement = canvas;
+      }
+    }
+  }
+
+  /**
+   * Sets the development mode flag
+   * @param devMode Whether to enable development mode
+   */
+  setDevMode(devMode: boolean): void {
+    this.devMode = devMode;
+    this.logger.debug(
+      `Scene: Development mode ${devMode ? "enabled" : "disabled"}`
+    );
   }
 }

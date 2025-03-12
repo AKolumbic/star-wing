@@ -43,6 +43,7 @@ export class ToneAudioManager {
   // State tracking
   private isInitialized: boolean = false;
   private isPlaying: boolean = false;
+  private _essentialsPreloaded: boolean = false;
 
   // Layered music state tracking
   private layeredMusicActive: boolean = false;
@@ -97,8 +98,10 @@ export class ToneAudioManager {
    * Initializes the audio system
    */
   public async initialize(): Promise<void> {
+    // Guard to prevent duplicate initialization
     if (this.isInitialized) {
-      return;
+      this.logger.info("ToneAudioManager: Already initialized, skipping");
+      return Promise.resolve();
     }
 
     this.logger.info("ToneAudioManager: Initializing");
@@ -108,7 +111,7 @@ export class ToneAudioManager {
       await this.contextManager.initialize();
 
       // Preload essential audio
-      await this.bufferManager.preloadEssentials();
+      await this.preloadEssentialAudio();
 
       // Set up master effects chain
       this.setupMasterEffectsChain();
@@ -367,6 +370,11 @@ export class ToneAudioManager {
    * Preloads essential audio files
    */
   public async preloadEssentialAudio(): Promise<void> {
+    // Add guard to prevent duplicate preloading
+    if (this._essentialsPreloaded) {
+      return Promise.resolve();
+    }
+
     await this.bufferManager.preloadEssentials();
 
     // Pre-create the menu music player to eliminate startup delay
@@ -389,6 +397,9 @@ export class ToneAudioManager {
         );
       }
     }
+
+    // Mark as preloaded to prevent duplicate calls
+    this._essentialsPreloaded = true;
   }
 
   /**

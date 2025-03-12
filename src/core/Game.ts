@@ -46,6 +46,12 @@ export class Game {
   /** Logger instance */
   private logger = Logger.getInstance();
 
+  /** Flag to track if the game has been initialized */
+  private isInitialized = false;
+
+  /** Performance tracking utility */
+  private performanceMonitor = new PerformanceMonitor();
+
   /**
    * Creates a new Game instance and initializes all subsystems.
    * @param canvasId The HTML ID of the canvas element to render the game on
@@ -211,7 +217,14 @@ export class Game {
    * @returns A promise that resolves when all systems are initialized
    */
   async init(): Promise<void> {
+    // Skip if already initialized
+    if (this.isInitialized) {
+      this.logger.debug("Game already initialized, skipping");
+      return;
+    }
+
     this.logger.info("Game initializing...");
+    this.performanceMonitor.startTimer("game-initialization");
 
     try {
       // Initialize all systems in parallel
@@ -219,7 +232,13 @@ export class Game {
 
       // Music will now be started in the UI System's showMenu method
 
-      this.logger.info("Game initialization complete");
+      // Mark as initialized
+      this.isInitialized = true;
+
+      const initTime = this.performanceMonitor.endTimer("game-initialization");
+      this.logger.info(
+        `Game initialization complete (${initTime.toFixed(1)}ms)`
+      );
     } catch (error: unknown) {
       this.logger.error("Error during game initialization:", error);
 
@@ -503,5 +522,35 @@ export class Game {
       .catch((error) => {
         this.logger.error("Failed to initialize ship debugger:", error);
       });
+  }
+}
+
+/**
+ * Simple utility for monitoring performance of operations
+ */
+class PerformanceMonitor {
+  private timers = new Map<string, number>();
+  private logger = Logger.getInstance();
+
+  /**
+   * Starts a timer with the given key
+   * @param key Identifier for the timer
+   */
+  startTimer(key: string): void {
+    this.timers.set(key, performance.now());
+  }
+
+  /**
+   * Ends a timer and returns the elapsed time
+   * @param key Identifier for the timer
+   * @returns Elapsed time in milliseconds
+   */
+  endTimer(key: string): number {
+    const start = this.timers.get(key);
+    if (start === undefined) return 0;
+
+    const duration = performance.now() - start;
+    this.logger.debug(`[Performance] ${key}: ${duration.toFixed(2)}ms`);
+    return duration;
   }
 }

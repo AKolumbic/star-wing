@@ -27,10 +27,10 @@ export class AudioSystem implements GameSystem {
   async init(): Promise<void> {
     try {
       // Initialize the audio system using the helper
+      // This will already handle preloading essential audio
       await initializeAudioSystem();
 
-      // Use the new preloading function that handles optimization
-      await this.audioManager.preloadEssentialAudio();
+      // No need to call preloadEssentialAudio separately - it's already done in initializeAudioSystem
 
       return Promise.resolve();
     } catch (error) {

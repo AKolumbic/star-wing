@@ -24,7 +24,23 @@ export class SceneSystem implements GameSystem {
    * @param devMode Whether to enable development mode features
    */
   constructor(canvas: HTMLCanvasElement, game: Game, devMode: boolean = false) {
-    this.scene = new Scene(canvas, devMode);
+    // Use singleton pattern if available
+    if (typeof Scene.getInstance === "function") {
+      this.scene = Scene.getInstance();
+
+      // Add methods to configure the scene properly
+      if (typeof this.scene.setCanvas === "function") {
+        this.scene.setCanvas(canvas);
+      }
+
+      if (typeof this.scene.setDevMode === "function") {
+        this.scene.setDevMode(devMode);
+      }
+    } else {
+      // Fall back to old constructor method
+      this.scene = new Scene(canvas, devMode);
+    }
+
     this.game = game;
     this.scene.setGame(game);
   }

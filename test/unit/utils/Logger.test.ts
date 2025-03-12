@@ -39,7 +39,9 @@ describe("Logger", () => {
 
     test("initializes with correct environment message", () => {
       expect(consoleInfoSpy).toHaveBeenCalledWith(
-        "[INFO] Logger initialized in DEVELOPMENT mode"
+        expect.stringMatching(
+          /\[\d{2}:\d{2}:\d{2}\.\d{3}\] \[INFO\] Logger initialized in DEVELOPMENT mode/
+        )
       );
     });
   });
@@ -52,33 +54,43 @@ describe("Logger", () => {
 
     test("logs info messages", () => {
       logger.info("Test info message", { data: 123 });
-      expect(consoleInfoSpy).toHaveBeenCalledWith("[INFO] Test info message", {
-        data: 123,
-      });
+      const lastCall =
+        consoleInfoSpy.mock.calls[consoleInfoSpy.mock.calls.length - 1];
+      expect(lastCall[0]).toMatch(
+        /\[\d{2}:\d{2}:\d{2}\.\d{3}\] \[INFO\] Test info message/
+      );
+      expect(lastCall[1]).toEqual({ data: 123 });
     });
 
     test("logs debug messages", () => {
       logger.debug("Test debug message", { data: 456 });
-      expect(consoleDebugSpy).toHaveBeenCalledWith(
-        "[DEBUG] Test debug message",
-        { data: 456 }
+      const lastCall =
+        consoleDebugSpy.mock.calls[consoleDebugSpy.mock.calls.length - 1];
+      expect(lastCall[0]).toMatch(
+        /\[\d{2}:\d{2}:\d{2}\.\d{3}\] \[DEBUG\] Test debug message/
       );
+      expect(lastCall[1]).toEqual({ data: 456 });
     });
 
     test("logs warning messages", () => {
       logger.warn("Test warning message", { data: 789 });
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        "[WARN] Test warning message",
-        { data: 789 }
+      const lastCall =
+        consoleWarnSpy.mock.calls[consoleWarnSpy.mock.calls.length - 1];
+      expect(lastCall[0]).toMatch(
+        /\[\d{2}:\d{2}:\d{2}\.\d{3}\] \[WARN\] Test warning message/
       );
+      expect(lastCall[1]).toEqual({ data: 789 });
     });
 
     test("logs error messages", () => {
-      logger.error("Test error message", new Error("Test error"));
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "[ERROR] Test error message",
-        new Error("Test error")
+      const testError = new Error("Test error");
+      logger.error("Test error message", testError);
+      const lastCall =
+        consoleErrorSpy.mock.calls[consoleErrorSpy.mock.calls.length - 1];
+      expect(lastCall[0]).toMatch(
+        /\[\d{2}:\d{2}:\d{2}\.\d{3}\] \[ERROR\] Test error message/
       );
+      expect(lastCall[1]).toBe(testError);
     });
 
     test("handles group logging", () => {
@@ -86,18 +98,28 @@ describe("Logger", () => {
         logger.info("Test group message");
       });
 
-      expect(consoleGroupSpy).toHaveBeenCalledWith("[GROUP] Test Group");
-      expect(consoleInfoSpy).toHaveBeenCalledWith("[INFO] Test group message");
+      expect(consoleGroupSpy.mock.calls[0][0]).toMatch(
+        /\[\d{2}:\d{2}:\d{2}\.\d{3}\] \[GROUP\] Test Group/
+      );
+      const infoCallIndex = consoleInfoSpy.mock.calls.findIndex((call) =>
+        call[0].includes("[INFO] Test group message")
+      );
+      expect(infoCallIndex).toBeGreaterThan(-1);
       expect(consoleGroupEndSpy).toHaveBeenCalled();
     });
 
     test("handles multiple parameters in log methods", () => {
       const params = [123, "test", { key: "value" }];
       logger.info("Multiple params", ...params);
-      expect(consoleInfoSpy).toHaveBeenCalledWith(
-        "[INFO] Multiple params",
-        ...params
+
+      const lastCall =
+        consoleInfoSpy.mock.calls[consoleInfoSpy.mock.calls.length - 1];
+      expect(lastCall[0]).toMatch(
+        /\[\d{2}:\d{2}:\d{2}\.\d{3}\] \[INFO\] Multiple params/
       );
+      expect(lastCall[1]).toBe(123);
+      expect(lastCall[2]).toBe("test");
+      expect(lastCall[3]).toEqual({ key: "value" });
     });
   });
 
@@ -130,8 +152,10 @@ describe("Logger", () => {
 
     test("still logs error messages", () => {
       logger.error("Test error message");
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "[ERROR] Test error message"
+      const lastCall =
+        consoleErrorSpy.mock.calls[consoleErrorSpy.mock.calls.length - 1];
+      expect(lastCall[0]).toMatch(
+        /\[\d{2}:\d{2}:\d{2}\.\d{3}\] \[ERROR\] Test error message/
       );
     });
 
@@ -160,23 +184,29 @@ describe("Logger", () => {
 
     test("handles undefined optional parameters", () => {
       logger.info("Message without params");
-      expect(consoleInfoSpy).toHaveBeenCalledWith(
-        "[INFO] Message without params"
+      const lastCall =
+        consoleInfoSpy.mock.calls[consoleInfoSpy.mock.calls.length - 1];
+      expect(lastCall[0]).toMatch(
+        /\[\d{2}:\d{2}:\d{2}\.\d{3}\] \[INFO\] Message without params/
       );
     });
 
     test("handles empty message", () => {
       logger.info("");
-      expect(consoleInfoSpy).toHaveBeenCalledWith("[INFO] ");
+      const lastCall =
+        consoleInfoSpy.mock.calls[consoleInfoSpy.mock.calls.length - 1];
+      expect(lastCall[0]).toMatch(/\[\d{2}:\d{2}:\d{2}\.\d{3}\] \[INFO\] /);
     });
 
     test("handles null and undefined in optional parameters", () => {
       logger.info("Test message", null, undefined);
-      expect(consoleInfoSpy).toHaveBeenCalledWith(
-        "[INFO] Test message",
-        null,
-        undefined
+      const lastCall =
+        consoleInfoSpy.mock.calls[consoleInfoSpy.mock.calls.length - 1];
+      expect(lastCall[0]).toMatch(
+        /\[\d{2}:\d{2}:\d{2}\.\d{3}\] \[INFO\] Test message/
       );
+      expect(lastCall[1]).toBeNull();
+      expect(lastCall[2]).toBeUndefined();
     });
 
     test("handles nested group calls", () => {
@@ -187,10 +217,24 @@ describe("Logger", () => {
         });
       });
 
-      expect(consoleGroupSpy).toHaveBeenCalledWith("[GROUP] Outer Group");
-      expect(consoleGroupSpy).toHaveBeenCalledWith("[GROUP] Inner Group");
-      expect(consoleInfoSpy).toHaveBeenCalledWith("[INFO] Outer message");
-      expect(consoleInfoSpy).toHaveBeenCalledWith("[INFO] Inner message");
+      const groupCalls = consoleGroupSpy.mock.calls;
+      expect(groupCalls[0][0]).toMatch(
+        /\[\d{2}:\d{2}:\d{2}\.\d{3}\] \[GROUP\] Outer Group/
+      );
+      expect(groupCalls[1][0]).toMatch(
+        /\[\d{2}:\d{2}:\d{2}\.\d{3}\] \[GROUP\] Inner Group/
+      );
+
+      const infoCalls = consoleInfoSpy.mock.calls;
+      const outerMsgIndex = infoCalls.findIndex((call) =>
+        call[0].includes("[INFO] Outer message")
+      );
+      const innerMsgIndex = infoCalls.findIndex((call) =>
+        call[0].includes("[INFO] Inner message")
+      );
+
+      expect(outerMsgIndex).toBeGreaterThan(-1);
+      expect(innerMsgIndex).toBeGreaterThan(-1);
       expect(consoleGroupEndSpy).toHaveBeenCalledTimes(2);
     });
   });
