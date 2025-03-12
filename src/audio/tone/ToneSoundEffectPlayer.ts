@@ -127,7 +127,7 @@ export class ToneSoundEffectPlayer {
    */
   public playLaserSound(type: string = "standard"): Tone.Synth | null {
     try {
-      this.logger.info(
+      this.logger.debug(
         `ToneSoundEffectPlayer: Playing laser sound of type ${type}`
       );
 
@@ -253,7 +253,7 @@ export class ToneSoundEffectPlayer {
    */
   public playCollisionSound(size: string = "medium"): Tone.NoiseSynth | null {
     try {
-      this.logger.info(
+      this.logger.debug(
         `ToneSoundEffectPlayer: Playing collision sound of size ${size}`
       );
 
@@ -340,7 +340,7 @@ export class ToneSoundEffectPlayer {
    */
   public playLaserAsteroidExplosion(size: string = "medium"): void {
     try {
-      this.logger.info(
+      this.logger.debug(
         `ToneSoundEffectPlayer: Playing laser-asteroid explosion of size ${size}`
       );
 
@@ -489,7 +489,7 @@ export class ToneSoundEffectPlayer {
    */
   public playShipAsteroidCollision(size: string = "medium"): void {
     try {
-      this.logger.info(
+      this.logger.debug(
         `ToneSoundEffectPlayer: Playing ship-asteroid collision of size ${size}`
       );
 

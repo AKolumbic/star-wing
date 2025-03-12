@@ -288,7 +288,7 @@ export class ToneAudioManager {
    * This should only be used for actual collisions, not for off-screen cleanup.
    */
   public playAsteroidCollisionSound(size: string = "medium"): void {
-    this.logger.info("ToneAudioManager: Playing asteroid collision sound");
+    this.logger.debug("ToneAudioManager: Playing asteroid collision sound");
     this.playCollisionSound(size);
   }
 
@@ -297,7 +297,7 @@ export class ToneAudioManager {
    * @param size The size of the explosion ("small", "medium", or "large")
    */
   public playLaserAsteroidExplosion(size: string = "medium"): void {
-    this.logger.info(
+    this.logger.debug(
       "ToneAudioManager: Playing laser-asteroid explosion sound"
     );
     this.sfxPlayer.playLaserAsteroidExplosion(size);
@@ -308,7 +308,9 @@ export class ToneAudioManager {
    * @param size The size of the collision ("small", "medium", or "large")
    */
   public playShipAsteroidCollision(size: string = "medium"): void {
-    this.logger.info("ToneAudioManager: Playing ship-asteroid collision sound");
+    this.logger.debug(
+      "ToneAudioManager: Playing ship-asteroid collision sound"
+    );
     this.sfxPlayer.playShipAsteroidCollision(size);
   }
 
