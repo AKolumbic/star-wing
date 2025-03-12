@@ -192,7 +192,8 @@ export class UISystem implements GameSystem {
         this.game.getAudioManager().stopMusic();
 
         // Play menu music immediately for better synchronization with menu display
-        this.game.getAudioManager().playMenuMusic(this.game.isDevMode());
+        // Explicitly request non-procedural music (false) regardless of dev mode
+        this.game.getAudioManager().playMenuMusic(false);
       }
     }
 

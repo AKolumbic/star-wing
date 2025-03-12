@@ -58,7 +58,7 @@ export class ToneMusicPlayer {
     try {
       // Create a new player with the buffer
       if (buffer.duration) {
-        this.logger.info(
+        this.logger.debug(
           `ToneMusicPlayer: Pre-creating player with buffer duration: ${buffer.duration}s`
         );
       }
@@ -92,7 +92,7 @@ export class ToneMusicPlayer {
     try {
       // Cancel any pending fadeout timers to prevent race conditions
       if (this.fadeoutTimers.has("menu_music")) {
-        this.logger.info("ToneMusicPlayer: Cancelling pending fadeout timer");
+        this.logger.debug("ToneMusicPlayer: Cancelling pending fadeout timer");
         clearTimeout(this.fadeoutTimers.get("menu_music"));
         this.fadeoutTimers.delete("menu_music");
       }

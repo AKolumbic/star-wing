@@ -326,19 +326,23 @@ export class InGameMenu {
   }
 
   private selectOption(index: number): void {
-    // Update the DOM to reflect the new selection
-    const menuOptions = document.querySelectorAll(".in-game-menu .menu-option");
-    if (menuOptions.length > 0) {
-      menuOptions[this.currentSelection].classList.remove("selected");
-      menuOptions[index].classList.add("selected");
-    }
+    // Wrap around if index is out of bounds
+    if (index < 0) index = this.menuOptions.length - 1;
+    if (index >= this.menuOptions.length) index = 0;
 
-    this.logger.info(
+    this.logger.debug(
       `Menu: Selecting option ${index}: ${this.menuOptions[index]}`
     );
 
+    // Remove selected class from all options
+    const menuOptions = document.querySelectorAll(".in-game-menu .menu-option");
+    menuOptions.forEach((option) => option.classList.remove("selected"));
+
     // Update the current selection
     this.currentSelection = index;
+
+    // Update the DOM to reflect the new selection
+    menuOptions[this.currentSelection].classList.add("selected");
   }
 
   private activateCurrentOption(): void {

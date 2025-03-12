@@ -144,7 +144,20 @@ export class ToneContextManager {
       Tone.getDestination().volume.value = dbValue;
     }
 
-    this.logger.info(`ToneContextManager: Volume set to ${volume}`);
+    // Calculate if this is a significant change worth logging
+    // Only log volume changes if they differ by at least 0.1 (10%)
+    const previousVolume = parseFloat(
+      localStorage.getItem("starWing_previousLoggedVolume") || "0"
+    );
+    if (Math.abs(volume - previousVolume) >= 0.1) {
+      this.logger.info(
+        `ToneContextManager: Volume set to ${volume.toFixed(1)}`
+      );
+      localStorage.setItem("starWing_previousLoggedVolume", volume.toString());
+    } else {
+      // Use debug level for minor volume changes
+      this.logger.debug(`ToneContextManager: Volume set to ${volume}`);
+    }
   }
 
   /**

@@ -216,33 +216,47 @@ export class ToneAudioManager {
 
     // Don't do anything if the menu music is already playing
     if (this.isPlaying && this.musicPlayer.hasLayer("menu_music")) {
+      this.logger.debug(
+        "ToneAudioManager: Menu music is already playing, skipping"
+      );
       return;
     }
 
-    // Try to play menu music sample if not in procedural mode
-    if (!procedural) {
-      const hasBuffer = this.bufferManager.hasBuffer("menu_music");
-      const buffer = hasBuffer
-        ? this.bufferManager.getBuffer("menu_music")
-        : null;
+    this.logger.info(
+      `ToneAudioManager: Playing menu music (procedural=${procedural})`
+    );
 
-      if (!buffer) {
-        // Fall back to procedural music if sample not loaded
-        this.proceduralMusic.startMenuMusic();
-        return;
-      }
-
-      try {
-        this.musicPlayer.playMenuMusic();
-      } catch (error) {
-        // Fall back to procedural if there's an error
-        this.proceduralMusic.startMenuMusic();
-      }
-    } else {
-      // Play procedural music if procedural was requested
+    // If procedural mode is explicitly requested, use it
+    if (procedural) {
+      this.logger.info("ToneAudioManager: Using procedural music as requested");
       this.proceduralMusic.startMenuMusic();
+      this.isPlaying = true;
+      return;
     }
 
+    // Try to play regular menu music first
+    if (this.bufferManager.hasBuffer("menu_music")) {
+      try {
+        this.logger.info("ToneAudioManager: Using regular menu music loop");
+        this.musicPlayer.playMenuMusic();
+        this.isPlaying = true;
+        // Make sure procedural music is stopped
+        this.proceduralMusic.stopMusic();
+        return;
+      } catch (error) {
+        this.logger.warn(
+          "ToneAudioManager: Error playing regular menu music, falling back to procedural",
+          error
+        );
+      }
+    } else {
+      this.logger.info(
+        "ToneAudioManager: Menu music buffer not found, using procedural"
+      );
+    }
+
+    // Fall back to procedural music if regular music failed or wasn't available
+    this.proceduralMusic.startMenuMusic();
     this.isPlaying = true;
   }
 
@@ -382,7 +396,11 @@ export class ToneAudioManager {
       return Promise.resolve();
     }
 
+    this.logger.info("ToneBufferManager: Preloading essential audio");
     await this.bufferManager.preloadEssentials();
+    this.logger.info(
+      "ToneBufferManager: Essential audio preloaded successfully"
+    );
 
     // Pre-create the menu music player to eliminate startup delay
     if (this.bufferManager.hasBuffer("menu_music")) {
@@ -390,12 +408,16 @@ export class ToneAudioManager {
         "ToneAudioManager: Pre-creating menu music player to eliminate startup delay"
       );
       try {
-        // Create the player but keep it paused
+        // Create the player but keep it paused - DO NOT automatically play yet
         const player = this.musicPlayer.createMenuMusicPlayer();
         if (player) {
           this.logger.info(
             "ToneAudioManager: Menu music player pre-created successfully"
           );
+
+          // No longer automatically play menu music here
+          // The music will be played after user interaction with the game
+          // For example, after clicking "Click to Execute Program"
         }
       } catch (error) {
         this.logger.warn(
@@ -403,6 +425,11 @@ export class ToneAudioManager {
           error
         );
       }
+    } else {
+      this.logger.info(
+        "ToneAudioManager: Menu music buffer not loaded during preload"
+      );
+      // Don't start procedural music here either - wait for user interaction
     }
 
     // Mark as preloaded to prevent duplicate calls

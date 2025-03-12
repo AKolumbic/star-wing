@@ -322,7 +322,7 @@ export class Menu {
     if (index < 0) index = this.menuOptions.length - 1;
     if (index >= this.menuOptions.length) index = 0;
 
-    this.logger.info(
+    this.logger.debug(
       `Menu: Selecting option ${index}: ${this.menuOptions[index]}`
     );
 
