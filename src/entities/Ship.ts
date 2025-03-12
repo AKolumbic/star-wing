@@ -784,7 +784,7 @@ export class Ship {
       return;
     }
 
-    const moveSpeed = 5;
+    const moveSpeed = 2;
 
     // Digital-style input response (full speed or nothing)
     let moveX = 0;
@@ -1321,7 +1321,7 @@ export class Ship {
       this.updateEngineGlow(deltaTime);
     }
 
-    // Update position based on velocity
+    // Revert back to direct position update without deltaTime multiplication
     this.position.add(this.velocity);
 
     // Constrain ship within screen bounds

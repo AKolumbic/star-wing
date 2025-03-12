@@ -95,7 +95,7 @@ export class Scene {
   private lastAsteroidSpawnTime: number = 0;
 
   /** Minimum time between asteroid spawns (in milliseconds) */
-  private asteroidSpawnInterval: number = 3250; // Reduced from 5000 (by 35%)
+  private asteroidSpawnInterval: number = 5000; // Original value - less frequent asteroid spawning
 
   /** Collection of active asteroids in the scene */
   private asteroids: Asteroid[] = [];
@@ -814,10 +814,10 @@ export class Scene {
       this.spawnAsteroid();
       this.lastAsteroidSpawnTime = currentTime;
 
-      // Spawn asteroids more frequently (min 650ms, reduced from 1000ms)
+      // Spawn asteroids at a reasonable pace - original values
       this.asteroidSpawnInterval = Math.max(
-        650, // Reduced from 1000 by 35% - faster minimum spawn time
-        1950 - (this.currentZone - 1) * 325 // Reduced from 3000 by 35% - faster initial spawn time with same reduction per zone
+        1000, // Original minimum spawn interval
+        5000 - (this.currentZone - 1) * 500 // Original zone progression
       );
     }
   }
@@ -844,8 +844,8 @@ export class Scene {
 
     // Direction vector pointing toward the player's general area
     const targetPos = new THREE.Vector3(
-      playerPos.x + (Math.random() * 200 - 100), // Reduced randomness for better targeting
-      playerPos.y + (Math.random() * 200 - 100), // Reduced randomness for better targeting
+      playerPos.x + (Math.random() * 300 - 150), // Increased randomness for less precise targeting
+      playerPos.y + (Math.random() * 300 - 150), // Increased randomness for less precise targeting
       playerPos.z + 100 // Aim closer to the player's position
     );
 
@@ -853,10 +853,10 @@ export class Scene {
       .subVectors(targetPos, asteroidPosition)
       .normalize();
 
-    // Randomize asteroid properties - speed increased by 35%
-    const speed = (300 + Math.random() * 150) * 1.35; // Increased by 35% (was 300-450)
+    // Randomize asteroid properties - reverted to original values
+    const speed = 300 + Math.random() * 150; // Original speed range (300-450)
     const size = 20 + Math.random() * 30; // 20-50 units radius
-    const damage = (10 + Math.floor(Math.random() * 20)) * 2; // 20-60 damage (doubled from 10-30)
+    const damage = 10 + Math.floor(Math.random() * 20); // Original damage (10-30)
 
     // Create and add the asteroid
     const asteroid = new Asteroid(
@@ -1093,7 +1093,7 @@ export class Scene {
 
     // Reset asteroid spawn timer and settings
     this.lastAsteroidSpawnTime = 0;
-    this.asteroidSpawnInterval = 3250;
+    this.asteroidSpawnInterval = 5000;
     this.maxAsteroids = 20;
 
     // Clean up existing ship completely
