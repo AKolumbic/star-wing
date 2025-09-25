@@ -42,7 +42,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // Initialize the game
   window.gameInstance
-    .init()
+    .boot()
     .catch((error) => {
       logger.error("Failed to initialize game:", error);
     })

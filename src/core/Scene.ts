@@ -91,6 +91,12 @@ export class Scene {
   /** Reference to the Game instance */
   private game: Game | null = null;
 
+  /** Cached resize handler reference */
+  private readonly resizeHandler: () => void;
+
+  /** Tracks whether the resize listener has been attached */
+  private resizeListenerAttached = false;
+
   /** Last time an asteroid was spawned (in milliseconds) */
   private lastAsteroidSpawnTime: number = 0;
 
@@ -118,6 +124,8 @@ export class Scene {
     // Store viewport dimensions
     this.width = window.innerWidth;
     this.height = window.innerHeight;
+
+    this.resizeHandler = this.onWindowResize.bind(this);
 
     // Create a new scene with solid black background
     this.scene = new THREE.Scene();
@@ -171,9 +179,6 @@ export class Scene {
 
     // Create the background manager
     this.backgroundManager = new BackgroundManager(this.scene);
-
-    // Handle window resize
-    window.addEventListener("resize", this.onWindowResize.bind(this));
 
     // Store dev mode flag
     this.devMode = devMode;
@@ -363,7 +368,10 @@ export class Scene {
     }
 
     // Remove event listeners
-    window.removeEventListener("resize", this.onWindowResize.bind(this));
+    if (this.resizeListenerAttached) {
+      window.removeEventListener("resize", this.resizeHandler);
+      this.resizeListenerAttached = false;
+    }
 
     // Clean up the background manager
     this.backgroundManager.dispose();
@@ -735,7 +743,10 @@ export class Scene {
    */
   private setupEventListeners(): void {
     // Handle window resize
-    window.addEventListener("resize", this.onWindowResize.bind(this));
+    if (!this.resizeListenerAttached) {
+      window.addEventListener("resize", this.resizeHandler);
+      this.resizeListenerAttached = true;
+    }
 
     this.logger.info("Scene: Event listeners set up");
   }

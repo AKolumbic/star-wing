@@ -16,6 +16,14 @@ jest.mock("../../../src/core/systems/AudioSystem");
 jest.mock("../../../src/core/systems/UISystem");
 jest.mock("../../../src/utils/Logger");
 jest.mock("../../../src/audio/AudioManager");
+jest.mock("../../../src/core/systems/DevPerformanceSystem", () => ({
+  DevPerformanceSystem: jest
+    .fn()
+    .mockImplementation(() => ({
+      init: jest.fn().mockResolvedValue(undefined),
+      dispose: jest.fn(),
+    })),
+}));
 
 describe("Game", () => {
   let game: Game;
@@ -23,6 +31,7 @@ describe("Game", () => {
   let mockLogger: jest.Mocked<Logger>;
   let mockAudioManager: jest.Mocked<AudioManager>;
   let mockUISystem: jest.Mocked<UISystem>;
+  let mockInputSystem: jest.Mocked<InputSystem>;
   let mockAudioSystem: jest.Mocked<AudioSystem>;
   let mockSceneSystem: jest.Mocked<SceneSystem>;
   let mockGameLoop: jest.Mocked<GameLoop>;
@@ -62,6 +71,8 @@ describe("Game", () => {
       init: jest.fn().mockResolvedValue(undefined),
       showLoadingScreen: jest.fn(),
       hideGameHUD: jest.fn(),
+      hideMenu: jest.fn(),
+      showGameHUD: jest.fn(),
       showTerminalBorder: jest.fn(),
       hideTerminalBorder: jest.fn(),
       dispose: jest.fn(),
@@ -69,6 +80,16 @@ describe("Game", () => {
       isMenuVisible: jest.fn().mockReturnValue(false),
     } as unknown as jest.Mocked<UISystem>;
     (UISystem as unknown as jest.Mock).mockImplementation(() => mockUISystem);
+
+    // Setup InputSystem mock
+    mockInputSystem = {
+      init: jest.fn().mockResolvedValue(undefined),
+      dispose: jest.fn(),
+      getInput: jest.fn().mockReturnValue({}),
+    } as unknown as jest.Mocked<InputSystem>;
+    (InputSystem as unknown as jest.Mock).mockImplementation(
+      () => mockInputSystem
+    );
 
     // Setup AudioSystem mock
     mockAudioSystem = {
@@ -132,6 +153,9 @@ describe("Game", () => {
     test("initializes in dev mode correctly", async () => {
       game = new Game("gameCanvas", true);
       expect(game.isDevMode()).toBe(true);
+
+      await game.boot();
+
       expect(mockLogger.info).toHaveBeenCalledWith(
         "DEV MODE: Skipping intro loading screen and menu"
       );
@@ -140,16 +164,12 @@ describe("Game", () => {
     test("initializes with dev audio enabled", async () => {
       game = new Game("gameCanvas", true, true);
 
-      // Wait for all promises to resolve
-      await Promise.resolve();
-      await new Promise(process.nextTick);
-
-      // The scene's initPlayerShip is called during dev mode initialization
-      await mockSceneSystem.getScene().initPlayerShip();
+      await game.boot();
 
       expect(mockLogger.info).toHaveBeenCalledWith(
         "DEV MODE: Audio enabled via enableDevAudio parameter"
       );
+      expect(mockAudioSystem.playMenuThump).toHaveBeenCalledWith(true);
     });
   });
 
@@ -175,7 +195,7 @@ describe("Game", () => {
 
     test("gets input system instance", () => {
       const inputSystem = game.getInputSystem();
-      expect(inputSystem).toBeInstanceOf(InputSystem);
+      expect(inputSystem).toBe(mockInputSystem);
     });
   });
 

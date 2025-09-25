@@ -32,7 +32,7 @@ export class AudioManager {
   // Singleton instance
   private static instance: AudioManager;
 
-  constructor() {
+  private constructor() {
     this.logger.info(
       "AudioManager: Constructing audio manager with modular architecture"
     );

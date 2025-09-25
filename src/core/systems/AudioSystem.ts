@@ -1,5 +1,6 @@
 import { GameSystem } from "../GameSystem";
 import { AudioManager } from "../../audio/AudioManager";
+import { Logger } from "../../utils/Logger";
 
 /**
  * Adapter class that wraps the AudioManager class to implement the GameSystem interface.
@@ -9,11 +10,14 @@ export class AudioSystem implements GameSystem {
   /** The underlying AudioManager instance */
   private audioManager: AudioManager;
 
+  /** Logger instance */
+  private logger = Logger.getInstance();
+
   /**
    * Creates a new AudioSystem.
    */
   constructor() {
-    this.audioManager = new AudioManager();
+    this.audioManager = AudioManager.getInstance();
   }
 
   /**
@@ -27,12 +31,9 @@ export class AudioSystem implements GameSystem {
 
       // Use the new preloading function that handles optimization
       await this.audioManager.preloadEssentialAudio();
-
-      return Promise.resolve();
     } catch (error) {
-      console.error("Failed to initialize audio system:", error);
-      // Continue even if initialization fails
-      return Promise.resolve();
+      this.logger.error("Failed to initialize audio system", error);
+      throw error;
     }
   }
 

@@ -23,7 +23,7 @@ The core systems implement a modular architecture with the following structure:
 The central controller for the entire game.
 
 - Manages the creation and coordination of all game systems
-- Handles initialization and startup sequence
+- Handles initialization and startup sequence through a unified `boot()` flow
 - Maintains references to all major system components
 - Delegates game loop management to the GameLoop class
 - Provides dev mode options including audio control
@@ -33,14 +33,16 @@ The central controller for the entire game.
 ```typescript
 // Basic usage
 const game = new Game("gameCanvas");
-await game.init();
+await game.boot();
 game.start();
 
 // With dev mode enabled
 const game = new Game("gameCanvas", true);
+await game.boot();
 
 // With dev mode and audio enabled
 const game = new Game("gameCanvas", true, true);
+await game.boot();
 
 // Toggle audio in dev mode via console
 game.toggleDevModeAudio();

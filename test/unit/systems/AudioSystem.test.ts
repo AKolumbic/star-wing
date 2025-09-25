@@ -1,12 +1,49 @@
 import { AudioSystem } from "../../../src/core/systems/AudioSystem";
 import { AudioManager } from "../../../src/audio/AudioManager";
 
-// Mock AudioManager
-jest.mock("../../../src/audio/AudioManager");
+// Mock AudioManager to provide a controllable singleton instance
+jest.mock("../../../src/audio/AudioManager", () => {
+  const mockInstance = {
+    initialize: jest.fn(),
+    preloadEssentialAudio: jest.fn().mockResolvedValue(undefined),
+    dispose: jest.fn(),
+    playMenuThump: jest.fn(),
+    setVolume: jest.fn(),
+    getVolume: jest.fn().mockReturnValue(1),
+    toggleMute: jest.fn(),
+    getMuteState: jest.fn().mockReturnValue(false),
+    isAudioPlaying: jest.fn().mockReturnValue(false),
+  } as unknown as jest.Mocked<AudioManager>;
+
+  const getInstanceMock = jest.fn(() => mockInstance);
+
+  return {
+    AudioManager: class MockAudioManager {
+      static getInstance = getInstanceMock;
+    },
+  };
+});
+
+// Mock Logger to capture error output
+jest.mock("../../../src/utils/Logger", () => {
+  const loggerMock = {
+    info: jest.fn(),
+    debug: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  };
+
+  return {
+    Logger: {
+      getInstance: jest.fn(() => loggerMock),
+    },
+  };
+});
 
 describe("AudioSystem", () => {
   let audioSystem: AudioSystem;
   let mockAudioManager: jest.Mocked<AudioManager>;
+  let mockLogger: { error: jest.Mock };
 
   beforeEach(() => {
     // Clear all mocks before each test
@@ -17,6 +54,10 @@ describe("AudioSystem", () => {
 
     // Get the mocked AudioManager instance
     mockAudioManager = (audioSystem as any).audioManager;
+    mockLogger = (audioSystem as any).logger;
+
+    mockAudioManager.initialize.mockImplementation(() => {});
+    mockAudioManager.preloadEssentialAudio.mockResolvedValue(undefined);
   });
 
   describe("Initialization", () => {
@@ -26,23 +67,21 @@ describe("AudioSystem", () => {
       expect(mockAudioManager.preloadEssentialAudio).toHaveBeenCalled();
     });
 
-    test("continues even if initialization fails", async () => {
+    test("propagates errors when initialization fails", async () => {
       // Mock initialization failure
       mockAudioManager.initialize.mockImplementation(() => {
         throw new Error("Initialization failed");
       });
 
-      // Should not throw error
-      await expect(audioSystem.init()).resolves.not.toThrow();
+      await expect(audioSystem.init()).rejects.toThrow("Initialization failed");
     });
 
-    test("continues if preloading fails", async () => {
+    test("propagates errors if preloading fails", async () => {
       mockAudioManager.preloadEssentialAudio.mockRejectedValue(
         new Error("Preload failed")
       );
 
-      // Should not throw error
-      await expect(audioSystem.init()).resolves.not.toThrow();
+      await expect(audioSystem.init()).rejects.toThrow("Preload failed");
     });
   });
 
@@ -116,33 +155,27 @@ describe("AudioSystem", () => {
 
   describe("Error Handling", () => {
     test("logs error when initialization fails", async () => {
-      const consoleSpy = jest.spyOn(console, "error");
       mockAudioManager.initialize.mockImplementation(() => {
         throw new Error("Initialization failed");
       });
 
-      await audioSystem.init();
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        "Failed to initialize audio system:",
+      await expect(audioSystem.init()).rejects.toThrow();
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        "Failed to initialize audio system",
         expect.any(Error)
       );
-      consoleSpy.mockRestore();
     });
 
     test("logs error when preloading fails", async () => {
-      const consoleSpy = jest.spyOn(console, "error");
       mockAudioManager.preloadEssentialAudio.mockRejectedValue(
         new Error("Preload failed")
       );
 
-      await audioSystem.init();
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        "Failed to initialize audio system:",
+      await expect(audioSystem.init()).rejects.toThrow();
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        "Failed to initialize audio system",
         expect.any(Error)
       );
-      consoleSpy.mockRestore();
     });
   });
 

@@ -49,8 +49,8 @@ The `AudioManager` acts as a facade for the entire audio system, providing a sim
 ## Usage
 
 ```typescript
-// Create an instance of AudioManager
-const audioManager = new AudioManager();
+// Retrieve the shared AudioManager instance
+const audioManager = AudioManager.getInstance();
 
 // Initialize (can be called multiple times safely)
 audioManager.initialize();

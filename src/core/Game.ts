@@ -19,6 +19,9 @@ export class Game {
   /** Collection of game systems managed by this game instance */
   private systems: GameSystem[] = [];
 
+  /** Optional systems that need to resolve before initialization */
+  private pendingSystems: Promise<GameSystem>[] = [];
+
   /** Scene system for 3D rendering */
   private sceneSystem: SceneSystem;
 
@@ -45,6 +48,9 @@ export class Game {
 
   /** Logger instance */
   private logger = Logger.getInstance();
+
+  /** Tracks whether the boot sequence has been triggered */
+  private hasBootstrapped = false;
 
   /**
    * Creates a new Game instance and initializes all subsystems.
@@ -83,96 +89,37 @@ export class Game {
       this.uiSystem
     );
 
-    // If in dev mode, add the performance overlay system.
+    // If in dev mode, prepare the performance overlay system.
     if (this.devMode) {
-      import("./systems/DevPerformanceSystem").then(
-        ({ DevPerformanceSystem }) => {
-          this.systems.push(new DevPerformanceSystem());
-        }
+      this.pendingSystems.push(
+        import("./systems/DevPerformanceSystem").then(
+          ({ DevPerformanceSystem }) => new DevPerformanceSystem()
+        )
       );
     }
 
     // Create the game loop with all systems
     this.gameLoop = new GameLoop(this.systems);
 
+    // The boot sequence is triggered externally to avoid double initialization.
+  }
+
+  /**
+   * Triggers the appropriate startup flow for the game.
+   * Ensures initialization only occurs once.
+   */
+  public async boot(): Promise<void> {
+    if (this.hasBootstrapped) {
+      this.logger.warn("Game boot already triggered");
+      return;
+    }
+
+    this.hasBootstrapped = true;
+
     if (this.devMode) {
-      // In dev mode, skip loading screen and initialize directly
-      this.logger.info("DEV MODE: Skipping intro loading screen and menu");
-
-      // Initialize systems
-      this.init()
-        .then(() => {
-          // Hide menu if it's visible
-          if (this.uiSystem.isMenuVisible()) {
-            this.uiSystem.hideMenu();
-          }
-
-          // Get required systems for ship initialization
-          const scene = this.sceneSystem.getScene();
-          const input = this.inputSystem.getInput();
-
-          // Set input on scene
-          scene.setInput(input);
-          this.logger.info("DEV MODE: Input set on scene");
-
-          // Initialize ship and start game directly
-          scene
-            .initPlayerShip()
-            .then(() => {
-              this.logger.info("DEV MODE: Ship initialized successfully");
-
-              // Skip entry animation in dev mode - start game immediately
-              scene.skipShipEntry();
-              this.logger.info("DEV MODE: Ship entry animation skipped");
-
-              // Start the game
-              this.start();
-
-              // Show the game HUD
-              this.logger.info("DEV MODE: Showing game HUD");
-              this.uiSystem.showGameHUD();
-
-              // Enable hyperspace mode in dev environment for testing
-              setTimeout(() => {
-                this.logger.info(
-                  "DEV MODE: Activating hyperspace mode for enhanced visuals"
-                );
-                scene.transitionHyperspace(true, 1.0);
-              }, 1000); // Short delay to ensure everything is loaded
-            })
-            .catch((error) => {
-              this.logger.error("DEV MODE: Failed to initialize ship:", error);
-            });
-
-          // Set audio to muted in dev mode
-          // We do this after initialization to ensure the UI can properly reflect this state
-          if (
-            !this.enableDevAudio &&
-            !this.audioSystem.getAudioManager().getMuteState()
-          ) {
-            // Force-mute audio but preserve the state in localStorage
-            this.setDevModeMuted(true);
-            this.logger.info(
-              "DEV MODE: Audio muted by default (can be enabled in settings)"
-            );
-          } else if (this.enableDevAudio) {
-            // Ensure audio is unmuted if enableDevAudio is true
-            if (this.audioSystem.getAudioManager().getMuteState()) {
-              this.setDevModeMuted(false);
-            }
-
-            // Play the procedural audio explicitly
-            this.audioSystem.playMenuThump(true);
-
-            this.logger.info(
-              "DEV MODE: Audio enabled via enableDevAudio parameter"
-            );
-          }
-        })
-        .catch((error) => this.logger.error("Initialization error:", error));
+      await this.handleDevModeStartup();
     } else {
-      // In normal mode, show the loading screen
-      this.showLoadingScreen();
+      await this.prepareNormalStartup();
     }
   }
 
@@ -181,21 +128,22 @@ export class Game {
    * The loading screen will call init() and start() when the user chooses to begin.
    * @private
    */
-  private showLoadingScreen(): void {
-    // We need to initialize audio first to prepare it for user interaction
-    this.audioSystem
-      .init()
-      .catch((error) => this.logger.error("Audio init error:", error));
+  private async prepareNormalStartup(): Promise<void> {
+    try {
+      await this.audioSystem.init();
+    } catch (error) {
+      this.handleStartupFailure("Audio initialization failed", error);
+      throw error;
+    }
 
-    // Initialize UI system so it can create loading screen
-    this.uiSystem
-      .init()
-      .catch((error) => this.logger.error("UI init error:", error));
+    try {
+      await this.uiSystem.init();
+    } catch (error) {
+      this.handleStartupFailure("UI initialization failed", error);
+      throw error;
+    }
 
-    // Show the loading screen through the UI system
-    // This will manage the entire startup process
     this.uiSystem.showLoadingScreen(() => {
-      // This is called when the user clicks "execute program"
       this.init()
         .then(() => {
           this.start();
@@ -214,6 +162,12 @@ export class Game {
     this.logger.info("Game initializing...");
 
     try {
+      if (this.pendingSystems.length > 0) {
+        const optionalSystems = await Promise.all(this.pendingSystems);
+        optionalSystems.forEach((system) => this.systems.push(system));
+        this.pendingSystems = [];
+      }
+
       // Initialize all systems in parallel
       await Promise.all(this.systems.map((system) => system.init()));
 
@@ -235,6 +189,83 @@ export class Game {
       // Re-throw to allow caller to handle
       throw error;
     }
+  }
+
+  /**
+   * Handles the dev-mode specific startup path.
+   */
+  private async handleDevModeStartup(): Promise<void> {
+    this.logger.info("DEV MODE: Skipping intro loading screen and menu");
+
+    try {
+      await this.init();
+
+      if (this.uiSystem.isMenuVisible()) {
+        this.uiSystem.hideMenu();
+      }
+
+      const scene = this.sceneSystem.getScene();
+      const input = this.inputSystem.getInput();
+      scene.setInput(input);
+      this.logger.info("DEV MODE: Input set on scene");
+
+      await scene.initPlayerShip();
+      this.logger.info("DEV MODE: Ship initialized successfully");
+
+      scene.skipShipEntry();
+      this.logger.info("DEV MODE: Ship entry animation skipped");
+
+      this.start();
+      this.logger.info("DEV MODE: Showing game HUD");
+      this.uiSystem.showGameHUD();
+
+      setTimeout(() => {
+        this.logger.info(
+          "DEV MODE: Activating hyperspace mode for enhanced visuals"
+        );
+        scene.transitionHyperspace(true, 1.0);
+      }, 1000);
+
+      this.configureDevAudio();
+    } catch (error) {
+      this.logger.error("DEV MODE: Initialization error", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Applies dev-mode audio configuration.
+   */
+  private configureDevAudio(): void {
+    const audioManager = this.audioSystem.getAudioManager();
+
+    if (!this.enableDevAudio && !audioManager.getMuteState()) {
+      this.setDevModeMuted(true);
+      this.logger.info(
+        "DEV MODE: Audio muted by default (can be enabled in settings)"
+      );
+    } else if (this.enableDevAudio) {
+      if (audioManager.getMuteState()) {
+        this.setDevModeMuted(false);
+      }
+
+      this.audioSystem.playMenuThump(true);
+      this.logger.info("DEV MODE: Audio enabled via enableDevAudio parameter");
+    }
+  }
+
+  /**
+   * Displays a startup failure message to the player.
+   */
+  private handleStartupFailure(context: string, error: unknown): void {
+    this.logger.error(`${context}:`, error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error occurred";
+
+    UIUtils.showErrorMessage(
+      "System Initialization Error",
+      `${context}. Please reload the page. (Details: ${errorMessage})`
+    );
   }
 
   /**
