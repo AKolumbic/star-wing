@@ -96,6 +96,9 @@ export class Ship {
   /** Direction the ship is facing/aiming */
   private aimDirection: THREE.Vector3 = new THREE.Vector3(0, 0, -1);
 
+  /** Reusable Vector3 for fire position calculations to avoid allocations */
+  private firePositionTemp: THREE.Vector3 = new THREE.Vector3();
+
   /** Array of engine trails */
   private engineTrails: {
     mesh: THREE.Points;
@@ -1010,22 +1013,11 @@ export class Ship {
       this.rotation.z = Math.sin(idleTime * 1.5) * 0.05;
     }
 
-    // Shooting (placeholder)
-    if (this.input.isKeyPressed(" ")) {
-      // Shoot functionality will be added later
-      // For now, just add a slight "recoil" effect
-      this.position.z += 1;
-      setTimeout(() => {
-        this.position.z -= 1;
-      }, 50);
-    }
-
     // Handle weapon firing
     if (this.weaponSystem) {
       // Get aim direction (make it match the direction the ship is facing)
-      this.aimDirection
-        .copy(new THREE.Vector3(0, 0, -1))
-        .applyQuaternion(this.model!.quaternion);
+      // Reuse the same Vector3 to avoid allocation
+      this.aimDirection.set(0, 0, -1).applyQuaternion(this.model!.quaternion);
 
       // Fire primary weapon on left mouse button
       if (this.input.isMouseButtonPressed(0)) {
@@ -1046,12 +1038,14 @@ export class Ship {
     if (!this.weaponSystem || !this.model) return;
 
     // Get the position to fire from (slightly in front of the ship)
-    const firePosition = this.position
-      .clone()
-      .add(this.aimDirection.clone().multiplyScalar(10));
+    // Reuse temp vector to avoid allocations every frame
+    this.firePositionTemp
+      .copy(this.aimDirection)
+      .multiplyScalar(10)
+      .add(this.position);
 
     // Fire the weapon
-    this.weaponSystem.firePrimary(firePosition, this.aimDirection);
+    this.weaponSystem.firePrimary(this.firePositionTemp, this.aimDirection);
   }
 
   /**
@@ -1061,12 +1055,14 @@ export class Ship {
     if (!this.weaponSystem || !this.model) return;
 
     // Get the position to fire from (slightly in front of the ship)
-    const firePosition = this.position
-      .clone()
-      .add(this.aimDirection.clone().multiplyScalar(10));
+    // Reuse temp vector to avoid allocations every frame
+    this.firePositionTemp
+      .copy(this.aimDirection)
+      .multiplyScalar(10)
+      .add(this.position);
 
     // Fire the weapon
-    this.weaponSystem.fireSecondary(firePosition, this.aimDirection);
+    this.weaponSystem.fireSecondary(this.firePositionTemp, this.aimDirection);
   }
 
   /**

@@ -109,6 +109,15 @@ export class Scene {
   /** Maximum vertical distance from center (full height = 1400) */
   private verticalLimit: number = 700;
 
+  /** Reusable bounding sphere for collision detection to avoid allocations */
+  private shipBoundingSphere: THREE.Sphere = new THREE.Sphere(
+    new THREE.Vector3(),
+    30
+  );
+
+  /** Bound resize handler for proper event listener cleanup */
+  private boundOnWindowResize: () => void;
+
   /**
    * Creates a new scene with a WebGL renderer.
    * @param canvas Optional canvas element to render on. If not provided, one will be created.
@@ -172,8 +181,9 @@ export class Scene {
     // Create the background manager
     this.backgroundManager = new BackgroundManager(this.scene);
 
-    // Handle window resize
-    window.addEventListener("resize", this.onWindowResize.bind(this));
+    // Bind the resize handler once and store it for proper cleanup
+    this.boundOnWindowResize = this.onWindowResize.bind(this);
+    window.addEventListener("resize", this.boundOnWindowResize);
 
     // Store dev mode flag
     this.devMode = devMode;
@@ -362,8 +372,8 @@ export class Scene {
       this.animationFrameId = null;
     }
 
-    // Remove event listeners
-    window.removeEventListener("resize", this.onWindowResize.bind(this));
+    // Remove event listeners using the stored bound reference
+    window.removeEventListener("resize", this.boundOnWindowResize);
 
     // Clean up the background manager
     this.backgroundManager.dispose();
@@ -731,12 +741,12 @@ export class Scene {
 
   /**
    * Sets up event listeners for the scene.
+   * Note: Resize listener is already added in constructor, this is for additional listeners only.
    * @private
    */
   private setupEventListeners(): void {
-    // Handle window resize
-    window.addEventListener("resize", this.onWindowResize.bind(this));
-
+    // Resize listener is already added in constructor using boundOnWindowResize
+    // Add any additional event listeners here if needed
     this.logger.info("Scene: Event listeners set up");
   }
 
@@ -850,11 +860,8 @@ export class Scene {
     const shipHitbox = this.playerShip.getHitbox();
     if (!shipHitbox) return;
 
-    // Create a bounding sphere for the ship hitbox
-    const shipBoundingSphere = new THREE.Sphere(
-      shipHitbox.position.clone(),
-      30 // Ship hitbox radius (estimated from box)
-    );
+    // Reuse the bounding sphere for collision detection (avoid allocation every frame)
+    this.shipBoundingSphere.center.copy(shipHitbox.position);
 
     // Get weapon system and projectiles, if available
     const weaponSystem = this.playerShip.getWeaponSystem();
@@ -955,7 +962,7 @@ export class Scene {
       if (asteroidDestroyed) return false;
 
       // Check if the ship collides with the asteroid
-      if (shipBoundingSphere.intersectsSphere(asteroidHitbox)) {
+      if (this.shipBoundingSphere.intersectsSphere(asteroidHitbox)) {
         // Collision detected!
         this.logger.info("Collision detected between ship and asteroid!");
 
