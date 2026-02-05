@@ -141,6 +141,21 @@ export class Scene {
     30
   );
 
+  /** Reusable Vector3 for drift pattern calculations to avoid per-frame allocations */
+  private tempDriftVector: THREE.Vector3 = new THREE.Vector3();
+
+  /** Reusable Vector3 for spawn position calculations */
+  private tempSpawnPosition: THREE.Vector3 = new THREE.Vector3();
+
+  /** Reusable Vector3 for target position calculations */
+  private tempTargetPosition: THREE.Vector3 = new THREE.Vector3();
+
+  /** Reusable Vector3 for direction calculations */
+  private tempDirection: THREE.Vector3 = new THREE.Vector3();
+
+  /** Reusable axis vector for spiral rotation */
+  private static readonly SPIRAL_AXIS: THREE.Vector3 = new THREE.Vector3(0, 0, 1);
+
   /** Bound resize handler for proper event listener cleanup */
   private boundOnWindowResize: () => void;
 
@@ -932,6 +947,7 @@ export class Scene {
 
   /**
    * Applies zone-specific drift patterns to a direction vector.
+   * Uses reusable temp vectors to avoid per-frame allocations.
    * @param direction Direction vector to modify
    */
   private applyDriftPattern(direction: THREE.Vector3): void {
@@ -939,22 +955,22 @@ export class Scene {
 
     switch (this.activeZoneConfig.driftPattern) {
       case "lateral": {
-        direction
-          .add(new THREE.Vector3(this.lateralFlowDirection * 0.35, 0, 0))
-          .normalize();
+        // Reuse temp vector for lateral drift
+        this.tempDriftVector.set(this.lateralFlowDirection * 0.35, 0, 0);
+        direction.add(this.tempDriftVector).normalize();
         break;
       }
       case "spiral": {
         const angle = (performance.now() * 0.0007) % (Math.PI * 2);
-        direction.applyAxisAngle(new THREE.Vector3(0, 0, 1), angle);
-        direction.add(new THREE.Vector3(Math.sin(angle) * 0.15, 0, 0)).normalize();
+        direction.applyAxisAngle(Scene.SPIRAL_AXIS, angle);
+        this.tempDriftVector.set(Math.sin(angle) * 0.15, 0, 0);
+        direction.add(this.tempDriftVector).normalize();
         break;
       }
       case "surge": {
         if (this.surgeActive) {
-          direction
-            .add(new THREE.Vector3(0, this.randomRange(-0.2, 0.2), 0))
-            .normalize();
+          this.tempDriftVector.set(0, this.randomRange(-0.2, 0.2), 0);
+          direction.add(this.tempDriftVector).normalize();
         }
         break;
       }
@@ -1058,6 +1074,7 @@ export class Scene {
 
   /**
    * Spawns a new asteroid at a random position outside the player's view.
+   * Uses reusable temp vectors to minimize allocations.
    */
   private spawnAsteroid(): void {
     if (!this.playerShip) return;
@@ -1071,24 +1088,25 @@ export class Scene {
     const spawnWidth = this.horizontalLimit * 1.5;
     const spawnHeight = this.verticalLimit * 1.5;
 
-    const asteroidPosition = new THREE.Vector3(
+    // Reuse temp vectors for spawn calculations
+    this.tempSpawnPosition.set(
       playerPos.x + (Math.random() * spawnWidth - spawnWidth / 2),
       playerPos.y + (Math.random() * spawnHeight - spawnHeight / 2),
       playerPos.z - spawnDistance
     );
 
     // Direction vector pointing toward the player's general area
-    const targetPos = new THREE.Vector3(
+    this.tempTargetPosition.set(
       playerPos.x + (Math.random() * 200 - 100), // Reduced randomness for better targeting
       playerPos.y + (Math.random() * 200 - 100), // Reduced randomness for better targeting
       playerPos.z + 100 // Aim closer to the player's position
     );
 
-    const direction = new THREE.Vector3()
-      .subVectors(targetPos, asteroidPosition)
+    this.tempDirection
+      .subVectors(this.tempTargetPosition, this.tempSpawnPosition)
       .normalize();
 
-    this.applyDriftPattern(direction);
+    this.applyDriftPattern(this.tempDirection);
 
     const sizeRange = config?.asteroidSizeRange || [20, 50];
     const speedRange = config?.asteroidSpeedRange || [400, 620];
@@ -1099,11 +1117,11 @@ export class Scene {
     const size = this.randomRange(sizeRange[0], sizeRange[1]);
     const damage = Math.round(this.randomRange(damageRange[0], damageRange[1]));
 
-    // Create and add the asteroid
+    // Create and add the asteroid (clone temp vectors since Asteroid stores them)
     const asteroid = new Asteroid(
       this.scene,
-      asteroidPosition,
-      direction,
+      this.tempSpawnPosition.clone(),
+      this.tempDirection.clone(),
       speed,
       size,
       damage

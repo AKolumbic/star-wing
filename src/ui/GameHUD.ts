@@ -51,6 +51,20 @@ export class GameHUD {
   private radarBackgroundCanvas: HTMLCanvasElement | null = null;
   private radarBackgroundInitialized: boolean = false;
 
+  // Cached info display elements to avoid innerHTML rebuilds every frame
+  private scoreElement: HTMLDivElement | null = null;
+  private zoneElement: HTMLDivElement | null = null;
+  private infoInitialized: boolean = false;
+
+  // Cached previous values to detect changes and avoid unnecessary DOM updates
+  private prevScore: number = -1;
+  private prevZone: number = -1;
+  private prevHealth: number = -1;
+  private prevShield: number = -1;
+
+  // Cached time for radar to avoid repeated Date.now() calls
+  private cachedFrameTime: number = 0;
+
   /**
    * Creates a new GameHUD instance.
    * @param game Reference to the Game instance for accessing game state
@@ -356,6 +370,9 @@ export class GameHUD {
   update(deltaTime: number): void {
     if (!this.isVisible) return;
 
+    // Cache frame time once per update to avoid repeated Date.now() calls
+    this.cachedFrameTime = Date.now();
+
     // Get the scene from the game
     const scene = this.game.getSceneSystem().getScene();
     if (!scene) return;
@@ -394,15 +411,15 @@ export class GameHUD {
   }
 
   /**
-   * Updates the combat log display
+   * Updates the combat log display.
+   * Uses cached frame time to avoid repeated Date.now() calls.
    */
   private updateCombatLog(): void {
-    const currentTime = Date.now();
     let messagesRemoved = false;
 
-    // Remove expired messages
+    // Remove expired messages using cached frame time
     this.combatLogMessages = this.combatLogMessages.filter((msg) => {
-      const age = currentTime - msg.timestamp;
+      const age = this.cachedFrameTime - msg.timestamp;
 
       // If message is expiring soon, add the fading class
       if (age > this.COMBAT_LOG_DISPLAY_TIME - 500) {
@@ -558,9 +575,14 @@ export class GameHUD {
   }
 
   /**
-   * Update health bar display
+   * Update health bar display.
+   * Optimized to only update DOM when health value changes.
    */
   private updateHealthBar(): void {
+    // Skip if health hasn't changed
+    if (this.currentHealth === this.prevHealth) return;
+    this.prevHealth = this.currentHealth;
+
     const healthPercent = (this.currentHealth / this.maxHealth) * 100;
     this.healthBar.style.transform = `scaleX(${healthPercent / 100})`;
 
@@ -578,9 +600,14 @@ export class GameHUD {
   }
 
   /**
-   * Update shield bar display
+   * Update shield bar display.
+   * Optimized to only update DOM when shield value changes.
    */
   private updateShieldBar(): void {
+    // Skip if shield hasn't changed
+    if (this.currentShield === this.prevShield) return;
+    this.prevShield = this.currentShield;
+
     const shieldPercent = (this.currentShield / this.maxShield) * 100;
     this.shieldBar.style.transform = `scaleX(${shieldPercent / 100})`;
 
@@ -817,9 +844,9 @@ export class GameHUD {
           ctx.arc(radarX, radarY, blipSize, 0, Math.PI * 2);
           ctx.fill();
 
-          // Add a pulsing effect to closer asteroids
+          // Add a pulsing effect to closer asteroids using cached frame time
           if (distance < radarRange * 0.3) {
-            const pulseSize = blipSize + Math.sin(Date.now() / 200) * 2;
+            const pulseSize = blipSize + Math.sin(this.cachedFrameTime / 200) * 2;
             ctx.strokeStyle = `rgba(255, 85, 85, ${alpha * 0.5})`;
             ctx.beginPath();
             ctx.arc(radarX, radarY, pulseSize, 0, Math.PI * 2);
@@ -855,9 +882,8 @@ export class GameHUD {
       });
     }
 
-    // Add radar sweep effect
-    const now = Date.now();
-    const angle = ((now % 2000) / 2000) * Math.PI * 2;
+    // Add radar sweep effect using cached frame time
+    const angle = ((this.cachedFrameTime % 2000) / 2000) * Math.PI * 2;
 
     // Create radial gradient for sweep
     const gradient = ctx.createRadialGradient(
@@ -897,13 +923,33 @@ export class GameHUD {
   }
 
   /**
-   * Update score and zone info
+   * Update score and zone info.
+   * Optimized to cache DOM elements and only update when values change.
    */
   private updateInfo(): void {
-    this.infoContainer.innerHTML = `
-      <div>SCORE: ${this.currentScore}</div>
-      <div>ZONE ${this.currentZone}</div>
-    `;
+    // Initialize cached elements on first call
+    if (!this.infoInitialized) {
+      this.infoContainer.innerHTML = '';
+      
+      this.scoreElement = document.createElement('div');
+      this.zoneElement = document.createElement('div');
+      
+      this.infoContainer.appendChild(this.scoreElement);
+      this.infoContainer.appendChild(this.zoneElement);
+      
+      this.infoInitialized = true;
+    }
+
+    // Only update DOM when values actually change
+    if (this.currentScore !== this.prevScore && this.scoreElement) {
+      this.scoreElement.textContent = `SCORE: ${this.currentScore}`;
+      this.prevScore = this.currentScore;
+    }
+
+    if (this.currentZone !== this.prevZone && this.zoneElement) {
+      this.zoneElement.textContent = `ZONE ${this.currentZone}`;
+      this.prevZone = this.currentZone;
+    }
   }
 
   /**

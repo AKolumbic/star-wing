@@ -18,6 +18,12 @@ export class SoundEffectPlayer {
   /** Logger instance */
   private logger = Logger.getInstance();
 
+  /** Pre-generated noise buffers for collision sounds (keyed by duration) */
+  private noiseBufferCache: Map<number, AudioBuffer> = new Map();
+
+  /** Whether audio context has been resumed (to avoid redundant resume attempts) */
+  private audioContextResumed: boolean = false;
+
   constructor(
     contextManager: AudioContextManager,
     bufferManager: BufferManager
@@ -28,17 +34,56 @@ export class SoundEffectPlayer {
   }
 
   /**
+   * Gets or creates a cached noise buffer for the given duration.
+   * Avoids creating new buffers on every collision sound.
+   * @param durationSeconds Duration of the noise buffer in seconds
+   * @returns Cached or newly created noise buffer
+   */
+  private getOrCreateNoiseBuffer(durationSeconds: number): AudioBuffer {
+    // Round duration to avoid too many cache entries
+    const durationKey = Math.round(durationSeconds * 10) / 10;
+    
+    let buffer = this.noiseBufferCache.get(durationKey);
+    if (!buffer) {
+      const bufferSize = Math.floor(this.contextManager.getSampleRate() * durationSeconds);
+      buffer = this.contextManager
+        .getContext()
+        .createBuffer(1, bufferSize, this.contextManager.getSampleRate());
+      
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      
+      this.noiseBufferCache.set(durationKey, buffer);
+      this.logger.debug(`SoundEffectPlayer: Created noise buffer cache for ${durationKey}s`);
+    }
+    
+    return buffer;
+  }
+
+  /**
+   * Attempts to resume audio context, caching the result to avoid redundant attempts.
+   */
+  private tryResumeIfNeeded(): void {
+    if (this.audioContextResumed) return;
+    
+    this.contextManager.tryResume()
+      .then(() => {
+        this.audioContextResumed = true;
+      })
+      .catch((err) => {
+        this.logger.error("SoundEffectPlayer: Error resuming audio context:", err);
+      });
+  }
+
+  /**
    * Plays a test tone to verify audio is working
    */
   public playTestTone(): void {
     try {
-      // Try to resume audio context
-      this.contextManager.tryResume().catch((err) => {
-        this.logger.error(
-          "SoundEffectPlayer: Error resuming audio context:",
-          err
-        );
-      });
+      // Use cached resume check
+      this.tryResumeIfNeeded();
 
       const oscillator = this.contextManager.createOscillator();
       oscillator.type = "sine";
@@ -68,13 +113,8 @@ export class SoundEffectPlayer {
     volume: number = 0.5,
     loop: boolean = false
   ): AudioBufferSourceNode | null {
-    // Try to resume the audio context if needed
-    this.contextManager.tryResume().catch((err) => {
-      this.logger.error(
-        "SoundEffectPlayer: Error resuming audio context:",
-        err
-      );
-    });
+    // Use cached resume check
+    this.tryResumeIfNeeded();
 
     const buffer = this.bufferManager.getBuffer(id);
     if (!buffer) {
@@ -152,13 +192,8 @@ export class SoundEffectPlayer {
    * Plays a laser firing sound effect
    */
   public playLaserSound(weaponCategory: string = "energy"): void {
-    // Try to resume audio context if needed
-    this.contextManager.tryResume().catch((err) => {
-      this.logger.error(
-        "SoundEffectPlayer: Error resuming audio context:",
-        err
-      );
-    });
+    // Use cached resume check
+    this.tryResumeIfNeeded();
 
     if (this.contextManager.getMuteState()) {
       return;
@@ -251,16 +286,12 @@ export class SoundEffectPlayer {
   }
 
   /**
-   * Plays an asteroid collision sound effect
+   * Plays an asteroid collision sound effect.
+   * Optimized to use cached noise buffers.
    */
   public playCollisionSound(intensity: string = "medium"): void {
-    // Try to resume audio context if needed
-    this.contextManager.tryResume().catch((err) => {
-      this.logger.error(
-        "SoundEffectPlayer: Error resuming audio context:",
-        err
-      );
-    });
+    // Use cached resume check to avoid redundant resume attempts
+    this.tryResumeIfNeeded();
 
     if (this.contextManager.getMuteState()) {
       return;
@@ -284,17 +315,8 @@ export class SoundEffectPlayer {
         noiseGain = 0.9;
       }
 
-      // Create noise for the impact sound
-      const bufferSize = this.contextManager.getSampleRate() * duration;
-      const noiseBuffer = this.contextManager
-        .getContext()
-        .createBuffer(1, bufferSize, this.contextManager.getSampleRate());
-
-      // Fill buffer with noise
-      const data = noiseBuffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) {
-        data[i] = Math.random() * 2 - 1;
-      }
+      // Use cached noise buffer instead of creating new one each time
+      const noiseBuffer = this.getOrCreateNoiseBuffer(duration);
 
       // Create noise source
       const noise = this.contextManager.getContext().createBufferSource();

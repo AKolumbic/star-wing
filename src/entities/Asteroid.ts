@@ -40,6 +40,9 @@ export class Asteroid {
   /** Logger instance */
   private logger = Logger.getInstance();
 
+  /** Reusable Vector3 for movement calculations to avoid per-frame allocations */
+  private static tempMovement: THREE.Vector3 = new THREE.Vector3();
+
   /**
    * Creates a new Asteroid instance.
    * @param scene The THREE.Scene to add the asteroid to
@@ -331,9 +334,9 @@ export class Asteroid {
   update(deltaTime: number): boolean {
     if (!this.active) return false;
 
-    // Update position
-    const movement = this.velocity.clone().multiplyScalar(deltaTime);
-    this.position.add(movement);
+    // Update position using static temp vector to avoid per-frame allocation
+    Asteroid.tempMovement.copy(this.velocity).multiplyScalar(deltaTime);
+    this.position.add(Asteroid.tempMovement);
     this.model.position.copy(this.position);
 
     // Update hitbox position
@@ -362,11 +365,21 @@ export class Asteroid {
   }
 
   /**
-   * Gets the asteroid's position.
-   * @returns The asteroid's position
+   * Gets a copy of the asteroid's position.
+   * Use getPositionRef() for read-only access without allocation.
+   * @returns A clone of the asteroid's position
    */
   getPosition(): THREE.Vector3 {
     return this.position.clone();
+  }
+
+  /**
+   * Gets a direct reference to the asteroid's position (read-only, do not modify).
+   * Avoids allocation - use when you only need to read position values.
+   * @returns Direct reference to the asteroid's position
+   */
+  getPositionRef(): THREE.Vector3 {
+    return this.position;
   }
 
   /**

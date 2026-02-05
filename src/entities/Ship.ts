@@ -927,8 +927,12 @@ export class Ship {
     const isAccelerating = this.input.isKeyPressed("w");
     const pulseRate = 0.3; // Lower for slower pulsing
 
+    // Cache time once per frame to avoid repeated Date.now()/performance.now() calls
+    const currentTimeMs = performance.now();
+    const currentTimeSec = currentTimeMs * 0.001;
+
     // Get a more arcade-like pulsing effect with discrete pulse values
-    const pulse = 0.8 + Math.sin(Date.now() * pulseRate) * 0.2;
+    const pulse = 0.8 + Math.sin(currentTimeMs * pulseRate) * 0.2;
 
     // Update engine glow brightness
     this.engineGlowMeshes.forEach((engine) => {
@@ -969,15 +973,13 @@ export class Ship {
         const positions = geometry.attributes.position.array;
         const segments = positions.length / 3;
 
-        // Create undulating effect on the trails
-        const time = Date.now() * 0.001; // Slow time factor
-
+        // Create undulating effect on the trails using cached time
         for (let i = 0; i < segments; i++) {
           const segmentPosition = i / segments;
           const waveAmplitude = segmentPosition * 0.5; // Larger amplitude toward the end
 
-          // Lateral wave movement
-          const xOffset = Math.sin(time * 2 + i * 0.5) * waveAmplitude;
+          // Lateral wave movement using cached time
+          const xOffset = Math.sin(currentTimeSec * 2 + i * 0.5) * waveAmplitude;
 
           // Update X position with wave
           if (i > 0) {

@@ -9,6 +9,13 @@ import { Projectile, ProjectileProps } from "../Projectile";
 export class MissileLauncher extends Weapon {
   private projectiles: Projectile[] = [];
 
+  /** Reusable offset vectors to avoid per-fire allocations */
+  private static readonly SPAWN_OFFSET = new THREE.Vector3(0, -5, 0);
+  private static readonly SECOND_MISSILE_OFFSET = new THREE.Vector3(8, 0, 0);
+
+  /** Temp vector for calculations */
+  private tempPosition = new THREE.Vector3();
+
   /**
    * Creates a new MissileLauncher weapon
    * @param scene The scene to add projectiles to
@@ -53,7 +60,8 @@ export class MissileLauncher extends Weapon {
   }
 
   /**
-   * Creates and fires a missile projectile
+   * Creates and fires a missile projectile.
+   * Optimized to use cached offset vectors.
    * @param position The position to fire from
    * @param direction The direction to fire in
    */
@@ -65,7 +73,7 @@ export class MissileLauncher extends Weapon {
     const baseBlastRadius = 50;
     const blastRadius = baseBlastRadius * (1 + upgradeLevel * 0.25); // 25% increase per level
 
-    // Create projectile props
+    // Create projectile props (created once per fire event, not per frame)
     const projectileProps: ProjectileProps = {
       damage: this.props.damage,
       speed: this.props.projectileSpeed || 350,
@@ -77,8 +85,9 @@ export class MissileLauncher extends Weapon {
       scale: 1.2, // Larger projectile
     };
 
-    // Fire from slightly below ship to avoid self-collision
-    const spawnPosition = position.clone().add(new THREE.Vector3(0, -5, 0));
+    // Fire from slightly below ship to avoid self-collision using cached offset
+    this.tempPosition.copy(position).add(MissileLauncher.SPAWN_OFFSET);
+    const spawnPosition = this.tempPosition.clone();
 
     // Create and add the projectile
     const projectile = new Projectile(
@@ -91,6 +100,11 @@ export class MissileLauncher extends Weapon {
 
     // At higher upgrade levels, fire multiple missiles
     if (upgradeLevel >= 2 && this.props.ammo && this.props.ammo > 1) {
+      // Capture values for the timeout closure
+      const capturedSpawnPosition = spawnPosition.clone();
+      const capturedDirection = direction.clone();
+      const capturedProps = { ...projectileProps };
+      
       // Apply a slight delay and offset
       setTimeout(() => {
         // Make sure we still have ammo (second check)
@@ -98,14 +112,14 @@ export class MissileLauncher extends Weapon {
           // Reduce ammo (manually since we're not using the main fire method)
           this.props.ammo--;
 
-          // Launch second missile slightly off-center
-          const offsetPosition = spawnPosition
+          // Launch second missile slightly off-center using cached offset
+          const offsetPosition = capturedSpawnPosition
             .clone()
-            .add(new THREE.Vector3(8, 0, 0));
+            .add(MissileLauncher.SECOND_MISSILE_OFFSET);
           const secondMissile = new Projectile(
             offsetPosition,
-            direction,
-            projectileProps,
+            capturedDirection,
+            capturedProps,
             this.scene
           );
           this.projectiles.push(secondMissile);
