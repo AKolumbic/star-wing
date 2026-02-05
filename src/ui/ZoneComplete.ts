@@ -9,6 +9,21 @@ export class ZoneComplete {
   /** Container element for the entire zone complete screen */
   private container: HTMLDivElement;
 
+  /** Title element */
+  private titleElement!: HTMLHeadingElement;
+
+  /** Subtitle element */
+  private subtitleElement!: HTMLDivElement;
+
+  /** Detail element */
+  private detailElement!: HTMLDivElement;
+
+  /** Continue button */
+  private continueButton!: HTMLButtonElement;
+
+  /** Main menu button */
+  private mainMenuButton!: HTMLButtonElement;
+
   /** Flag to track visibility */
   private isVisible: boolean = false;
 
@@ -57,14 +72,14 @@ export class ZoneComplete {
    */
   private setupContent(): void {
     // Zone Complete title
-    const title = document.createElement("h1");
-    title.textContent = "ZONE CLEARED";
-    title.style.fontSize = "4rem";
-    title.style.textAlign = "center";
-    title.style.margin = "0 0 2rem 0";
-    title.style.fontWeight = "bold";
-    title.style.textShadow = "0 0 10px rgba(0, 255, 255, 0.7)";
-    title.style.animation = "pulsate 2s infinite";
+    this.titleElement = document.createElement("h1");
+    this.titleElement.textContent = "ZONE CLEARED";
+    this.titleElement.style.fontSize = "4rem";
+    this.titleElement.style.textAlign = "center";
+    this.titleElement.style.margin = "0 0 1.5rem 0";
+    this.titleElement.style.fontWeight = "bold";
+    this.titleElement.style.textShadow = "0 0 10px rgba(0, 255, 255, 0.7)";
+    this.titleElement.style.animation = "pulsate 2s infinite";
 
     // Animated pulse effect
     const style = document.createElement("style");
@@ -81,22 +96,22 @@ export class ZoneComplete {
     `;
     document.head.appendChild(style);
 
-    // Thank you message
-    const thankYouMessage = document.createElement("div");
-    thankYouMessage.textContent = "THANK YOU FOR PLAYING";
-    thankYouMessage.style.fontSize = "2rem";
-    thankYouMessage.style.margin = "0 0 1.5rem 0";
-    thankYouMessage.style.opacity = "0.9";
-    thankYouMessage.style.textAlign = "center";
+    // Subtitle
+    this.subtitleElement = document.createElement("div");
+    this.subtitleElement.textContent = "PREPARE FOR THE NEXT ZONE";
+    this.subtitleElement.style.fontSize = "2rem";
+    this.subtitleElement.style.margin = "0 0 1rem 0";
+    this.subtitleElement.style.opacity = "0.9";
+    this.subtitleElement.style.textAlign = "center";
 
-    // Development message
-    const devMessage = document.createElement("div");
-    devMessage.textContent = "FUTURE ZONES IN DEVELOPMENT";
-    devMessage.style.fontSize = "1.5rem";
-    devMessage.style.margin = "0 0 3rem 0";
-    devMessage.style.opacity = "0.8";
-    devMessage.style.textAlign = "center";
-    devMessage.style.color = "#00cccc";
+    // Detail line
+    this.detailElement = document.createElement("div");
+    this.detailElement.textContent = "DOCKING SYSTEMS ONLINE";
+    this.detailElement.style.fontSize = "1.2rem";
+    this.detailElement.style.margin = "0 0 3rem 0";
+    this.detailElement.style.opacity = "0.8";
+    this.detailElement.style.textAlign = "center";
+    this.detailElement.style.color = "#00cccc";
 
     // Options container
     const options = document.createElement("div");
@@ -105,17 +120,24 @@ export class ZoneComplete {
     options.style.gap = "1.5rem";
     options.style.marginTop = "1rem";
 
+    // Continue option
+    this.continueButton = document.createElement("button");
+    this.continueButton.textContent = "CONTINUE";
+    this.styleButton(this.continueButton);
+    this.continueButton.addEventListener("click", () => this.handleContinue());
+
     // Main Menu option
-    const mainMenuOption = document.createElement("button");
-    mainMenuOption.textContent = "RETURN TO MAIN MENU";
-    this.styleButton(mainMenuOption);
-    mainMenuOption.addEventListener("click", () => this.handleMainMenu());
+    this.mainMenuButton = document.createElement("button");
+    this.mainMenuButton.textContent = "RETURN TO MAIN MENU";
+    this.styleButton(this.mainMenuButton);
+    this.mainMenuButton.addEventListener("click", () => this.handleMainMenu());
 
     // Append all elements
-    options.appendChild(mainMenuOption);
-    this.container.appendChild(title);
-    this.container.appendChild(thankYouMessage);
-    this.container.appendChild(devMessage);
+    options.appendChild(this.continueButton);
+    options.appendChild(this.mainMenuButton);
+    this.container.appendChild(this.titleElement);
+    this.container.appendChild(this.subtitleElement);
+    this.container.appendChild(this.detailElement);
     this.container.appendChild(options);
 
     // Add to document but hidden
@@ -163,8 +185,20 @@ export class ZoneComplete {
   /**
    * Shows the zone complete screen
    */
-  show(): void {
+  show(completedZone: number, nextZoneId: number | null): void {
     if (this.isVisible) return;
+
+    this.titleElement.textContent = `ZONE ${completedZone} CLEARED`;
+
+    if (nextZoneId !== null) {
+      this.subtitleElement.textContent = `PREPARE FOR ZONE ${nextZoneId}`;
+      this.detailElement.textContent = "DOCKING SYSTEMS ONLINE";
+      this.continueButton.style.display = "block";
+    } else {
+      this.subtitleElement.textContent = "MISSION COMPLETE";
+      this.detailElement.textContent = "ALL SECTORS SECURED";
+      this.continueButton.style.display = "none";
+    }
 
     this.logger.info("Showing zone complete screen");
     this.isVisible = true;
@@ -249,5 +283,21 @@ export class ZoneComplete {
     setTimeout(() => {
       this.game.getUISystem().showMenu();
     }, 1000);
+  }
+
+  /**
+   * Handles the continue button click
+   */
+  private handleContinue(): void {
+    this.logger.info("Zone complete: Player chose to continue");
+
+    // Hide this screen first
+    this.hide();
+
+    // Resume gameplay
+    if (this.game) {
+      const scene = this.game.getSceneSystem().getScene();
+      scene.resumeAfterZoneComplete();
+    }
   }
 }

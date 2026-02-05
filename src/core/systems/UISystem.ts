@@ -420,9 +420,9 @@ export class UISystem implements GameSystem {
   /**
    * Shows the zone complete screen.
    */
-  showZoneComplete(): void {
+  showZoneComplete(completedZone: number, nextZoneId: number | null): void {
     this.logger.info("UISystem: Showing zone complete screen");
-    this.zoneCompleteScreen.show();
+    this.zoneCompleteScreen.show(completedZone, nextZoneId);
   }
 
   /**

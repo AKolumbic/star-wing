@@ -85,73 +85,241 @@ export class Asteroid {
   }
 
   /**
-   * Creates the asteroid 3D model with a rocky texture.
+   * Creates an irregular, jagged asteroid with realistic rocky geometry.
+   * Uses vertex displacement and noise-like patterns for natural variation.
    * @returns The asteroid 3D model
    */
   private createModel(): THREE.Object3D {
-    // Create a group to hold all parts of the asteroid
     const asteroidGroup = new THREE.Group();
 
-    // Create a random, lumpy asteroid shape using multiple spheres
-    const baseGeometry = new THREE.IcosahedronGeometry(this.size, 1);
+    // Choose asteroid type for variety (0-3)
+    const asteroidType = Math.floor(Math.random() * 4);
+
+    // Create base geometry with higher subdivision for more detail
+    const detail = this.size > 35 ? 2 : 1;
+    const baseGeometry = new THREE.IcosahedronGeometry(this.size, detail);
+
+    // Apply jagged vertex displacement for irregular shape
+    const positionAttribute = baseGeometry.getAttribute("position");
+    const vertex = new THREE.Vector3();
+
+    // Seed for consistent but random-looking displacement
+    const seed = Math.random() * 1000;
+
+    for (let i = 0; i < positionAttribute.count; i++) {
+      vertex.fromBufferAttribute(positionAttribute, i);
+
+      // Normalize to get direction from center
+      const direction = vertex.clone().normalize();
+      const originalLength = vertex.length();
+
+      // Multi-octave noise-like displacement for natural rocky appearance
+      let displacement = 0;
+
+      // Large features (major bumps and indentations)
+      displacement +=
+        Math.sin(vertex.x * 0.3 + seed) *
+        Math.cos(vertex.y * 0.4 + seed * 0.7) *
+        Math.sin(vertex.z * 0.35 + seed * 1.3) *
+        0.25;
+
+      // Medium features (ridges and valleys)
+      displacement +=
+        Math.sin(vertex.x * 0.8 + seed * 2) *
+        Math.sin(vertex.y * 0.9 + seed * 1.5) *
+        Math.cos(vertex.z * 0.7 + seed * 0.8) *
+        0.15;
+
+      // Small features (surface roughness)
+      displacement +=
+        Math.sin(vertex.x * 2.5 + seed * 3) *
+        Math.cos(vertex.y * 2.2 + seed * 2.5) *
+        0.08;
+
+      // Add some random spikes for jagged appearance
+      if (Math.random() < 0.15) {
+        displacement += (Math.random() - 0.3) * 0.2;
+      }
+
+      // Apply type-specific modifications
+      switch (asteroidType) {
+        case 0: // Elongated asteroid
+          displacement += Math.abs(direction.y) * 0.2 - 0.1;
+          break;
+        case 1: // Flattened asteroid
+          displacement -= Math.abs(direction.y) * 0.15;
+          break;
+        case 2: // Heavily cratered
+          const craterNoise =
+            Math.sin(vertex.x * 1.5) *
+            Math.sin(vertex.y * 1.5) *
+            Math.sin(vertex.z * 1.5);
+          if (craterNoise > 0.3) {
+            displacement -= 0.15;
+          }
+          break;
+        case 3: // Jagged/spiky
+          displacement *= 1.5;
+          break;
+      }
+
+      // Apply displacement
+      const newLength = originalLength * (1 + displacement);
+      vertex.copy(direction.multiplyScalar(newLength));
+
+      positionAttribute.setXYZ(i, vertex.x, vertex.y, vertex.z);
+    }
+
+    // Recompute normals for proper lighting
+    baseGeometry.computeVertexNormals();
+
+    // Create varied color palette for asteroids
+    const colorVariation = Math.random();
+    let baseColor: number;
+    let darkColor: number;
+
+    if (colorVariation < 0.3) {
+      // Iron-rich (reddish-brown)
+      baseColor = 0x8b6b5c;
+      darkColor = 0x5c4033;
+    } else if (colorVariation < 0.6) {
+      // Carbon-rich (dark gray)
+      baseColor = 0x5a5a5a;
+      darkColor = 0x3a3a3a;
+    } else if (colorVariation < 0.85) {
+      // Silicate (gray-tan)
+      baseColor = 0x9a8b7a;
+      darkColor = 0x6a5b4a;
+    } else {
+      // Metallic (silvery)
+      baseColor = 0x8899aa;
+      darkColor = 0x556677;
+    }
+
     const baseMaterial = new THREE.MeshStandardMaterial({
-      color: 0x888888,
-      roughness: 0.9,
-      metalness: 0.1,
+      color: baseColor,
+      roughness: 0.85 + Math.random() * 0.1,
+      metalness: colorVariation > 0.85 ? 0.4 : 0.1,
       flatShading: true,
     });
 
     const baseAsteroid = new THREE.Mesh(baseGeometry, baseMaterial);
     asteroidGroup.add(baseAsteroid);
 
-    // Add some smaller lumps to create an irregular shape
-    const lumpCount = Math.floor(Math.random() * 5) + 3;
-    for (let i = 0; i < lumpCount; i++) {
-      const lumpSize = this.size * (Math.random() * 0.4 + 0.1);
-      const lumpGeometry = new THREE.IcosahedronGeometry(lumpSize, 1);
-      const lump = new THREE.Mesh(lumpGeometry, baseMaterial);
+    // Add protruding rock formations for larger asteroids
+    if (this.size > 25) {
+      const rockCount = Math.floor(Math.random() * 4) + 2;
+      for (let i = 0; i < rockCount; i++) {
+        const rockSize = this.size * (Math.random() * 0.3 + 0.15);
+        const rockGeometry = new THREE.IcosahedronGeometry(rockSize, 1);
 
-      // Position lumps on the surface of the base asteroid
-      const angle1 = Math.random() * Math.PI * 2;
-      const angle2 = Math.random() * Math.PI * 2;
-      const positionOnSphere = new THREE.Vector3(
-        Math.sin(angle1) * Math.cos(angle2),
-        Math.sin(angle1) * Math.sin(angle2),
-        Math.cos(angle1)
-      );
-      lump.position.copy(positionOnSphere.multiplyScalar(this.size * 0.6));
-      asteroidGroup.add(lump);
+        // Displace rock vertices too
+        const rockPositions = rockGeometry.getAttribute("position");
+        for (let j = 0; j < rockPositions.count; j++) {
+          vertex.fromBufferAttribute(rockPositions, j);
+          const dir = vertex.clone().normalize();
+          const len = vertex.length();
+          const disp = 1 + (Math.random() - 0.5) * 0.3;
+          vertex.copy(dir.multiplyScalar(len * disp));
+          rockPositions.setXYZ(j, vertex.x, vertex.y, vertex.z);
+        }
+        rockGeometry.computeVertexNormals();
+
+        const rockMaterial = new THREE.MeshStandardMaterial({
+          color: darkColor,
+          roughness: 0.9,
+          metalness: 0.05,
+          flatShading: true,
+        });
+
+        const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+
+        // Position on surface pointing outward
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        const surfacePos = new THREE.Vector3(
+          Math.sin(phi) * Math.cos(theta),
+          Math.sin(phi) * Math.sin(theta),
+          Math.cos(phi)
+        );
+        rock.position.copy(surfacePos.multiplyScalar(this.size * 0.7));
+        rock.lookAt(surfacePos.multiplyScalar(2));
+        rock.rotateX(Math.random() * 0.5);
+
+        asteroidGroup.add(rock);
+      }
     }
 
-    // Add some surface details (craters)
-    const craterCount = Math.floor(Math.random() * 3) + 1;
-    for (let i = 0; i < craterCount; i++) {
-      const craterSize = this.size * (Math.random() * 0.3 + 0.1);
-      const craterGeometry = new THREE.CircleGeometry(craterSize, 8);
-      const craterMaterial = new THREE.MeshStandardMaterial({
-        color: 0x666666,
-        roughness: 0.95,
-        metalness: 0.05,
-        side: THREE.DoubleSide,
+    // Add deep cracks/crevices as dark lines
+    const crackCount = Math.floor(Math.random() * 3) + 1;
+    for (let i = 0; i < crackCount; i++) {
+      const crackGeometry = new THREE.BufferGeometry();
+      const crackPoints: number[] = [];
+
+      // Create a jagged crack line
+      const startTheta = Math.random() * Math.PI * 2;
+      const startPhi = Math.random() * Math.PI;
+      let theta = startTheta;
+      let phi = startPhi;
+
+      for (let j = 0; j < 8; j++) {
+        const r = this.size * 1.02; // Just above surface
+        crackPoints.push(
+          r * Math.sin(phi) * Math.cos(theta),
+          r * Math.sin(phi) * Math.sin(theta),
+          r * Math.cos(phi)
+        );
+
+        theta += (Math.random() - 0.5) * 0.4;
+        phi += (Math.random() - 0.5) * 0.3;
+      }
+
+      crackGeometry.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(crackPoints, 3)
+      );
+
+      const crackMaterial = new THREE.LineBasicMaterial({
+        color: 0x222222,
+        linewidth: 2,
       });
-      const crater = new THREE.Mesh(craterGeometry, craterMaterial);
 
-      // Position craters on the surface of the base asteroid
-      const angle1 = Math.random() * Math.PI * 2;
-      const angle2 = Math.random() * Math.PI * 2;
-      const positionOnSphere = new THREE.Vector3(
-        Math.sin(angle1) * Math.cos(angle2),
-        Math.sin(angle1) * Math.sin(angle2),
-        Math.cos(angle1)
-      );
-      crater.position.copy(positionOnSphere.multiplyScalar(this.size * 0.9));
-      crater.lookAt(0, 0, 0);
-      asteroidGroup.add(crater);
+      const crack = new THREE.Line(crackGeometry, crackMaterial);
+      asteroidGroup.add(crack);
     }
 
-    // Position the model at the asteroid's position
-    asteroidGroup.position.copy(this.position);
+    // Add subtle glow/dust effect for larger asteroids
+    if (this.size > 30 && Math.random() < 0.4) {
+      const dustGeometry = new THREE.BufferGeometry();
+      const dustCount = 20;
+      const dustPositions = new Float32Array(dustCount * 3);
 
+      for (let i = 0; i < dustCount; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        const r = this.size * (1.1 + Math.random() * 0.3);
+        dustPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+        dustPositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+        dustPositions[i * 3 + 2] = r * Math.cos(phi);
+      }
+
+      dustGeometry.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(dustPositions, 3)
+      );
+
+      const dustMaterial = new THREE.PointsMaterial({
+        color: 0x888888,
+        size: 1.5,
+        transparent: true,
+        opacity: 0.4,
+      });
+
+      const dust = new THREE.Points(dustGeometry, dustMaterial);
+      asteroidGroup.add(dust);
+    }
+
+    asteroidGroup.position.copy(this.position);
     return asteroidGroup;
   }
 

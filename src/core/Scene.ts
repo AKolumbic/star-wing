@@ -11,6 +11,8 @@ import { UIUtils } from "../utils/UIUtils";
 import { Game } from "./Game";
 // import { UISystem } from "./systems/UISystem";
 import { Asteroid } from "../entities/Asteroid";
+import { ZoneConfig } from "./levels/ZoneConfig";
+import { MAX_ZONE_ID, ZONE_CONFIGS } from "./levels/ZoneConfigs";
 
 /**
  * Scene class responsible for managing the 3D rendering environment.
@@ -79,6 +81,15 @@ export class Scene {
   /** Total waves in the current zone */
   private totalWaves: number = 8;
 
+  /** Active zone configuration */
+  private activeZoneConfig: ZoneConfig | null = null;
+
+  /** Score at the start of the current zone */
+  private zoneScoreStart: number = 0;
+
+  /** Flag to prevent repeated zone completion triggers */
+  private zoneCompletionInProgress: boolean = false;
+
   /** Logger instance */
   private logger = Logger.getInstance();
 
@@ -108,6 +119,21 @@ export class Scene {
 
   /** Maximum vertical distance from center (full height = 1400) */
   private verticalLimit: number = 700;
+
+  /** Lateral flow direction for drift patterns (1 or -1) */
+  private lateralFlowDirection: number = 1;
+
+  /** Timestamp (ms) for the next lateral flow switch */
+  private nextFlowSwitchTime: number = 0;
+
+  /** Surge pattern active flag */
+  private surgeActive: boolean = false;
+
+  /** Timestamp (ms) for the next surge toggle */
+  private nextSurgeToggleTime: number = 0;
+
+  /** Duration for the current surge window (ms) */
+  private surgeDurationMs: number = 0;
 
   /** Reusable bounding sphere for collision detection to avoid allocations */
   private shipBoundingSphere: THREE.Sphere = new THREE.Sphere(
@@ -313,12 +339,21 @@ export class Scene {
       // Update the player ship with delta time
       this.playerShip.update(deltaTime);
 
-      // Update and manage asteroids
+      // Update asteroids
       this.updateAsteroids(deltaTime);
-      this.manageAsteroidSpawning();
 
       // Check for collisions between ship and asteroids
       this.checkCollisions();
+
+      // Update zone progression (waves and completion)
+      this.updateZoneProgress();
+
+      // Only continue spawning if the game is still active
+      if (this.gameActive) {
+        // Update drift/surge patterns and manage asteroid spawning
+        this.updateZoneFlow();
+        this.manageAsteroidSpawning();
+      }
 
       // Update the score based on time (1 point per second)
       if (Math.random() < 0.05) {
@@ -513,6 +548,11 @@ export class Scene {
 
     this.logger.info("Scene: Initializing player ship");
 
+    if (!this.activeZoneConfig || this.score !== 0 || this.currentZone !== 1) {
+      this.logger.info("Scene: Initializing run state for Zone 1");
+      this.initializeRunState();
+    }
+
     // Create the ship with our scene and input system, passing devMode flag
     this.playerShip = new Ship(this.scene, this.input, this.devMode);
 
@@ -703,6 +743,227 @@ export class Scene {
   }
 
   /**
+   * Resumes gameplay after a zone-complete pause.
+   */
+  resumeAfterZoneComplete(): void {
+    this.logger.info("Resuming gameplay after zone completion");
+    this.setGameActive(true);
+  }
+
+  /**
+   * Gets the config for a given zone ID.
+   * @param zoneId Zone number
+   * @returns Zone configuration
+   */
+  private getZoneConfig(zoneId: number): ZoneConfig {
+    const config = ZONE_CONFIGS.find((zone) => zone.id === zoneId);
+    return config || ZONE_CONFIGS[0];
+  }
+
+  /**
+   * Initializes a new run state for zone 1.
+   */
+  private initializeRunState(): void {
+    this.score = 0;
+    this.zoneScoreStart = 0;
+    this.zoneCompletionInProgress = false;
+    this.clearAllAsteroids();
+    this.applyZoneConfig(this.getZoneConfig(1), true);
+  }
+
+  /**
+   * Applies zone configuration and resets zone-specific timers.
+   * @param config Zone configuration
+   * @param resetScoreStart Whether to reset the zone score baseline
+   */
+  private applyZoneConfig(config: ZoneConfig, resetScoreStart: boolean): void {
+    this.activeZoneConfig = config;
+    this.currentZone = config.id;
+    this.totalWaves = config.waveCount;
+    this.currentWave = 1;
+    this.maxAsteroids = config.maxAsteroids;
+    this.horizontalLimit = config.playfield.horizontalLimit;
+    this.verticalLimit = config.playfield.verticalLimit;
+    this.asteroidSpawnInterval = config.spawnIntervalMs.start;
+    this.lastAsteroidSpawnTime = 0;
+    this.zoneCompletionInProgress = false;
+
+    if (this.playerShip) {
+      this.playerShip.setBoundaryLimits(
+        this.horizontalLimit,
+        this.verticalLimit
+      );
+    }
+
+    if (resetScoreStart) {
+      this.zoneScoreStart = this.score;
+    }
+
+    this.configureZoneFlow(config);
+    this.applyZoneBackground(config);
+  }
+
+  /**
+   * Updates wave progression and triggers zone completion when appropriate.
+   */
+  private updateZoneProgress(): void {
+    if (!this.activeZoneConfig || this.zoneCompletionInProgress) return;
+
+    const zoneScore = this.getZoneScore();
+    const waveScore = this.activeZoneConfig.scoreToClear / this.totalWaves;
+    const nextWave = Math.min(
+      this.totalWaves,
+      Math.floor(zoneScore / waveScore) + 1
+    );
+
+    if (nextWave !== this.currentWave) {
+      this.currentWave = nextWave;
+    }
+
+    if (zoneScore >= this.activeZoneConfig.scoreToClear) {
+      this.zoneCompletionInProgress = true;
+      this.completeCurrentZone();
+    }
+  }
+
+  /**
+   * Returns the score earned within the current zone.
+   * @returns Zone score (score since zone start)
+   */
+  private getZoneScore(): number {
+    return Math.max(0, this.score - this.zoneScoreStart);
+  }
+
+  /**
+   * Updates zone flow timers for drift/surge patterns.
+   */
+  private updateZoneFlow(): void {
+    if (!this.activeZoneConfig) return;
+
+    const now = performance.now();
+    const driftPattern = this.activeZoneConfig.driftPattern;
+
+    if (driftPattern === "lateral") {
+      if (now >= this.nextFlowSwitchTime) {
+        this.lateralFlowDirection *= -1;
+        this.nextFlowSwitchTime = now + this.randomRange(18000, 22000);
+      }
+    }
+
+    if (driftPattern === "surge") {
+      if (!this.surgeActive && now >= this.nextSurgeToggleTime) {
+        this.surgeActive = true;
+        this.surgeDurationMs = this.randomRange(3200, 5200);
+        this.nextSurgeToggleTime = now + this.surgeDurationMs;
+      } else if (this.surgeActive && now >= this.nextSurgeToggleTime) {
+        this.surgeActive = false;
+        this.nextSurgeToggleTime = now + this.randomRange(12000, 15000);
+      }
+    }
+  }
+
+  /**
+   * Configures flow state for the active zone.
+   * @param config Zone configuration
+   */
+  private configureZoneFlow(config: ZoneConfig): void {
+    const now = performance.now();
+    this.lateralFlowDirection = Math.random() < 0.5 ? -1 : 1;
+    this.nextFlowSwitchTime = now + this.randomRange(18000, 22000);
+
+    this.surgeActive = false;
+    this.surgeDurationMs = this.randomRange(3200, 5200);
+    this.nextSurgeToggleTime = now + this.randomRange(12000, 15000);
+
+    if (config.driftPattern === "none") {
+      this.surgeActive = false;
+    }
+  }
+
+  /**
+   * Applies background parameters for the active zone.
+   * @param config Zone configuration
+   */
+  private applyZoneBackground(config: ZoneConfig): void {
+    if (!config.background) return;
+
+    const params: Record<string, number> = {};
+    if (config.background.starColor !== undefined) {
+      params.starColor = config.background.starColor;
+    }
+    if (config.background.minSpeed !== undefined) {
+      params.minSpeed = config.background.minSpeed;
+    }
+    if (config.background.maxSpeed !== undefined) {
+      params.maxSpeed = config.background.maxSpeed;
+    }
+
+    if (Object.keys(params).length === 0) return;
+
+    this.backgroundManager
+      .setBackground(BackgroundType.STARFIELD, params)
+      .catch((error) => {
+        this.logger.warn("Failed to apply zone background params:", error);
+      });
+  }
+
+  /**
+   * Returns the current spawn interval based on zone progress.
+   * @returns Spawn interval in milliseconds
+   */
+  private getSpawnIntervalForZone(): number {
+    if (!this.activeZoneConfig) return this.asteroidSpawnInterval;
+
+    const { start, min } = this.activeZoneConfig.spawnIntervalMs;
+    const progress = Math.min(1, (this.currentWave - 1) / this.totalWaves);
+    const interval = start - (start - min) * progress;
+    return Math.max(min, interval);
+  }
+
+  /**
+   * Returns a random number in the range [min, max].
+   * @param min Minimum value
+   * @param max Maximum value
+   * @returns Random number
+   */
+  private randomRange(min: number, max: number): number {
+    return min + Math.random() * (max - min);
+  }
+
+  /**
+   * Applies zone-specific drift patterns to a direction vector.
+   * @param direction Direction vector to modify
+   */
+  private applyDriftPattern(direction: THREE.Vector3): void {
+    if (!this.activeZoneConfig) return;
+
+    switch (this.activeZoneConfig.driftPattern) {
+      case "lateral": {
+        direction
+          .add(new THREE.Vector3(this.lateralFlowDirection * 0.35, 0, 0))
+          .normalize();
+        break;
+      }
+      case "spiral": {
+        const angle = (performance.now() * 0.0007) % (Math.PI * 2);
+        direction.applyAxisAngle(new THREE.Vector3(0, 0, 1), angle);
+        direction.add(new THREE.Vector3(Math.sin(angle) * 0.15, 0, 0)).normalize();
+        break;
+      }
+      case "surge": {
+        if (this.surgeActive) {
+          direction
+            .add(new THREE.Vector3(0, this.randomRange(-0.2, 0.2), 0))
+            .normalize();
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  /**
    * Sets up debug controls when in dev mode.
    * @private
    */
@@ -777,6 +1038,13 @@ export class Scene {
     if (this.shipDestroyed) return;
 
     const currentTime = performance.now();
+    const baseInterval = this.getSpawnIntervalForZone();
+    const effectiveInterval =
+      this.surgeActive && this.activeZoneConfig
+        ? this.activeZoneConfig.spawnIntervalMs.min
+        : baseInterval;
+
+    this.asteroidSpawnInterval = effectiveInterval;
 
     // Only spawn if interval has passed and we're below max asteroids
     if (
@@ -785,12 +1053,6 @@ export class Scene {
     ) {
       this.spawnAsteroid();
       this.lastAsteroidSpawnTime = currentTime;
-
-      // Spawn asteroids more frequently (min 650ms, reduced from 1000ms)
-      this.asteroidSpawnInterval = Math.max(
-        650, // Reduced from 1000 by 35% - faster minimum spawn time
-        1950 - (this.currentZone - 1) * 325 // Reduced from 3000 by 35% - faster initial spawn time with same reduction per zone
-      );
     }
   }
 
@@ -800,6 +1062,7 @@ export class Scene {
   private spawnAsteroid(): void {
     if (!this.playerShip) return;
 
+    const config = this.activeZoneConfig;
     const playerPos = this.playerShip.getPosition();
 
     // Generate random position at the edge of the starfield, ahead of the player
@@ -825,10 +1088,16 @@ export class Scene {
       .subVectors(targetPos, asteroidPosition)
       .normalize();
 
-    // Randomize asteroid properties - speed increased by 35%
-    const speed = (300 + Math.random() * 150) * 1.35; // Increased by 35% (was 300-450)
-    const size = 20 + Math.random() * 30; // 20-50 units radius
-    const damage = (10 + Math.floor(Math.random() * 20)) * 2; // 20-60 damage (doubled from 10-30)
+    this.applyDriftPattern(direction);
+
+    const sizeRange = config?.asteroidSizeRange || [20, 50];
+    const speedRange = config?.asteroidSpeedRange || [400, 620];
+    const damageRange = config?.asteroidDamageRange || [20, 60];
+
+    // Randomize asteroid properties based on zone config
+    const speed = this.randomRange(speedRange[0], speedRange[1]);
+    const size = this.randomRange(sizeRange[0], sizeRange[1]);
+    const damage = Math.round(this.randomRange(damageRange[0], damageRange[1]));
 
     // Create and add the asteroid
     const asteroid = new Asteroid(
@@ -1004,10 +1273,6 @@ export class Scene {
       return !asteroidDestroyed; // Keep asteroid if not destroyed
     });
 
-    // Check if player has reached 500 points to complete Zone 1
-    if (this.score >= 500 && this.currentZone === 1) {
-      this.completeCurrentZone();
-    }
   }
 
   /**
@@ -1053,17 +1318,8 @@ export class Scene {
     this.setGameActive(false);
     this.shipDestroyed = false;
 
-    // Clear all existing asteroids
-    this.clearAllAsteroids();
-
-    // Reset game score and progress
-    this.score = 0;
-    this.currentWave = 1;
-
-    // Reset asteroid spawn timer and settings
-    this.lastAsteroidSpawnTime = 0;
-    this.asteroidSpawnInterval = 3250;
-    this.maxAsteroids = 20;
+    // Reset game score and progression
+    this.initializeRunState();
 
     // Reset player ship if it exists
     if (this.playerShip) {
@@ -1115,7 +1371,7 @@ export class Scene {
 
   /**
    * Completes the current zone and progresses to the next zone.
-   * Called when the player reaches the point threshold (500 points for Zone 1).
+   * Called when the player reaches the zone score threshold.
    */
   completeCurrentZone(): void {
     this.logger.info(`Completing Zone ${this.currentZone}`);
@@ -1123,75 +1379,58 @@ export class Scene {
     // Store the completed zone number
     const completedZone = this.currentZone;
 
-    // Increment the zone (for future use)
-    this.currentZone++;
-
-    // Reset wave to 1 for the new zone
-    this.currentWave = 1;
-
     // Clear all asteroids
     this.clearAllAsteroids();
 
-    // Reset asteroid spawn timer with faster intervals for the new zone
+    // Reset asteroid spawn timer
     this.lastAsteroidSpawnTime = 0;
-
-    // Increase difficulty for the next zone
-    this.maxAsteroids = Math.min(30, this.maxAsteroids + 5); // Increase max asteroids
 
     // Play a sound effect if available
     if (this.game && this.game.getAudioManager()) {
       try {
-        // Use whatever audio method is available
         this.logger.info(
           "Zone completed - playing success sound would go here"
         );
-        // Uncomment when audio method is available:
         // this.game.getAudioManager().playMenuSound("select");
       } catch (error) {
         this.logger.warn("Failed to play zone completion sound:", error);
       }
     }
 
-    // Special handling for Zone 1 completion - show zone complete screen
-    if (completedZone === 1) {
-      // Deactivate the game to pause gameplay
-      this.setGameActive(false);
+    const uiSystem = this.game ? this.game.getUISystem() : null;
 
-      // If player ship exists, disable controls but keep it visible
-      if (this.playerShip) {
-        this.playerShip.setPlayerControlled(false, true);
-      }
-
-      // Show the zone complete screen
-      if (this.game && this.game.getUISystem()) {
-        this.game.getUISystem().showZoneComplete();
-      }
-
-      return; // Don't proceed with normal zone progression
-    }
-
-    // For future zones, send message to the HUD system via the game's UI system
-    if (this.game && this.game.getUISystem()) {
-      // Get the GameHUD via the UI system
-      const uiSystem = this.game.getUISystem();
-
-      // Show a "Zone Cleared" message in the combat log
+    if (uiSystem) {
       uiSystem.addCombatLogMessage(
         `ZONE ${completedZone} CLEARED!`,
         "zone-cleared"
       );
+    }
 
-      // Update the HUD values to reflect new zone
-      uiSystem.updateHUDData(
-        this.playerShip ? this.playerShip.getHealth() : 100,
-        this.playerShip ? this.playerShip.getMaxHealth() : 100,
-        this.playerShip ? this.playerShip.getShield() : 100,
-        this.playerShip ? this.playerShip.getMaxShield() : 100,
-        this.score,
-        this.currentZone,
-        this.currentWave,
-        this.totalWaves
-      );
+    // Check if this was the final zone
+    if (completedZone >= MAX_ZONE_ID) {
+      this.setGameActive(false);
+      if (this.playerShip) {
+        this.playerShip.setPlayerControlled(false, true);
+      }
+
+      if (uiSystem) {
+        uiSystem.showZoneComplete(completedZone, null);
+      }
+      return;
+    }
+
+    // Apply next zone configuration
+    const nextZoneId = completedZone + 1;
+    this.applyZoneConfig(this.getZoneConfig(nextZoneId), true);
+
+    // Pause gameplay and show zone complete screen
+    this.setGameActive(false);
+    if (this.playerShip) {
+      this.playerShip.setPlayerControlled(false, true);
+    }
+
+    if (uiSystem) {
+      uiSystem.showZoneComplete(completedZone, nextZoneId);
     }
   }
 
