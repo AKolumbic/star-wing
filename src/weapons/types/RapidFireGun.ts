@@ -9,6 +9,15 @@ import { Projectile, ProjectileProps } from "../Projectile";
 export class RapidFireGun extends Weapon {
   private projectiles: Projectile[] = [];
 
+  /** Reusable offset vectors to avoid per-fire allocations */
+  private static readonly OFFSET_RIGHT = new THREE.Vector3(5, 0, 0);
+  private static readonly OFFSET_LEFT = new THREE.Vector3(-5, 0, 0);
+  private static readonly Y_AXIS = new THREE.Vector3(0, 1, 0);
+
+  /** Temp vectors for calculations */
+  private tempPosition = new THREE.Vector3();
+  private tempDirection = new THREE.Vector3();
+
   /**
    * Creates a new RapidFireGun weapon
    * @param scene The scene to add projectiles to
@@ -51,7 +60,8 @@ export class RapidFireGun extends Weapon {
   }
 
   /**
-   * Creates and fires ballistic projectiles
+   * Creates and fires ballistic projectiles.
+   * Optimized to use cached offset vectors.
    * @param position The position to fire from
    * @param direction The direction to fire in
    */
@@ -59,7 +69,7 @@ export class RapidFireGun extends Weapon {
     // Get upgrade level for modifications
     const upgradeLevel = this.props.upgradeLevel || 0;
 
-    // Create projectile props
+    // Create projectile props (created once per fire event, not per frame)
     const projectileProps: ProjectileProps = {
       damage: this.props.damage,
       speed: this.props.projectileSpeed || 500,
@@ -69,22 +79,20 @@ export class RapidFireGun extends Weapon {
       scale: 0.7, // Smaller projectiles
     };
 
-    // Base position slightly modified to fire from ship's gun positions
-    const offsetRight = new THREE.Vector3(5, 0, 0);
-    const offsetLeft = new THREE.Vector3(-5, 0, 0);
-
-    // Create right-side projectile
+    // Create right-side projectile using cached offset
+    this.tempPosition.copy(position).add(RapidFireGun.OFFSET_RIGHT);
     const projectileRight = new Projectile(
-      position.clone().add(offsetRight),
+      this.tempPosition.clone(),
       direction,
       projectileProps,
       this.scene
     );
     this.projectiles.push(projectileRight);
 
-    // Create left-side projectile
+    // Create left-side projectile using cached offset
+    this.tempPosition.copy(position).add(RapidFireGun.OFFSET_LEFT);
     const projectileLeft = new Projectile(
-      position.clone().add(offsetLeft),
+      this.tempPosition.clone(),
       direction,
       projectileProps,
       this.scene
@@ -96,23 +104,25 @@ export class RapidFireGun extends Weapon {
       // At level 2+, add additional angled shots
       const spreadAngle = 0.1; // About 5.7 degrees
 
-      // Right spread
-      const rightSpreadDir = direction.clone();
-      rightSpreadDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), spreadAngle);
+      // Right spread using cached axis
+      this.tempDirection.copy(direction);
+      this.tempDirection.applyAxisAngle(RapidFireGun.Y_AXIS, spreadAngle);
+      this.tempPosition.copy(position).add(RapidFireGun.OFFSET_RIGHT);
       const projectileRightSpread = new Projectile(
-        position.clone().add(offsetRight),
-        rightSpreadDir,
+        this.tempPosition.clone(),
+        this.tempDirection.clone(),
         projectileProps,
         this.scene
       );
       this.projectiles.push(projectileRightSpread);
 
-      // Left spread
-      const leftSpreadDir = direction.clone();
-      leftSpreadDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), -spreadAngle);
+      // Left spread using cached axis
+      this.tempDirection.copy(direction);
+      this.tempDirection.applyAxisAngle(RapidFireGun.Y_AXIS, -spreadAngle);
+      this.tempPosition.copy(position).add(RapidFireGun.OFFSET_LEFT);
       const projectileLeftSpread = new Projectile(
-        position.clone().add(offsetLeft),
-        leftSpreadDir,
+        this.tempPosition.clone(),
+        this.tempDirection.clone(),
         projectileProps,
         this.scene
       );

@@ -18,22 +18,31 @@ export class Menu {
   /** Logger instance */
   private logger = Logger.getInstance();
 
+  /** Bound event handlers for proper cleanup */
+  private boundHandleKeyDown: (event: KeyboardEvent) => void;
+  private boundDiagnosticsKeyHandler: (event: KeyboardEvent) => void;
+
   constructor(game: Game) {
     this.game = game;
     this.container = document.createElement("div");
     this.container.className = "terminal-overlay";
     this.settings = new Settings(game);
     this.highScores = new HighScores(game);
-    this.setupStyles();
-    this.setupMenu();
 
-    // Add diagnostic key listener to help diagnose the issue
-    document.addEventListener("keydown", (e) => {
+    // Bind event handlers once for proper cleanup
+    this.boundHandleKeyDown = this.handleKeyDown.bind(this);
+    this.boundDiagnosticsKeyHandler = (e: KeyboardEvent) => {
       // Press 'D' key for diagnostics
       if (e.key === "d" && this.isVisible) {
         this.runDiagnostics();
       }
-    });
+    };
+
+    this.setupStyles();
+    this.setupMenu();
+
+    // Add diagnostic key listener
+    document.addEventListener("keydown", this.boundDiagnosticsKeyHandler);
   }
 
   private setupStyles(): void {
@@ -287,8 +296,8 @@ export class Menu {
     this.container.appendChild(terminalViewport);
     document.body.appendChild(this.container);
 
-    // Setup keyboard navigation
-    document.addEventListener("keydown", this.handleKeyDown.bind(this));
+    // Setup keyboard navigation using the pre-bound handler
+    document.addEventListener("keydown", this.boundHandleKeyDown);
   }
 
   private handleKeyDown(event: KeyboardEvent): void {
@@ -621,8 +630,11 @@ export class Menu {
     // Stop invader animation
     this.stopInvaderBeatSync();
 
+    // Remove event listeners using bound references
+    document.removeEventListener("keydown", this.boundHandleKeyDown);
+    document.removeEventListener("keydown", this.boundDiagnosticsKeyHandler);
+
     document.body.removeChild(this.container);
-    document.removeEventListener("keydown", this.handleKeyDown.bind(this));
     this.settings.dispose();
     this.highScores.dispose();
   }

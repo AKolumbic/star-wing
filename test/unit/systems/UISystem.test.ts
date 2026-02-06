@@ -11,6 +11,9 @@ import { Logger } from "../../../src/utils/Logger";
 import { Scene } from "../../../src/core/Scene";
 import { AudioManager } from "../../../src/audio/AudioManager";
 import { SceneSystem } from "../../../src/core/systems/SceneSystem";
+import { RunState } from "../../../src/core/RunState";
+import { Ship } from "../../../src/entities/Ship";
+import { WeaponSystem } from "../../../src/weapons/WeaponSystem";
 
 // Mock all dependencies
 jest.mock("../../../src/core/Game");
@@ -279,8 +282,43 @@ describe("UISystem", () => {
     });
 
     test("handles zone completion", () => {
-      uiSystem.showZoneComplete();
-      expect(mockZoneComplete.show).toHaveBeenCalled();
+      // Create mock objects for the new signature
+      const mockRunState = {
+        generateUpgradeChoices: jest.fn().mockReturnValue([]),
+        canReroll: jest.fn().mockReturnValue(false),
+        getCollectedUpgrades: jest.fn().mockReturnValue([]),
+      } as unknown as RunState;
+
+      const mockShip = {
+        getHealth: jest.fn().mockReturnValue(100),
+        getMaxHealth: jest.fn().mockReturnValue(100),
+        getShield: jest.fn().mockReturnValue(100),
+        getMaxShield: jest.fn().mockReturnValue(100),
+      } as unknown as Ship;
+
+      const mockWeaponSystem = {
+        getPrimaryWeapon: jest.fn().mockReturnValue(null),
+        getSecondaryWeapon: jest.fn().mockReturnValue(null),
+      } as unknown as WeaponSystem;
+
+      const mockCallback = jest.fn();
+
+      uiSystem.showZoneComplete(
+        mockRunState,
+        mockShip,
+        mockWeaponSystem,
+        1,
+        2,
+        mockCallback
+      );
+      expect(mockZoneComplete.show).toHaveBeenCalledWith(
+        mockRunState,
+        mockShip,
+        mockWeaponSystem,
+        1,
+        2,
+        mockCallback
+      );
 
       uiSystem.hideZoneComplete();
       expect(mockZoneComplete.hide).toHaveBeenCalled();

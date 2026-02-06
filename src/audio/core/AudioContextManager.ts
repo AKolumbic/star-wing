@@ -16,6 +16,9 @@ export class AudioContextManager {
   /** Logger instance */
   private logger = Logger.getInstance();
 
+  /** Cached volume value to avoid repeated localStorage reads */
+  private cachedVolume: number = 0.25;
+
   constructor() {
     this.logger.info("AudioContextManager: Creating new audio context");
 
@@ -30,13 +33,18 @@ export class AudioContextManager {
     const savedMuteState = localStorage.getItem("starWing_muted");
     this.isMuted = savedMuteState ? savedMuteState === "true" : false;
 
-    // Set default volume to 25% if nothing is stored
-    if (!localStorage.getItem("starWing_volume")) {
+    // Load volume from localStorage and cache it
+    const storedVolume = localStorage.getItem("starWing_volume");
+    if (storedVolume) {
+      this.cachedVolume = parseFloat(storedVolume);
+    } else {
+      // Set default volume to 25% if nothing is stored
       localStorage.setItem("starWing_volume", "0.25");
+      this.cachedVolume = 0.25;
     }
 
     // Set initial volume
-    const volume = this.isMuted ? 0 : this.getVolume() * 0.6;
+    const volume = this.isMuted ? 0 : this.cachedVolume * 0.6;
     this.mainGainNode.gain.value = volume;
 
     this.mainGainNode.connect(this.audioContext.destination);
@@ -141,7 +149,8 @@ export class AudioContextManager {
   }
 
   /**
-   * Sets the main volume level and stores it in local storage
+   * Sets the main volume level and stores it in local storage.
+   * Updates the cached volume value.
    */
   public setVolume(volume: number): void {
     // Clamp volume between 0 and 1
@@ -150,6 +159,9 @@ export class AudioContextManager {
     this.logger.info(
       `AudioContextManager: Setting volume to ${clampedVolume} (from input: ${volume})`
     );
+
+    // Update cached volume
+    this.cachedVolume = clampedVolume;
 
     // If not muted, apply the volume directly
     if (!this.isMuted) {
@@ -182,16 +194,14 @@ export class AudioContextManager {
   }
 
   /**
-   * Gets the current volume level from local storage
+   * Gets the current volume level from cached value.
+   * Avoids repeated localStorage reads for better performance.
    */
   public getVolume(): number {
-    // Get volume from localStorage or use default (0.25 = 25%)
-    const storedVolume = localStorage.getItem("starWing_volume");
-    const volume = storedVolume ? parseFloat(storedVolume) : 0.25;
     this.logger.debug(
-      `AudioContextManager: Retrieved volume from localStorage: ${volume}`
+      `AudioContextManager: Retrieved cached volume: ${this.cachedVolume}`
     );
-    return volume;
+    return this.cachedVolume;
   }
 
   /**

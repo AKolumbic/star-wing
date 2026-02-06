@@ -26,6 +26,9 @@ export class ProceduralMusicGenerator {
   /** Flag indicating if music is currently playing */
   private isPlaying: boolean = false;
 
+  /** Cached noise buffer for hi-hat sounds to avoid per-beat allocation */
+  private hiHatNoiseBuffer: AudioBuffer | null = null;
+
   /** Base note frequencies for procedural music generation */
   // D minor scale frequencies
   private bFrequency: number = 123.47; // B2
@@ -58,6 +61,29 @@ export class ProceduralMusicGenerator {
       this.cFrequency, // C3
     ];
     this.logger.info("ProceduralMusicGenerator: Initialized");
+  }
+
+  /**
+   * Gets or creates a cached noise buffer for hi-hat sounds.
+   * Avoids creating new buffers on every hi-hat hit.
+   */
+  private getHiHatNoiseBuffer(): AudioBuffer {
+    if (!this.hiHatNoiseBuffer) {
+      // Create a short noise buffer for hi-hat (0.1 seconds)
+      const bufferSize = Math.floor(this.contextManager.getSampleRate() * 0.1);
+      this.hiHatNoiseBuffer = this.contextManager
+        .getContext()
+        .createBuffer(1, bufferSize, this.contextManager.getSampleRate());
+      
+      const output = this.hiHatNoiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      
+      this.logger.debug("ProceduralMusicGenerator: Created cached hi-hat noise buffer");
+    }
+    
+    return this.hiHatNoiseBuffer;
   }
 
   /**
@@ -185,7 +211,8 @@ export class ProceduralMusicGenerator {
   }
 
   /**
-   * Plays a noise-based hi-hat sound for 8-bit style drums
+   * Plays a noise-based hi-hat sound for 8-bit style drums.
+   * Optimized to use cached noise buffer.
    */
   private playNoiseHihat(time: number, volume: number): void {
     // Skip if muted
@@ -193,17 +220,8 @@ export class ProceduralMusicGenerator {
       return;
     }
 
-    // Create buffer for noise
-    const bufferSize = 2 * this.contextManager.getSampleRate();
-    const noiseBuffer = this.contextManager
-      .getContext()
-      .createBuffer(1, bufferSize, this.contextManager.getSampleRate());
-    const output = noiseBuffer.getChannelData(0);
-
-    // Fill with noise
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = Math.random() * 2 - 1;
-    }
+    // Use cached noise buffer instead of creating new one each time
+    const noiseBuffer = this.getHiHatNoiseBuffer();
 
     // Create noise source
     const noise = this.contextManager.getContext().createBufferSource();

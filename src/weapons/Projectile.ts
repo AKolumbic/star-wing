@@ -30,6 +30,9 @@ export class Projectile {
   private props: ProjectileProps;
   private hitbox: THREE.Sphere;
 
+  // Reusable Vector3 for movement calculations to avoid allocations in update loop
+  private static readonly tempMovement: THREE.Vector3 = new THREE.Vector3();
+
   /**
    * Creates a new projectile
    * @param position The starting position
@@ -196,9 +199,9 @@ export class Projectile {
       return false;
     }
 
-    // Update position
-    const movement = this.velocity.clone().multiplyScalar(deltaTime);
-    this.position.add(movement);
+    // Update position using reusable temp vector to avoid allocation
+    Projectile.tempMovement.copy(this.velocity).multiplyScalar(deltaTime);
+    this.position.add(Projectile.tempMovement);
     this.mesh.position.copy(this.position);
 
     // Update hitbox position

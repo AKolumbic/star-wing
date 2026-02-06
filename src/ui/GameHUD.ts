@@ -40,6 +40,31 @@ export class GameHUD {
   private combatLogMessages: Array<{ message: string; timestamp: number }> = [];
   private readonly COMBAT_LOG_DISPLAY_TIME = 3000; // milliseconds
 
+  // Track if animation styles have been added to prevent duplicates
+  private animationStylesAdded: boolean = false;
+
+  // Cached weapon status elements to avoid recreating DOM every frame
+  private primaryCooldownBar: HTMLDivElement | null = null;
+  private weaponStatusInitialized: boolean = false;
+
+  // Cached radar background canvas for static elements (rings, crosshairs)
+  private radarBackgroundCanvas: HTMLCanvasElement | null = null;
+  private radarBackgroundInitialized: boolean = false;
+
+  // Cached info display elements to avoid innerHTML rebuilds every frame
+  private scoreElement: HTMLDivElement | null = null;
+  private zoneElement: HTMLDivElement | null = null;
+  private infoInitialized: boolean = false;
+
+  // Cached previous values to detect changes and avoid unnecessary DOM updates
+  private prevScore: number = -1;
+  private prevZone: number = -1;
+  private prevHealth: number = -1;
+  private prevShield: number = -1;
+
+  // Cached time for radar to avoid repeated Date.now() calls
+  private cachedFrameTime: number = 0;
+
   /**
    * Creates a new GameHUD instance.
    * @param game Reference to the Game instance for accessing game state
@@ -345,6 +370,9 @@ export class GameHUD {
   update(deltaTime: number): void {
     if (!this.isVisible) return;
 
+    // Cache frame time once per update to avoid repeated Date.now() calls
+    this.cachedFrameTime = Date.now();
+
     // Get the scene from the game
     const scene = this.game.getSceneSystem().getScene();
     if (!scene) return;
@@ -378,36 +406,20 @@ export class GameHUD {
     this.updateCombatLog();
     this.updateWarnings();
 
-    // Check for zone completion
-    this.checkZoneCompletion(scene);
+    // Zone completion is now handled exclusively by Scene.checkCollisions()
+    // to avoid duplicate triggers
   }
 
   /**
-   * Check if zone has been completed
-   */
-  private checkZoneCompletion(scene: Scene): void {
-    if (this.currentScore >= 500 && scene.getCurrentZone() === 1) {
-      // Zone 1 completed
-      this.addCombatLogMessage(
-        "ZONE 1 CLEARED! WELL DONE, PILOT!",
-        "zone-cleared"
-      );
-
-      // Progress to next zone (handled by Scene)
-      scene.completeCurrentZone();
-    }
-  }
-
-  /**
-   * Updates the combat log display
+   * Updates the combat log display.
+   * Uses cached frame time to avoid repeated Date.now() calls.
    */
   private updateCombatLog(): void {
-    const currentTime = Date.now();
     let messagesRemoved = false;
 
-    // Remove expired messages
+    // Remove expired messages using cached frame time
     this.combatLogMessages = this.combatLogMessages.filter((msg) => {
-      const age = currentTime - msg.timestamp;
+      const age = this.cachedFrameTime - msg.timestamp;
 
       // If message is expiring soon, add the fading class
       if (age > this.COMBAT_LOG_DISPLAY_TIME - 500) {
@@ -563,9 +575,14 @@ export class GameHUD {
   }
 
   /**
-   * Update health bar display
+   * Update health bar display.
+   * Optimized to only update DOM when health value changes.
    */
   private updateHealthBar(): void {
+    // Skip if health hasn't changed
+    if (this.currentHealth === this.prevHealth) return;
+    this.prevHealth = this.currentHealth;
+
     const healthPercent = (this.currentHealth / this.maxHealth) * 100;
     this.healthBar.style.transform = `scaleX(${healthPercent / 100})`;
 
@@ -583,9 +600,14 @@ export class GameHUD {
   }
 
   /**
-   * Update shield bar display
+   * Update shield bar display.
+   * Optimized to only update DOM when shield value changes.
    */
   private updateShieldBar(): void {
+    // Skip if shield hasn't changed
+    if (this.currentShield === this.prevShield) return;
+    this.prevShield = this.currentShield;
+
     const shieldPercent = (this.currentShield / this.maxShield) * 100;
     this.shieldBar.style.transform = `scaleX(${shieldPercent / 100})`;
 
@@ -598,34 +620,42 @@ export class GameHUD {
 
   /**
    * Update weapon status display (cooldowns)
+   * Optimized to reuse DOM elements instead of recreating every frame
    * @private
    */
   private updateWeaponStatus(): void {
-    // Clear existing weapon displays
-    this.weaponStatusContainer.innerHTML = "";
+    // Initialize weapon status elements only once
+    if (!this.weaponStatusInitialized) {
+      this.weaponStatusContainer.innerHTML = "";
 
-    // Create primary weapon display
-    const primaryWeapon = document.createElement("div");
-    primaryWeapon.className = "weapon-item";
+      // Create primary weapon display
+      const primaryWeapon = document.createElement("div");
+      primaryWeapon.className = "weapon-item";
 
-    // Primary weapon label
-    const primaryLabel = document.createElement("div");
-    primaryLabel.className = "weapon-label";
-    primaryLabel.textContent = "PRIMARY";
+      // Primary weapon label
+      const primaryLabel = document.createElement("div");
+      primaryLabel.className = "weapon-label";
+      primaryLabel.textContent = "PRIMARY";
 
-    const primaryCooldown = document.createElement("div");
-    primaryCooldown.className = "weapon-cooldown";
+      const primaryCooldown = document.createElement("div");
+      primaryCooldown.className = "weapon-cooldown";
 
-    const primaryCooldownBar = document.createElement("div");
-    primaryCooldownBar.className = "cooldown-bar";
-    primaryCooldownBar.style.transform = `scaleX(${1 - this.weaponCooldown})`;
+      this.primaryCooldownBar = document.createElement("div");
+      this.primaryCooldownBar.className = "cooldown-bar";
 
-    primaryCooldown.appendChild(primaryCooldownBar);
-    primaryWeapon.appendChild(primaryLabel);
-    primaryWeapon.appendChild(primaryCooldown);
+      primaryCooldown.appendChild(this.primaryCooldownBar);
+      primaryWeapon.appendChild(primaryLabel);
+      primaryWeapon.appendChild(primaryCooldown);
 
-    // Add to container
-    this.weaponStatusContainer.appendChild(primaryWeapon);
+      // Add to container
+      this.weaponStatusContainer.appendChild(primaryWeapon);
+      this.weaponStatusInitialized = true;
+    }
+
+    // Update cooldown bar transform (this is the only thing that changes per frame)
+    if (this.primaryCooldownBar) {
+      this.primaryCooldownBar.style.transform = `scaleX(${1 - this.weaponCooldown})`;
+    }
 
     /* Secondary weapon temporarily disabled until fully implemented
     // Create special weapon display
@@ -654,17 +684,85 @@ export class GameHUD {
   }
 
   /**
+   * Initialize the cached radar background with static elements
+   * @private
+   */
+  private initRadarBackground(): void {
+    const radarWidth = this.radarCanvas.width;
+    const radarHeight = this.radarCanvas.height;
+    const radarCenterX = radarWidth / 2;
+    const radarCenterY = radarHeight / 2;
+    const radarRadius = radarWidth / 2 - 2;
+
+    // Create offscreen canvas for static elements
+    this.radarBackgroundCanvas = document.createElement("canvas");
+    this.radarBackgroundCanvas.width = radarWidth;
+    this.radarBackgroundCanvas.height = radarHeight;
+    const bgCtx = this.radarBackgroundCanvas.getContext("2d");
+    if (!bgCtx) return;
+
+    // Draw radar background
+    bgCtx.fillStyle = "rgba(0, 30, 60, 0.7)";
+    bgCtx.beginPath();
+    bgCtx.arc(radarCenterX, radarCenterY, radarRadius, 0, Math.PI * 2);
+    bgCtx.fill();
+
+    // Draw radar rings
+    bgCtx.strokeStyle = "rgba(0, 255, 255, 0.5)";
+    bgCtx.lineWidth = 1;
+
+    // Draw 3 concentric circles
+    for (let i = 1; i <= 3; i++) {
+      const radius = radarRadius * (i / 3);
+      bgCtx.beginPath();
+      bgCtx.arc(radarCenterX, radarCenterY, radius, 0, Math.PI * 2);
+      bgCtx.stroke();
+    }
+
+    // Draw cardinal directions on radar using arrows instead of letters
+    bgCtx.fillStyle = "rgba(0, 255, 255, 0.7)";
+    bgCtx.font = "12px monospace";
+    bgCtx.textAlign = "center";
+    bgCtx.textBaseline = "middle";
+
+    // Forward direction (bottom of radar) - down arrow
+    bgCtx.fillText("↓", radarCenterX, radarCenterY + radarRadius * 0.85);
+    // Backward direction (top of radar) - up arrow
+    bgCtx.fillText("↑", radarCenterX, radarCenterY - radarRadius * 0.85);
+    // Right direction - right arrow
+    bgCtx.fillText("→", radarCenterX + radarRadius * 0.85, radarCenterY);
+    // Left direction - left arrow
+    bgCtx.fillText("←", radarCenterX - radarRadius * 0.85, radarCenterY);
+
+    // Draw radar cross
+    bgCtx.beginPath();
+    bgCtx.moveTo(radarCenterX, 2);
+    bgCtx.lineTo(radarCenterX, radarHeight - 2);
+    bgCtx.stroke();
+
+    bgCtx.beginPath();
+    bgCtx.moveTo(2, radarCenterY);
+    bgCtx.lineTo(radarWidth - 2, radarCenterY);
+    bgCtx.stroke();
+
+    this.radarBackgroundInitialized = true;
+  }
+
+  /**
    * Update radar display
+   * Optimized to cache static background elements
    * @param scene The current game scene
    */
   private updateRadar(scene: Scene): void {
     if (!this.radarContext) return;
 
+    // Initialize background cache on first call
+    if (!this.radarBackgroundInitialized) {
+      this.initRadarBackground();
+    }
+
     // Store radarContext in a local variable after the null check
     const ctx = this.radarContext;
-
-    // Clear radar
-    ctx.clearRect(0, 0, this.radarCanvas.width, this.radarCanvas.height);
 
     const radarWidth = this.radarCanvas.width;
     const radarHeight = this.radarCanvas.height;
@@ -672,49 +770,11 @@ export class GameHUD {
     const radarCenterY = radarHeight / 2;
     const radarRadius = radarWidth / 2 - 2;
 
-    // Draw radar background
-    ctx.fillStyle = "rgba(0, 30, 60, 0.7)";
-    ctx.beginPath();
-    ctx.arc(radarCenterX, radarCenterY, radarRadius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Draw radar rings
-    ctx.strokeStyle = "rgba(0, 255, 255, 0.5)";
-    ctx.lineWidth = 1;
-
-    // Draw 3 concentric circles
-    for (let i = 1; i <= 3; i++) {
-      const radius = radarRadius * (i / 3);
-      ctx.beginPath();
-      ctx.arc(radarCenterX, radarCenterY, radius, 0, Math.PI * 2);
-      ctx.stroke();
+    // Clear and draw cached background in one operation
+    ctx.clearRect(0, 0, radarWidth, radarHeight);
+    if (this.radarBackgroundCanvas) {
+      ctx.drawImage(this.radarBackgroundCanvas, 0, 0);
     }
-
-    // Draw cardinal directions on radar using arrows instead of letters
-    ctx.fillStyle = "rgba(0, 255, 255, 0.7)";
-    ctx.font = "12px monospace";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-
-    // Forward direction (bottom of radar) - down arrow
-    ctx.fillText("↓", radarCenterX, radarCenterY + radarRadius * 0.85);
-    // Backward direction (top of radar) - up arrow
-    ctx.fillText("↑", radarCenterX, radarCenterY - radarRadius * 0.85);
-    // Right direction - right arrow
-    ctx.fillText("→", radarCenterX + radarRadius * 0.85, radarCenterY);
-    // Left direction - left arrow
-    ctx.fillText("←", radarCenterX - radarRadius * 0.85, radarCenterY);
-
-    // Draw radar cross
-    ctx.beginPath();
-    ctx.moveTo(radarCenterX, 2);
-    ctx.lineTo(radarCenterX, radarHeight - 2);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(2, radarCenterY);
-    ctx.lineTo(radarWidth - 2, radarCenterY);
-    ctx.stroke();
 
     // Get player position
     const playerShip = scene.getPlayerShip();
@@ -784,9 +844,9 @@ export class GameHUD {
           ctx.arc(radarX, radarY, blipSize, 0, Math.PI * 2);
           ctx.fill();
 
-          // Add a pulsing effect to closer asteroids
+          // Add a pulsing effect to closer asteroids using cached frame time
           if (distance < radarRange * 0.3) {
-            const pulseSize = blipSize + Math.sin(Date.now() / 200) * 2;
+            const pulseSize = blipSize + Math.sin(this.cachedFrameTime / 200) * 2;
             ctx.strokeStyle = `rgba(255, 85, 85, ${alpha * 0.5})`;
             ctx.beginPath();
             ctx.arc(radarX, radarY, pulseSize, 0, Math.PI * 2);
@@ -822,9 +882,8 @@ export class GameHUD {
       });
     }
 
-    // Add radar sweep effect
-    const now = Date.now();
-    const angle = ((now % 2000) / 2000) * Math.PI * 2;
+    // Add radar sweep effect using cached frame time
+    const angle = ((this.cachedFrameTime % 2000) / 2000) * Math.PI * 2;
 
     // Create radial gradient for sweep
     const gradient = ctx.createRadialGradient(
@@ -864,13 +923,33 @@ export class GameHUD {
   }
 
   /**
-   * Update score and zone info
+   * Update score and zone info.
+   * Optimized to cache DOM elements and only update when values change.
    */
   private updateInfo(): void {
-    this.infoContainer.innerHTML = `
-      <div>SCORE: ${this.currentScore}</div>
-      <div>ZONE ${this.currentZone}</div>
-    `;
+    // Initialize cached elements on first call
+    if (!this.infoInitialized) {
+      this.infoContainer.innerHTML = '';
+      
+      this.scoreElement = document.createElement('div');
+      this.zoneElement = document.createElement('div');
+      
+      this.infoContainer.appendChild(this.scoreElement);
+      this.infoContainer.appendChild(this.zoneElement);
+      
+      this.infoInitialized = true;
+    }
+
+    // Only update DOM when values actually change
+    if (this.currentScore !== this.prevScore && this.scoreElement) {
+      this.scoreElement.textContent = `SCORE: ${this.currentScore}`;
+      this.prevScore = this.currentScore;
+    }
+
+    if (this.currentZone !== this.prevZone && this.zoneElement) {
+      this.zoneElement.textContent = `ZONE ${this.currentZone}`;
+      this.prevZone = this.currentZone;
+    }
   }
 
   /**
@@ -965,15 +1044,19 @@ export class GameHUD {
     if (this.combatLogContainer) {
       this.combatLogContainer.style.display = "flex";
 
-      // Add animation styles directly to ensure they're defined
-      const animStyle = document.createElement("style");
-      animStyle.textContent = `
-        @keyframes slide-in {
-          from { transform: translateX(-20px); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-      `;
-      document.head.appendChild(animStyle);
+      // Add animation styles only once to prevent memory leak from duplicate style elements
+      if (!this.animationStylesAdded) {
+        const animStyle = document.createElement("style");
+        animStyle.id = "game-hud-animation-styles";
+        animStyle.textContent = `
+          @keyframes slide-in {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+          }
+        `;
+        document.head.appendChild(animStyle);
+        this.animationStylesAdded = true;
+      }
 
       // Add a test message to verify the combat log is working
       this.addCombatLogMessage("SYSTEMS ONLINE", "system-message");
