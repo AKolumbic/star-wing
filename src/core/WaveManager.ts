@@ -1,19 +1,55 @@
-import { ZoneConfig } from "./levels/ZoneConfig";
-import { Logger } from "../utils/Logger";
+import { ZoneConfig } from './levels/ZoneConfig';
+import { Logger } from '../utils/Logger';
+import { EnemyType } from '../entities/enemies/EnemyTypes';
+import { HazardType } from '../entities/hazards/HazardTypes';
+import { PickupType } from '../entities/pickups/PickupTypes';
 
 /**
  * Size category for asteroids spawned by the wave system.
  */
-export type AsteroidSize = "small" | "medium" | "large";
+export type AsteroidSize = 'small' | 'medium' | 'large';
 
 /**
- * Instruction for spawning a single asteroid.
+ * The category of entity to spawn.
+ */
+export type SpawnType = 'asteroid' | 'enemy' | 'hazard' | 'pickup' | 'boss';
+
+/**
+ * Instruction for spawning a single entity.
+ * Returned by WaveManager.update() when something should spawn this frame.
  */
 export interface SpawnInstruction {
-  /** Size category of the asteroid to spawn */
-  size: AsteroidSize;
-  /** Actual radius value for the asteroid */
-  radius: number;
+  /** What category of entity to spawn */
+  type: SpawnType;
+  /** Asteroid size category (when type === 'asteroid') */
+  size?: AsteroidSize;
+  /** Asteroid radius value (when type === 'asteroid') */
+  radius?: number;
+  /** Enemy type to spawn (when type === 'enemy') */
+  enemyType?: EnemyType;
+  /** Hazard type to spawn (when type === 'hazard') */
+  hazardType?: HazardType;
+  /** Pickup type to spawn (when type === 'pickup') */
+  pickupType?: PickupType;
+  /** Boss identifier (when type === 'boss') */
+  bossId?: string;
+}
+
+/**
+ * A single spawn entry in a wave's plan — can be any entity type.
+ */
+interface SpawnEntry {
+  type: SpawnType;
+  /** For asteroids */
+  asteroidSize?: AsteroidSize;
+  /** For enemies */
+  enemyType?: EnemyType;
+  /** For hazards */
+  hazardType?: HazardType;
+  /** For pickups */
+  pickupType?: PickupType;
+  /** For boss */
+  bossId?: string;
 }
 
 /**
@@ -24,18 +60,20 @@ interface WaveDefinition {
   waveNumber: number;
   /** Total difficulty budget for this wave */
   difficultyBudget: number;
-  /** Asteroid spawn plan: list of sizes to spawn */
-  spawnPlan: AsteroidSize[];
+  /** Spawn plan: list of entities to spawn in order */
+  spawnPlan: SpawnEntry[];
   /** Milliseconds between individual spawns within the wave */
   spawnDelay: number;
   /** Seconds of calm before this wave starts */
   lullDuration: number;
+  /** Whether this is a boss wave */
+  isBossWave: boolean;
 }
 
 /**
  * State of the wave system within the WaveManager.
  */
-type WaveState = "lull" | "spawning" | "clearing" | "complete";
+type WaveState = 'lull' | 'spawning' | 'clearing' | 'complete';
 
 /**
  * Manages wave-based progression within a zone.
@@ -43,8 +81,8 @@ type WaveState = "lull" | "spawning" | "clearing" | "complete";
  *
  * Flow per wave:
  * 1. Lull - brief calm period, announcement in combat log
- * 2. Spawning - asteroids spawn at intervals from the spawn plan
- * 3. Clearing - all asteroids spawned, waiting for player to clear them
+ * 2. Spawning - entities spawn at intervals from the spawn plan
+ * 3. Clearing - all entities spawned, waiting for player to clear them
  * 4. Complete (or next wave)
  */
 export class WaveManager {
@@ -55,7 +93,7 @@ export class WaveManager {
   private currentWaveIndex: number = 0;
 
   /** Current state within the wave cycle */
-  private state: WaveState = "lull";
+  private state: WaveState = 'lull';
 
   /** Timer for lull period (seconds remaining) */
   private lullTimer: number = 0;
@@ -66,8 +104,8 @@ export class WaveManager {
   /** Index into current wave's spawn plan */
   private spawnIndex: number = 0;
 
-  /** Number of active asteroids from the current wave */
-  private activeAsteroidCount: number = 0;
+  /** Number of active entities from the current wave that must be cleared */
+  private activeEntityCount: number = 0;
 
   /** Whether all waves have been completed */
   private zoneComplete: boolean = false;
@@ -80,7 +118,6 @@ export class WaveManager {
 
   /**
    * Generates waves for a zone based on its configuration.
-   * Adapts festive-moser's ZoneConfig to a wave-based system.
    * @param zoneConfig The zone configuration to generate waves from
    * @param announceCallback Callback for wave announcements
    */
@@ -90,42 +127,47 @@ export class WaveManager {
   ): void {
     this.waves = [];
     this.currentWaveIndex = 0;
-    this.state = "lull";
+    this.state = 'lull';
     this.spawnIndex = 0;
-    this.activeAsteroidCount = 0;
+    this.activeEntityCount = 0;
     this.zoneComplete = false;
     this.onWaveAnnounce = announceCallback || null;
 
-    // Derive wave parameters from festive-moser's ZoneConfig
-    // Base difficulty: derived from scoreToClear and maxAsteroids
     const baseBudget = Math.floor(zoneConfig.scoreToClear / 100);
-    const budgetPerWave = Math.floor(baseBudget / zoneConfig.waveCount);
+    const budgetPerWave = Math.max(1, Math.floor(baseBudget / zoneConfig.waveCount));
 
-    // Generate wave definitions
+    const enemyPalette = zoneConfig.enemyPalette || [];
+    const hazardPalette = zoneConfig.hazardPalette || [];
+    const pickupPalette = zoneConfig.pickupPalette || [];
+    const bossId = zoneConfig.bossId || null;
+
     for (let i = 0; i < zoneConfig.waveCount; i++) {
       const waveNumber = i + 1;
-      // Ramp up difficulty across waves
+      const isBossWave = bossId !== null && waveNumber === zoneConfig.waveCount;
       const budget = budgetPerWave + i * Math.floor(budgetPerWave * 0.3);
 
-      const spawnPlan = this.budgetToSpawnPlan(
-        budget,
-        waveNumber,
-        zoneConfig.waveCount,
-        zoneConfig.asteroidSizeRange
-      );
+      const spawnPlan = isBossWave
+        ? this.buildBossWavePlan(bossId)
+        : this.buildMixedSpawnPlan(
+            budget,
+            waveNumber,
+            zoneConfig.waveCount,
+            zoneConfig.asteroidSizeRange,
+            enemyPalette,
+            hazardPalette,
+            pickupPalette
+          );
 
       this.waves.push({
         waveNumber,
         difficultyBudget: budget,
         spawnPlan,
-        // Faster spawning within waves based on zone's spawn interval
         spawnDelay: Math.max(300, zoneConfig.spawnIntervalMs.min * 0.5),
-        // Shorter lull for first wave
         lullDuration: waveNumber === 1 ? 1.0 : 3.0,
+        isBossWave,
       });
     }
 
-    // Start the first wave's lull
     this.lullTimer = this.waves[0].lullDuration;
 
     this.logger.info(
@@ -134,23 +176,20 @@ export class WaveManager {
   }
 
   /**
-   * Updates the wave manager. Returns a spawn instruction if an asteroid
+   * Updates the wave manager. Returns a spawn instruction if an entity
    * should be spawned this frame, or null otherwise.
-   * @param deltaTime Time elapsed since last frame in seconds
-   * @returns SpawnInstruction if an asteroid should spawn, null otherwise
    */
   update(deltaTime: number): SpawnInstruction | null {
     if (this.zoneComplete) return null;
 
     switch (this.state) {
-      case "lull":
+      case 'lull':
         return this.updateLull(deltaTime);
-      case "spawning":
+      case 'spawning':
         return this.updateSpawning(deltaTime);
-      case "clearing":
-        // Just waiting for asteroids to be destroyed
+      case 'clearing':
         return null;
-      case "complete":
+      case 'complete':
         return null;
     }
   }
@@ -159,22 +198,24 @@ export class WaveManager {
     this.lullTimer -= deltaTime;
 
     if (this.lullTimer <= 0) {
-      // Lull is over, start spawning
       const wave = this.waves[this.currentWaveIndex];
-      this.state = "spawning";
+      this.state = 'spawning';
       this.spawnIndex = 0;
-      this.spawnTimer = 0; // Spawn first asteroid immediately
+      this.spawnTimer = 0;
 
-      // Announce the wave
       if (this.onWaveAnnounce) {
-        this.onWaveAnnounce(
-          `WAVE ${wave.waveNumber}/${this.waves.length} INCOMING`
-        );
+        if (wave.isBossWave) {
+          this.onWaveAnnounce('WARNING: BOSS INCOMING');
+        } else {
+          this.onWaveAnnounce(
+            `WAVE ${wave.waveNumber}/${this.waves.length} INCOMING`
+          );
+        }
       }
 
       this.logger.info(
         `WaveManager: Starting Wave ${wave.waveNumber}/${this.waves.length} ` +
-          `(${wave.spawnPlan.length} asteroids, budget ${wave.difficultyBudget})`
+          `(${wave.spawnPlan.length} entities, budget ${wave.difficultyBudget})`
       );
     }
 
@@ -184,77 +225,103 @@ export class WaveManager {
   private updateSpawning(deltaTime: number): SpawnInstruction | null {
     const wave = this.waves[this.currentWaveIndex];
 
-    this.spawnTimer -= deltaTime * 1000; // Convert to ms
+    this.spawnTimer -= deltaTime * 1000;
 
     if (this.spawnTimer <= 0 && this.spawnIndex < wave.spawnPlan.length) {
-      // Time to spawn the next asteroid
-      const size = wave.spawnPlan[this.spawnIndex];
+      const entry = wave.spawnPlan[this.spawnIndex];
       this.spawnIndex++;
-      this.activeAsteroidCount++;
+      this.activeEntityCount++;
       this.spawnTimer = wave.spawnDelay;
 
-      // If we've spawned everything, move to clearing state
       if (this.spawnIndex >= wave.spawnPlan.length) {
-        this.state = "clearing";
+        this.state = 'clearing';
         this.logger.info(
-          `WaveManager: All asteroids spawned for Wave ${wave.waveNumber}, waiting for clear`
+          `WaveManager: All entities spawned for Wave ${wave.waveNumber}, waiting for clear`
         );
       }
 
-      return {
-        size,
-        radius: this.sizeToRadius(size),
-      };
+      return this.entryToInstruction(entry);
     }
 
     return null;
   }
 
   /**
-   * Called when an asteroid from the current wave is destroyed.
+   * Converts a SpawnEntry to a SpawnInstruction for the scene.
+   */
+  private entryToInstruction(entry: SpawnEntry): SpawnInstruction {
+    switch (entry.type) {
+      case 'asteroid':
+        return {
+          type: 'asteroid',
+          size: entry.asteroidSize,
+          radius: this.sizeToRadius(entry.asteroidSize || 'medium'),
+        };
+      case 'enemy':
+        return {
+          type: 'enemy',
+          enemyType: entry.enemyType,
+        };
+      case 'hazard':
+        return {
+          type: 'hazard',
+          hazardType: entry.hazardType,
+        };
+      case 'pickup':
+        return {
+          type: 'pickup',
+          pickupType: entry.pickupType,
+        };
+      case 'boss':
+        return {
+          type: 'boss',
+          bossId: entry.bossId,
+        };
+    }
+  }
+
+  /**
+   * Called when an entity from the current wave is destroyed or removed.
    * Tracks how many remain and triggers wave completion when all are gone.
    */
-  onAsteroidDestroyed(): void {
-    this.activeAsteroidCount = Math.max(0, this.activeAsteroidCount - 1);
+  onEntityDestroyed(): void {
+    this.activeEntityCount = Math.max(0, this.activeEntityCount - 1);
 
-    if (this.state === "clearing" && this.activeAsteroidCount <= 0) {
+    if (this.state === 'clearing' && this.activeEntityCount <= 0) {
       this.onWaveCleared();
     }
   }
 
   /**
-   * Called when all asteroids in the current wave are destroyed.
+   * Legacy alias — call onEntityDestroyed() instead.
    */
+  onAsteroidDestroyed(): void {
+    this.onEntityDestroyed();
+  }
+
   private onWaveCleared(): void {
     const wave = this.waves[this.currentWaveIndex];
     this.logger.info(`WaveManager: Wave ${wave.waveNumber} cleared!`);
 
-    // Move to next wave
     this.currentWaveIndex++;
 
     if (this.currentWaveIndex >= this.waves.length) {
-      // All waves complete
       this.zoneComplete = true;
-      this.state = "complete";
-      this.logger.info("WaveManager: All waves complete! Zone cleared.");
+      this.state = 'complete';
+      this.logger.info('WaveManager: All waves complete! Zone cleared.');
     } else {
-      // Start lull for next wave
-      this.state = "lull";
+      this.state = 'lull';
       this.lullTimer = this.waves[this.currentWaveIndex].lullDuration;
-      this.activeAsteroidCount = 0;
+      this.activeEntityCount = 0;
     }
   }
 
-  /**
-   * Whether all waves in the zone have been completed.
-   */
+  /** Whether all waves in the zone have been completed. */
   isZoneComplete(): boolean {
     return this.zoneComplete;
   }
 
-  /**
-   * Gets the current wave number (1-based).
-   */
+  /** Gets the current wave number (1-based). */
   getCurrentWave(): number {
     if (this.currentWaveIndex >= this.waves.length) {
       return this.waves.length;
@@ -262,64 +329,90 @@ export class WaveManager {
     return this.waves[this.currentWaveIndex].waveNumber;
   }
 
-  /**
-   * Gets the total number of waves.
-   */
+  /** Gets the total number of waves. */
   getTotalWaves(): number {
     return this.waves.length;
   }
 
-  /**
-   * Gets the current wave state.
-   */
+  /** Gets the current wave state. */
   getState(): WaveState {
     return this.state;
   }
 
+  // ----------------------------------------------------------------
+  //  Spawn plan builders
+  // ----------------------------------------------------------------
+
   /**
-   * Converts a difficulty budget into a list of asteroid sizes to spawn.
-   * Early waves favor small asteroids, later waves shift to larger ones.
-   * Uses the zone's asteroid size range to map sizes appropriately.
-   * @param budget The difficulty budget to spend
-   * @param waveNumber Current wave number (for weighting)
-   * @param totalWaves Total waves in the zone (for weighting)
-   * @param sizeRange The zone's [min, max] asteroid size range
-   * @returns Array of asteroid sizes
+   * Builds a mixed spawn plan from asteroid + enemy + hazard budgets.
+   * Enemies and hazards are woven into the asteroid plan based on wave
+   * progression within the zone.
    */
-  private budgetToSpawnPlan(
+  private buildMixedSpawnPlan(
     budget: number,
     waveNumber: number,
     totalWaves: number,
-    sizeRange: [number, number]
-  ): AsteroidSize[] {
-    const plan: AsteroidSize[] = [];
+    sizeRange: [number, number],
+    enemyPalette: EnemyType[],
+    hazardPalette: HazardType[],
+    pickupPalette: PickupType[]
+  ): SpawnEntry[] {
+    const plan: SpawnEntry[] = [];
     let remaining = budget;
 
-    // Calculate weights based on wave progression
-    const progress = waveNumber / totalWaves; // 0.0 to 1.0
-    // Early waves: mostly small; late waves: more large
-    const largeWeight = progress * 0.4; // 0 to 0.4
-    const mediumWeight = 0.3 + progress * 0.1; // 0.3 to 0.4
-    // smallWeight is the remainder
+    const progress = waveNumber / totalWaves;
+    const hasEnemies = enemyPalette.length > 0;
+    const hasHazards = hazardPalette.length > 0;
+    const hasPickups = pickupPalette.length > 0;
+
+    // Enemy spawn chance ramps from 0.1 to 0.5 across waves
+    const enemyChance = hasEnemies ? 0.1 + progress * 0.4 : 0;
+    // Hazard chance ramps from 0 to 0.2 across waves (introduced wave 3+)
+    const hazardChance =
+      hasHazards && waveNumber >= 3 ? 0.05 + progress * 0.15 : 0;
+    // Pickup chance is low and peaks mid-zone (recovery wave)
+    const isRecoveryWave = waveNumber === totalWaves - 1;
+    const pickupChance = hasPickups
+      ? isRecoveryWave
+        ? 0.3
+        : 0.05
+      : 0;
 
     while (remaining > 0) {
       const roll = Math.random();
 
-      if (roll < largeWeight && remaining >= 3) {
-        plan.push("large");
-        remaining -= 3;
-      } else if (roll < largeWeight + mediumWeight && remaining >= 2) {
-        plan.push("medium");
-        remaining -= 2;
-      } else if (remaining >= 1) {
-        plan.push("small");
+      if (roll < pickupChance && remaining >= 1) {
+        const pickup =
+          pickupPalette[Math.floor(Math.random() * pickupPalette.length)];
+        plan.push({ type: 'pickup', pickupType: pickup });
         remaining -= 1;
+      } else if (roll < pickupChance + hazardChance && remaining >= 2) {
+        const hazard =
+          hazardPalette[Math.floor(Math.random() * hazardPalette.length)];
+        plan.push({ type: 'hazard', hazardType: hazard });
+        remaining -= 2;
+      } else if (roll < pickupChance + hazardChance + enemyChance && remaining >= 2) {
+        const enemy =
+          enemyPalette[Math.floor(Math.random() * enemyPalette.length)];
+        plan.push({ type: 'enemy', enemyType: enemy });
+        remaining -= 2;
       } else {
-        break;
+        // Default: asteroid
+        const asteroidSize = this.rollAsteroidSize(progress);
+        const cost = asteroidSize === 'large' ? 3 : asteroidSize === 'medium' ? 2 : 1;
+        if (remaining >= cost) {
+          plan.push({ type: 'asteroid', asteroidSize });
+          remaining -= cost;
+        } else if (remaining >= 1) {
+          plan.push({ type: 'asteroid', asteroidSize: 'small' });
+          remaining -= 1;
+        } else {
+          break;
+        }
       }
     }
 
-    // Shuffle the plan so sizes are intermixed
+    // Shuffle so the plan isn't clustered by type
     for (let i = plan.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [plan[i], plan[j]] = [plan[j], plan[i]];
@@ -329,17 +422,36 @@ export class WaveManager {
   }
 
   /**
+   * Builds a boss wave plan — just the boss entity.
+   */
+  private buildBossWavePlan(bossId: string): SpawnEntry[] {
+    return [{ type: 'boss', bossId }];
+  }
+
+  /**
+   * Rolls an asteroid size weighted by wave progression.
+   */
+  private rollAsteroidSize(progress: number): AsteroidSize {
+    const largeWeight = progress * 0.4;
+    const mediumWeight = 0.3 + progress * 0.1;
+    const roll = Math.random();
+
+    if (roll < largeWeight) return 'large';
+    if (roll < largeWeight + mediumWeight) return 'medium';
+    return 'small';
+  }
+
+  /**
    * Converts an asteroid size category to a radius value.
-   * Small: 20-30, Medium: 30-40, Large: 40-50
    */
   private sizeToRadius(size: AsteroidSize): number {
     switch (size) {
-      case "small":
-        return 20 + Math.random() * 10; // 20-30
-      case "medium":
-        return 30 + Math.random() * 10; // 30-40
-      case "large":
-        return 40 + Math.random() * 10; // 40-50
+      case 'small':
+        return 20 + Math.random() * 10;
+      case 'medium':
+        return 30 + Math.random() * 10;
+      case 'large':
+        return 40 + Math.random() * 10;
     }
   }
 }

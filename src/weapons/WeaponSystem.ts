@@ -328,6 +328,38 @@ export class WeaponSystem implements GameSystem {
   }
 
   /**
+   * Applies an overclock effect — reduces fire cooldowns by 50% for duration seconds.
+   * Uses cooldown multiplier stacking, then reverts after expiry.
+   * @param duration Duration of the overclock in seconds
+   */
+  applyOverclock(duration: number): void {
+    if (this.primaryWeapon) {
+      const prevMultiplier = this.primaryWeapon.getCooldownMultiplier();
+      // Halve the cooldown (0.5 multiplier applied multiplicatively)
+      this.primaryWeapon.setCooldownMultiplier(0.5);
+      setTimeout(() => {
+        if (this.primaryWeapon) {
+          // Restore by dividing out the 0.5 we applied
+          // Reset to previous value
+          this.primaryWeapon.resetCooldownMultiplier(prevMultiplier);
+        }
+      }, duration * 1000);
+    }
+  }
+
+  /**
+   * Restores ammo for all limited-ammo weapons.
+   */
+  restoreAmmo(): void {
+    this.availableWeapons.forEach((weapon) => {
+      const maxAmmo = weapon.getMaxAmmo();
+      if (maxAmmo !== undefined) {
+        weapon.addAmmo(maxAmmo);
+      }
+    });
+  }
+
+  /**
    * Cleans up all weapons when the system is disposed
    */
   dispose(): void {

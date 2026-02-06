@@ -19,6 +19,9 @@ export class GameHUD {
   private infoContainer: HTMLDivElement;
   private warningContainer: HTMLDivElement;
   private combatLogContainer: HTMLDivElement;
+  private bossHealthContainer: HTMLDivElement;
+  private bossHealthBar: HTMLDivElement;
+  private bossNameLabel: HTMLDivElement;
 
   // Game references
   private game: Game;
@@ -117,6 +120,22 @@ export class GameHUD {
     this.warningContainer = document.createElement("div");
     this.warningContainer.className = "warning-container";
 
+    // Create boss health bar container (hidden by default)
+    this.bossHealthContainer = document.createElement("div");
+    this.bossHealthContainer.className = "boss-health-container";
+    this.bossHealthContainer.style.display = "none";
+
+    this.bossNameLabel = document.createElement("div");
+    this.bossNameLabel.className = "boss-name-label";
+    this.bossHealthContainer.appendChild(this.bossNameLabel);
+
+    const bossBarBg = document.createElement("div");
+    bossBarBg.className = "boss-health-bar-bg";
+    this.bossHealthBar = document.createElement("div");
+    this.bossHealthBar.className = "boss-health-bar-fill";
+    bossBarBg.appendChild(this.bossHealthBar);
+    this.bossHealthContainer.appendChild(bossBarBg);
+
     // Add all elements to container
     this.container.appendChild(this.healthBarContainer);
     this.container.appendChild(this.shieldBarContainer);
@@ -125,6 +144,7 @@ export class GameHUD {
     this.container.appendChild(this.infoContainer);
     this.container.appendChild(this.combatLogContainer);
     this.container.appendChild(this.warningContainer);
+    this.container.appendChild(this.bossHealthContainer);
 
     // Add to document
     document.body.appendChild(this.container);
@@ -335,6 +355,78 @@ export class GameHUD {
         to { transform: translateX(0); opacity: 1; }
       }
       
+      /* Boss health bar */
+      .boss-health-container {
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 400px;
+        text-align: center;
+        z-index: 10;
+      }
+
+      .boss-name-label {
+        color: #ff4444;
+        font-size: 14px;
+        font-weight: bold;
+        text-shadow: 0 0 8px #ff0000;
+        margin-bottom: 4px;
+        letter-spacing: 2px;
+      }
+
+      .boss-health-bar-bg {
+        width: 100%;
+        height: 10px;
+        background: rgba(0, 0, 0, 0.6);
+        border: 1px solid #ff4444;
+        border-radius: 2px;
+        box-shadow: 0 0 8px rgba(255, 0, 0, 0.3);
+      }
+
+      .boss-health-bar-fill {
+        height: 100%;
+        width: 100%;
+        background: linear-gradient(90deg, #ff2222, #ff6644);
+        border-radius: 1px;
+        transition: width 0.3s ease;
+      }
+
+      /* Combat log enemy/hazard/pickup message styles */
+      .combat-log-message.enemy-destroyed {
+        color: #ff8844;
+        text-shadow: 0 0 5px #ff4400;
+      }
+
+      .combat-log-message.hazard-destroyed {
+        color: #aabbcc;
+        text-shadow: 0 0 5px #889999;
+      }
+
+      .combat-log-message.pickup-collected {
+        color: #44ff44;
+        text-shadow: 0 0 5px #00ff00;
+      }
+
+      .combat-log-message.wave-announcement {
+        color: #ffff44;
+        text-shadow: 0 0 8px #ffaa00;
+        font-weight: bold;
+        font-size: 11px;
+      }
+
+      .combat-log-message.boss-spawn {
+        color: #ff2222;
+        text-shadow: 0 0 10px #ff0000;
+        font-weight: bold;
+        font-size: 12px;
+      }
+
+      .combat-log-message.point-defense {
+        color: #44aaff;
+        text-shadow: 0 0 5px #2288ff;
+      }
+
       /* Warning container */
       .warning-container {
         position: absolute;
@@ -405,6 +497,7 @@ export class GameHUD {
     this.updateInfo();
     this.updateCombatLog();
     this.updateWarnings();
+    this.updateBossHealthBar(scene);
 
     // Zone completion is now handled exclusively by Scene.checkCollisions()
     // to avoid duplicate triggers
@@ -964,6 +1057,34 @@ export class GameHUD {
     }
 
     // Here we could also check for other warnings like incoming boss, etc.
+  }
+
+  /**
+   * Updates the boss health bar display.
+   * Shows/hides based on whether a boss is active.
+   */
+  private updateBossHealthBar(scene: Scene): void {
+    const boss = scene.getActiveBoss();
+
+    if (!boss) {
+      this.bossHealthContainer.style.display = 'none';
+      return;
+    }
+
+    this.bossHealthContainer.style.display = 'block';
+    this.bossNameLabel.textContent = `[ ${boss.getBossName().toUpperCase()} ]`;
+
+    const healthPct = Math.max(0, boss.getHealth() / boss.getMaxHealth()) * 100;
+    this.bossHealthBar.style.width = `${healthPct}%`;
+
+    // Color shifts as health drops
+    if (healthPct < 25) {
+      this.bossHealthBar.style.background = 'linear-gradient(90deg, #ff0000, #ff3300)';
+    } else if (healthPct < 50) {
+      this.bossHealthBar.style.background = 'linear-gradient(90deg, #ff4400, #ff8800)';
+    } else {
+      this.bossHealthBar.style.background = 'linear-gradient(90deg, #ff2222, #ff6644)';
+    }
   }
 
   /**

@@ -268,6 +268,14 @@ export abstract class Weapon {
   }
 
   /**
+   * Resets the cooldown multiplier to a specific value.
+   * Used to revert temporary effects like Overclock.
+   */
+  resetCooldownMultiplier(value: number): void {
+    this.cooldownMultiplier = Math.max(0.33, value);
+  }
+
+  /**
    * Gets the current projectile speed multiplier.
    */
   getProjectileSpeedMultiplier(): number {

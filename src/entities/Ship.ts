@@ -1,19 +1,17 @@
-import * as THREE from "three";
-import { Input } from "../core/Input";
-import { Logger } from "../utils/Logger";
-import { WeaponSystem } from "../weapons/WeaponSystem";
-import { UISystem } from "../core/systems/UISystem";
+import * as THREE from 'three';
+import { Entity } from './Entity';
+import { Input } from '../core/Input';
+import { WeaponSystem } from '../weapons/WeaponSystem';
+import { UISystem } from '../core/systems/UISystem';
 
 /**
  * Represents the player's ship in the game.
  * Handles rendering, movement, and player input.
+ * Extends Entity for uniform collision (sphere hitbox) and lifecycle.
  */
-export class Ship {
-  /** The 3D model of the ship */
-  private model: THREE.Object3D | null = null;
-
-  /** The mesh representing the ship's hitbox */
-  private hitbox: THREE.Mesh | null = null;
+export class Ship extends Entity {
+  /** The mesh representing the ship's debug hitbox (visual only) */
+  private hitboxMesh: THREE.Mesh | null = null;
 
   /** Visible boundary box for debugging flight limits */
   private boundaryBox: THREE.LineSegments | null = null;
@@ -27,11 +25,8 @@ export class Ship {
   /** Whether development mode is enabled */
   private devMode: boolean = false;
 
-  /** The ship's current position */
-  private position: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
-
-  /** The ship's current velocity */
-  private velocity: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
+  /** God mode: invulnerable + 10x damage output */
+  private godMode: boolean = false;
 
   /** The ship's current rotation */
   private rotation: THREE.Euler = new THREE.Euler(0, 0, 0);
@@ -44,12 +39,6 @@ export class Ship {
 
   /** Maximum vertical distance from center (full height = 1400) */
   private verticalLimit: number = 700;
-
-  /** The ship's health (hull integrity) */
-  private health: number = 100;
-
-  /** The ship's maximum health */
-  private maxHealth: number = 100;
 
   /** The ship's shield strength */
   private shield: number = 100;
@@ -66,14 +55,8 @@ export class Ship {
   /** Damage reduction multiplier (1.0 = full damage, 0.8 = 20% reduction) */
   private damageReduction: number = 1.0;
 
-  /** The ship's rotation speed */
-  // private rotationSpeed: number = 0.05;
-
   /** Reference to the input system */
   private input: Input;
-
-  /** Reference to the Three.js scene */
-  private scene: THREE.Scene;
 
   /** Ship entry animation duration in seconds */
   private readonly ENTRY_DURATION = 3.0;
@@ -95,9 +78,6 @@ export class Ship {
 
   /** Array of engine glow mesh objects for animation */
   private engineGlowMeshes: THREE.Mesh[] = [];
-
-  /** Logger instance */
-  private logger = Logger.getInstance();
 
   /** Weapon system for the ship */
   private weaponSystem: WeaponSystem | null = null;
@@ -122,12 +102,10 @@ export class Ship {
    * @param devMode Whether development mode is enabled
    */
   constructor(scene: THREE.Scene, input: Input, devMode: boolean = false) {
-    this.scene = scene;
+    super(scene, new THREE.Vector3(500, 500, -800), 100);
+
     this.input = input;
     this.devMode = devMode;
-
-    // Set initial position off-screen
-    this.position.copy(this.ENTRY_START_POSITION);
 
     // Initialize the weapon system
     this.weaponSystem = new WeaponSystem(scene);
@@ -586,9 +564,12 @@ export class Ship {
       visible: false,
     });
 
-    this.hitbox = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
-    this.hitbox.position.copy(this.position);
-    this.scene.add(this.hitbox);
+    this.hitboxMesh = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
+    this.hitboxMesh.position.copy(this.position);
+    this.scene.add(this.hitboxMesh);
+
+    // Set the inherited sphere hitbox for collision detection
+    this.hitbox = new THREE.Sphere(this.position.clone(), 30);
 
     // After loading the ship model, create the boundary visualization
     this.createBoundaryVisualization();
@@ -726,11 +707,11 @@ export class Ship {
    * Updates the ship position, rotation, and applies physics.
    * @param deltaTime Time elapsed since the last frame in seconds
    */
-  update(deltaTime: number): void {
+  update(deltaTime: number): boolean {
     if (this.playingEntryAnimation) {
       // Update entry animation if playing
       this.updateEntryAnimation(deltaTime);
-      return;
+      return true;
     }
 
     // Update weapons
@@ -768,9 +749,10 @@ export class Ship {
     this.updateModelPosition();
     this.updateModelRotation();
 
-    // Update hitbox position
-    if (this.hitbox) {
-      this.hitbox.position.copy(this.position);
+    // Update hitbox positions
+    this.hitbox.center.copy(this.position);
+    if (this.hitboxMesh) {
+      this.hitboxMesh.position.copy(this.position);
     }
 
     // Debug ship position occasionally
@@ -781,6 +763,8 @@ export class Ship {
         )}, y=${this.position.y.toFixed(2)}, z=${this.position.z.toFixed(2)}`
       );
     }
+
+    return true; // Ship is never auto-removed via update
   }
 
   /**
@@ -1144,8 +1128,9 @@ export class Ship {
     if (this.model) {
       this.model.position.copy(this.position);
     }
-    if (this.hitbox) {
-      this.hitbox.position.copy(this.position);
+    this.hitbox.center.copy(this.position);
+    if (this.hitboxMesh) {
+      this.hitboxMesh.position.copy(this.position);
     }
   }
 
@@ -1156,8 +1141,8 @@ export class Ship {
     if (this.model) {
       this.model.rotation.copy(this.rotation);
     }
-    if (this.hitbox) {
-      this.hitbox.rotation.copy(this.rotation);
+    if (this.hitboxMesh) {
+      this.hitboxMesh.rotation.copy(this.rotation);
     }
   }
 
@@ -1281,7 +1266,11 @@ export class Ship {
    * Gets the ship's hitbox for collision detection.
    * @returns The ship's hitbox mesh
    */
-  getHitbox(): THREE.Mesh | null {
+  /**
+   * Gets the ship's sphere hitbox for collision detection.
+   * Overrides Entity.getHitbox() — returns the sphere, not the debug mesh.
+   */
+  getHitbox(): THREE.Sphere {
     return this.hitbox;
   }
 
@@ -1294,25 +1283,25 @@ export class Ship {
       this.scene.remove(this.model);
     }
 
-    if (this.hitbox) {
-      this.scene.remove(this.hitbox);
+    if (this.hitboxMesh) {
+      this.scene.remove(this.hitboxMesh);
     }
 
     // Remove boundary visualization
     this.removeBoundaryVisualization();
 
-    // Dispose of any THREE.js resources
-    if (this.hitbox) {
-      if (this.hitbox.geometry) {
-        this.hitbox.geometry.dispose();
+    // Dispose of debug hitbox mesh resources
+    if (this.hitboxMesh) {
+      if (this.hitboxMesh.geometry) {
+        this.hitboxMesh.geometry.dispose();
       }
-      if (this.hitbox.material) {
-        (this.hitbox.material as THREE.Material).dispose();
+      if (this.hitboxMesh.material) {
+        (this.hitboxMesh.material as THREE.Material).dispose();
       }
     }
 
     this.model = null;
-    this.hitbox = null;
+    this.hitboxMesh = null;
     this.engineGlowMeshes = [];
     this.loaded = false;
 
@@ -1380,6 +1369,9 @@ export class Ship {
    * @returns True if the ship was destroyed, false otherwise
    */
   takeDamage(amount: number): boolean {
+    // God mode: no damage taken
+    if (this.godMode) return false;
+
     // Apply damage reduction from upgrades (e.g., 0.8 = take 80% of damage)
     amount = Math.floor(amount * this.damageReduction);
 
@@ -1482,6 +1474,59 @@ export class Ship {
    */
   getWeaponSystem(): WeaponSystem | null {
     return this.weaponSystem;
+  }
+
+  // ===== GOD MODE =====
+
+  /**
+   * Toggles god mode (invulnerable + 10x damage output).
+   * @returns The new god mode state
+   */
+  toggleGodMode(): boolean {
+    this.godMode = !this.godMode;
+    this.logger.info(`GOD MODE: ${this.godMode ? 'ENABLED' : 'DISABLED'}`);
+    return this.godMode;
+  }
+
+  /**
+   * Sets god mode directly.
+   */
+  setGodMode(enabled: boolean): void {
+    this.godMode = enabled;
+    this.logger.info(`GOD MODE: ${this.godMode ? 'ENABLED' : 'DISABLED'}`);
+  }
+
+  /**
+   * Whether god mode is active.
+   */
+  isGodMode(): boolean {
+    return this.godMode;
+  }
+
+  /**
+   * Returns the player's outgoing damage multiplier.
+   * 10x in god mode, 1x otherwise.
+   */
+  getDamageMultiplier(): number {
+    return this.godMode ? 10 : 1;
+  }
+
+  // ===== PICKUP EFFECT METHODS =====
+
+  /**
+   * Restores shield by the given amount (capped at maxShield).
+   */
+  restoreShield(amount: number): void {
+    this.shield = Math.min(this.maxShield, this.shield + amount);
+    this.logger.debug(`Shield restored by ${amount}, now ${this.shield}/${this.maxShield}`);
+  }
+
+  /**
+   * Heals hull HP by the given amount (capped at maxHealth).
+   */
+  heal(amount: number): void {
+    this.health = Math.min(this.maxHealth, this.health + amount);
+    this.logger.debug(`Hull healed by ${amount}, now ${this.health}/${this.maxHealth}`);
   }
 
   // ===== ROGUELITE STAT METHODS =====

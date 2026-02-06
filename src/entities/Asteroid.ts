@@ -1,24 +1,13 @@
-import * as THREE from "three";
-import { Logger } from "../utils/Logger";
-import { Game } from "../core/Game";
+import * as THREE from 'three';
+import { Entity } from './Entity';
+import { Game } from '../core/Game';
 
 /**
  * Represents an asteroid obstacle in the game.
  * Asteroids move toward the player and can damage the ship on collision.
+ * Extends Entity for uniform collision and lifecycle management.
  */
-export class Asteroid {
-  /** The 3D model of the asteroid */
-  private model: THREE.Object3D;
-
-  /** The mesh representing the asteroid's hitbox */
-  private hitbox: THREE.Sphere;
-
-  /** The asteroid's current position */
-  private position: THREE.Vector3;
-
-  /** The asteroid's current velocity */
-  private velocity: THREE.Vector3;
-
+export class Asteroid extends Entity {
   /** The asteroid's rotation speed on each axis */
   private rotationSpeed: THREE.Vector3;
 
@@ -28,17 +17,8 @@ export class Asteroid {
   /** The asteroid's damage amount on collision */
   private damage: number;
 
-  /** Reference to the Three.js scene */
-  private scene: THREE.Scene;
-
-  /** Whether the asteroid is active/visible */
-  private active: boolean = true;
-
   /** Reference to the Game instance */
   private game: Game | null = null;
-
-  /** Logger instance */
-  private logger = Logger.getInstance();
 
   /** Reusable Vector3 for movement calculations to avoid per-frame allocations */
   private static tempMovement: THREE.Vector3 = new THREE.Vector3();
@@ -60,8 +40,8 @@ export class Asteroid {
     size: number = 30,
     damage: number = 25
   ) {
-    this.scene = scene;
-    this.position = position.clone();
+    super(scene, position, 1); // Asteroids have 1 HP (one-shot destruction)
+
     this.velocity = direction.normalize().multiplyScalar(speed);
     this.size = size;
     this.damage = damage;
@@ -77,8 +57,8 @@ export class Asteroid {
     this.model = this.createModel();
     this.scene.add(this.model);
 
-    // Create the hitbox
-    this.hitbox = new THREE.Sphere(this.position.clone(), this.size * 0.8); // Slightly smaller than visual model
+    // Set the inherited sphere hitbox
+    this.hitbox = new THREE.Sphere(this.position.clone(), this.size * 0.8);
 
     this.logger.debug(
       `Asteroid created at position ${this.position.x.toFixed(
@@ -337,15 +317,20 @@ export class Asteroid {
     // Update position using static temp vector to avoid per-frame allocation
     Asteroid.tempMovement.copy(this.velocity).multiplyScalar(deltaTime);
     this.position.add(Asteroid.tempMovement);
-    this.model.position.copy(this.position);
+
+    if (this.model) {
+      this.model.position.copy(this.position);
+    }
 
     // Update hitbox position
     this.hitbox.center.copy(this.position);
 
     // Apply rotation
-    this.model.rotation.x += this.rotationSpeed.x * deltaTime;
-    this.model.rotation.y += this.rotationSpeed.y * deltaTime;
-    this.model.rotation.z += this.rotationSpeed.z * deltaTime;
+    if (this.model) {
+      this.model.rotation.x += this.rotationSpeed.x * deltaTime;
+      this.model.rotation.y += this.rotationSpeed.y * deltaTime;
+      this.model.rotation.z += this.rotationSpeed.z * deltaTime;
+    }
 
     // Check if asteroid has moved too far (for cleanup)
     if (this.position.z > 1000) {
@@ -430,19 +415,14 @@ export class Asteroid {
   destroy(): void {
     if (!this.active) return;
 
-    this.active = false;
-    this.scene.remove(this.model);
-
     // Play destruction sound if game reference is available
     if (this.game) {
       try {
-        // Use a different intensity based on asteroid size
         const intensity =
-          this.size > 40 ? "heavy" : this.size < 20 ? "light" : "medium";
+          this.size > 40 ? 'heavy' : this.size < 20 ? 'light' : 'medium';
         this.game.getAudioManager().playAsteroidCollisionSound(intensity);
-        this.logger.debug("Playing asteroid destruction sound");
       } catch (error) {
-        this.logger.warn("Failed to play asteroid destruction sound:", error);
+        this.logger.warn('Failed to play asteroid destruction sound:', error);
       }
     }
 
@@ -451,33 +431,7 @@ export class Asteroid {
         2
       )}, ${this.position.y.toFixed(2)}, ${this.position.z.toFixed(2)}`
     );
-  }
 
-  /**
-   * Completely cleans up all asteroid resources.
-   * Should be called when removing the asteroid permanently (e.g., during game reset).
-   */
-  dispose(): void {
-    // First destroy the asteroid to remove it from the scene
-    this.destroy();
-
-    // Then dispose of geometry and materials
-    if (this.model) {
-      this.model.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          if (child.geometry) {
-            child.geometry.dispose();
-          }
-          if (child.material) {
-            // Handle both single and array of materials
-            if (Array.isArray(child.material)) {
-              child.material.forEach((material) => material.dispose());
-            } else {
-              child.material.dispose();
-            }
-          }
-        }
-      });
-    }
+    super.destroy(); // sets active=false, removes model from scene
   }
 }

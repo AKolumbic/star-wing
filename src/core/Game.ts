@@ -125,6 +125,13 @@ export class Game {
               scene.skipShipEntry();
               this.logger.info("DEV MODE: Ship entry animation skipped");
 
+              // Enable god mode in dev mode
+              const playerShip = scene.getPlayerShip();
+              if (playerShip) {
+                playerShip.setGodMode(true);
+                this.logger.info("DEV MODE: God mode enabled (invulnerable + 10x damage)");
+              }
+
               // Start the game
               this.start();
 
@@ -417,6 +424,24 @@ export class Game {
     if (savedMuteState !== null) {
       localStorage.setItem("starWing_muted", savedMuteState);
     }
+  }
+
+  /**
+   * Toggles god mode (invulnerable + 10x damage output).
+   * Access this via the browser console with: game.toggleGodMode()
+   * Works in any mode, not just dev mode.
+   */
+  public toggleGodMode(): void {
+    const scene = this.sceneSystem.getScene();
+    const ship = scene.getPlayerShip();
+    if (!ship) {
+      this.logger.warn("toggleGodMode: No player ship found");
+      return;
+    }
+    const newState = ship.toggleGodMode();
+    this.logger.info(
+      `GOD MODE: ${newState ? "ENABLED — invulnerable + 10x damage" : "DISABLED"}`
+    );
   }
 
   /**

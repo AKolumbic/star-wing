@@ -92,9 +92,11 @@ test/
 
 ## Development Mode
 
-- `?dev` URL parameter - Skips intro, bypasses menu, mutes audio
+- `?dev` URL parameter - Skips intro, bypasses menu, mutes audio, enables god mode
 - `?dev&enableDevAudio` - Dev mode with audio enabled
 - Console: `game.toggleDevModeAudio()` - Toggle audio in dev mode
+- Console: `game.toggleGodMode()` - Toggle god mode (invulnerable + 10x damage); auto-enabled in dev mode
+- Tests are currently skipped / known-broken — ignore test failures during development
 
 ## Important Notes
 

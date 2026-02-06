@@ -4,6 +4,9 @@ import { WeaponCategory } from "./Weapon";
 /**
  * Interface for projectile properties
  */
+/** Who fired this projectile — determines collision targets */
+export type ProjectileOwner = 'player' | 'enemy';
+
 export interface ProjectileProps {
   damage: number;
   speed: number;
@@ -15,6 +18,7 @@ export interface ProjectileProps {
   isHoming?: boolean; // Whether the projectile should home in on targets
   isPierce?: boolean; // Whether the projectile can pierce through targets
   isBounce?: boolean; // Whether the projectile can bounce off obstacles
+  owner?: ProjectileOwner; // Who fired this projectile (default: 'player')
 }
 
 /**
@@ -29,6 +33,7 @@ export class Projectile {
   private isActive: boolean = true;
   private props: ProjectileProps;
   private hitbox: THREE.Sphere;
+  private owner: ProjectileOwner;
 
   // Reusable Vector3 for movement calculations to avoid allocations in update loop
   private static readonly tempMovement: THREE.Vector3 = new THREE.Vector3();
@@ -50,6 +55,7 @@ export class Projectile {
     this.velocity = direction.normalize().multiplyScalar(props.speed);
     this.props = props;
     this.scene = scene;
+    this.owner = props.owner || 'player';
 
     // Create a hitbox for collision detection
     this.hitbox = new THREE.Sphere(this.position.clone(), 5); // Default radius of 5 units
@@ -263,6 +269,20 @@ export class Projectile {
    */
   getBlastRadius(): number | undefined {
     return this.props.blastRadius;
+  }
+
+  /**
+   * Gets who fired this projectile.
+   */
+  getOwner(): ProjectileOwner {
+    return this.owner;
+  }
+
+  /**
+   * Gets the damage value.
+   */
+  getDamage(): number {
+    return this.props.damage;
   }
 
   /**

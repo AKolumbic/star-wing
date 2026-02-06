@@ -10,10 +10,25 @@ import { Logger } from "../utils/Logger";
 import { UIUtils } from "../utils/UIUtils";
 import { Game } from "./Game";
 // import { UISystem } from "./systems/UISystem";
-import { Asteroid } from "../entities/Asteroid";
-import { ZoneConfig } from "./levels/ZoneConfig";
-import { MAX_ZONE_ID, ZONE_CONFIGS } from "./levels/ZoneConfigs";
-import { RunState } from "./RunState";
+import { Asteroid } from '../entities/Asteroid';
+import { ZoneConfig } from './levels/ZoneConfig';
+import { MAX_ZONE_ID, ZONE_CONFIGS } from './levels/ZoneConfigs';
+import { RunState } from './RunState';
+import { WaveManager, SpawnInstruction } from './WaveManager';
+import { EnemyEntity } from '../entities/enemies/EnemyEntity';
+import { CarrierPod } from '../entities/enemies/CarrierPod';
+import { Raider } from '../entities/enemies/Raider';
+import { createEnemy } from '../entities/enemies/EnemyFactory';
+import { Projectile } from '../weapons/Projectile';
+import { Hazard } from '../entities/hazards/Hazard';
+import { ProximityMine } from '../entities/hazards/ProximityMine';
+import { createHazard } from '../entities/hazards/HazardFactory';
+import { Pickup } from '../entities/pickups/Pickup';
+import { ScoreCache } from '../entities/pickups/ScoreCache';
+import { createPickup } from '../entities/pickups/PickupFactory';
+import { PickupType } from '../entities/pickups/PickupTypes';
+import { BossEntity } from '../entities/enemies/bosses/BossEntity';
+import { createBoss } from '../entities/enemies/bosses/BossFactory';
 
 /**
  * Scene class responsible for managing the 3D rendering environment.
@@ -106,6 +121,9 @@ export class Scene {
   /** Run state tracking upgrades and computed stats */
   private runState: RunState = new RunState();
 
+  /** Wave-based spawn manager */
+  private waveManager: WaveManager = new WaveManager();
+
   /** Last time an asteroid was spawned (in milliseconds) */
   private lastAsteroidSpawnTime: number = 0;
 
@@ -114,6 +132,18 @@ export class Scene {
 
   /** Collection of active asteroids in the scene */
   private asteroids: Asteroid[] = [];
+
+  /** Collection of active enemies in the scene */
+  private enemies: EnemyEntity[] = [];
+
+  /** Collection of active hazards in the scene */
+  private hazards: Hazard[] = [];
+
+  /** Collection of active pickups in the scene */
+  private pickups: Pickup[] = [];
+
+  /** Current active boss (null if no boss fight) */
+  private activeBoss: BossEntity | null = null;
 
   /** Maximum number of asteroids allowed at once */
   private maxAsteroids: number = 20;
@@ -139,7 +169,7 @@ export class Scene {
   /** Duration for the current surge window (ms) */
   private surgeDurationMs: number = 0;
 
-  /** Reusable bounding sphere for collision detection to avoid allocations */
+  /** @deprecated Collision now uses Ship.getHitbox() directly */
   private shipBoundingSphere: THREE.Sphere = new THREE.Sphere(
     new THREE.Vector3(),
     30
@@ -361,17 +391,39 @@ export class Scene {
       // Update asteroids
       this.updateAsteroids(deltaTime);
 
-      // Check for collisions between ship and asteroids
-      this.checkCollisions();
+      // Update enemies (includes boss)
+      this.updateEnemies(deltaTime);
+
+      // Check if boss was destroyed
+      if (this.activeBoss && !this.activeBoss.isActive()) {
+        this.activeBoss = null;
+      }
+
+      // Update hazards
+      this.updateHazards(deltaTime);
+
+      // Update pickups
+      this.updatePickups(deltaTime);
+
+      // Check for collisions between ship, asteroids, enemies, hazards, and projectiles
+      this.checkCollisions(deltaTime);
 
       // Update zone progression (waves and completion)
       this.updateZoneProgress();
 
       // Only continue spawning if the game is still active
       if (this.gameActive) {
-        // Update drift/surge patterns and manage asteroid spawning
+        // Update drift/surge patterns
         this.updateZoneFlow();
-        this.manageAsteroidSpawning();
+
+        // Wave-based spawning
+        const instruction = this.waveManager.update(deltaTime);
+        if (instruction) {
+          this.spawnFromInstruction(instruction);
+        }
+
+        // Update HUD wave display from wave manager
+        this.currentWave = this.waveManager.getCurrentWave();
       }
 
       // Update the score based on time (1 point per second)
@@ -830,6 +882,15 @@ export class Scene {
       this.zoneScoreStart = this.score;
     }
 
+    // Initialize wave manager with zone config and combat log callback
+    const uiSystem = this.game ? this.game.getUISystem() : null;
+    this.waveManager.initialize(config, (message: string) => {
+      if (uiSystem) {
+        uiSystem.addCombatLogMessage(message, 'wave-announcement');
+      }
+      this.logger.info(`WaveManager: ${message}`);
+    });
+
     this.configureZoneFlow(config);
     this.applyZoneBackground(config);
   }
@@ -840,18 +901,8 @@ export class Scene {
   private updateZoneProgress(): void {
     if (!this.activeZoneConfig || this.zoneCompletionInProgress) return;
 
-    const zoneScore = this.getZoneScore();
-    const waveScore = this.activeZoneConfig.scoreToClear / this.totalWaves;
-    const nextWave = Math.min(
-      this.totalWaves,
-      Math.floor(zoneScore / waveScore) + 1
-    );
-
-    if (nextWave !== this.currentWave) {
-      this.currentWave = nextWave;
-    }
-
-    if (zoneScore >= this.activeZoneConfig.scoreToClear) {
+    // Zone completion is driven by wave manager
+    if (this.waveManager.isZoneComplete()) {
       this.zoneCompletionInProgress = true;
       this.completeCurrentZone();
     }
@@ -1056,43 +1107,57 @@ export class Scene {
    * @param deltaTime Time elapsed since the last frame in seconds
    */
   private updateAsteroids(deltaTime: number): void {
-    // Update each asteroid and filter out any that are no longer active
+    const prevCount = this.asteroids.length;
     this.asteroids = this.asteroids.filter((asteroid) => {
       return asteroid.update(deltaTime);
     });
+    // Notify wave manager for asteroids that left the field (went off-screen)
+    const removed = prevCount - this.asteroids.length;
+    for (let i = 0; i < removed; i++) {
+      this.waveManager.onEntityDestroyed();
+    }
   }
 
   /**
-   * Manages the spawning of new asteroids at regular intervals.
+   * Dispatches a spawn instruction from the WaveManager to the appropriate
+   * entity creation method.
    */
-  private manageAsteroidSpawning(): void {
-    // Don't spawn new asteroids if the ship is destroyed
+  private spawnFromInstruction(instruction: SpawnInstruction): void {
     if (this.shipDestroyed) return;
 
-    const currentTime = performance.now();
-    const baseInterval = this.getSpawnIntervalForZone();
-    const effectiveInterval =
-      this.surgeActive && this.activeZoneConfig
-        ? this.activeZoneConfig.spawnIntervalMs.min
-        : baseInterval;
-
-    this.asteroidSpawnInterval = effectiveInterval;
-
-    // Only spawn if interval has passed and we're below max asteroids
-    if (
-      currentTime - this.lastAsteroidSpawnTime > this.asteroidSpawnInterval &&
-      this.asteroids.length < this.maxAsteroids
-    ) {
-      this.spawnAsteroid();
-      this.lastAsteroidSpawnTime = currentTime;
+    switch (instruction.type) {
+      case 'asteroid':
+        this.spawnAsteroid(instruction.radius);
+        break;
+      case 'enemy':
+        if (instruction.enemyType) {
+          this.spawnEnemy(instruction.enemyType);
+        }
+        break;
+      case 'hazard':
+        if (instruction.hazardType) {
+          this.spawnHazard(instruction.hazardType);
+        }
+        break;
+      case 'pickup':
+        if (instruction.pickupType) {
+          this.spawnPickup(instruction.pickupType);
+        }
+        break;
+      case 'boss':
+        if (instruction.bossId) {
+          this.spawnBoss(instruction.bossId);
+        }
+        break;
     }
   }
 
   /**
    * Spawns a new asteroid at a random position outside the player's view.
    * Uses reusable temp vectors to minimize allocations.
+   * @param overrideRadius Optional radius from wave manager (overrides zone config randomization)
    */
-  private spawnAsteroid(): void {
+  private spawnAsteroid(overrideRadius?: number): void {
     if (!this.playerShip) return;
 
     const config = this.activeZoneConfig;
@@ -1132,7 +1197,7 @@ export class Scene {
     // Apply speed factor from upgrades (Chrono Brake slows asteroids)
     const baseSpeed = this.randomRange(speedRange[0], speedRange[1]);
     const speed = baseSpeed * this.runState.getAsteroidSpeedFactor();
-    const size = this.randomRange(sizeRange[0], sizeRange[1]);
+    const size = overrideRadius ?? this.randomRange(sizeRange[0], sizeRange[1]);
     const damage = Math.round(this.randomRange(damageRange[0], damageRange[1]));
 
     // Create and add the asteroid (clone temp vectors since Asteroid stores them)
@@ -1157,169 +1222,473 @@ export class Scene {
   }
 
   /**
-   * Checks for collisions between game objects.
+   * Spawns an enemy at a random position ahead of the player.
    */
-  private checkCollisions(): void {
+  private spawnEnemy(enemyType: import('../entities/enemies/EnemyTypes').EnemyType): void {
     if (!this.playerShip) return;
 
-    const shipHitbox = this.playerShip.getHitbox();
-    if (!shipHitbox) return;
+    const playerPos = this.playerShip.getPosition();
+    const spawnPos = new THREE.Vector3(
+      playerPos.x + (Math.random() * this.horizontalLimit - this.horizontalLimit / 2),
+      playerPos.y + (Math.random() * this.verticalLimit * 0.5 - this.verticalLimit * 0.25),
+      playerPos.z - 1200 - Math.random() * 400
+    );
 
-    // Reuse the bounding sphere for collision detection (avoid allocation every frame)
-    this.shipBoundingSphere.center.copy(shipHitbox.position);
+    const enemy = createEnemy(enemyType, this.scene, spawnPos);
+    enemy.setPlayerPosition(playerPos);
+    this.enemies.push(enemy);
+    this.logger.debug(`Spawned enemy: ${enemyType} (${this.enemies.length} active)`);
+  }
 
-    // Get weapon system and projectiles, if available
+  /**
+   * Updates all active enemies in the scene.
+   */
+  private updateEnemies(deltaTime: number): void {
+    if (!this.playerShip) return;
+
+    const playerPos = this.playerShip.getPosition();
+    const prevCount = this.enemies.length;
+
+    this.enemies = this.enemies.filter((enemy) => {
+      enemy.setPlayerPosition(playerPos);
+
+      // Check if CarrierPod wants to spawn a Raider
+      if (enemy instanceof CarrierPod && enemy.shouldSpawnRaider()) {
+        const raider = new Raider(this.scene, enemy.getPosition());
+        raider.setPlayerPosition(playerPos);
+        this.enemies.push(raider);
+        // Don't count carrier-spawned raiders toward wave entity count
+      }
+
+      return enemy.update(deltaTime);
+    });
+
+    // Notify wave manager for enemies that left the field
+    const removed = prevCount - this.enemies.length;
+    for (let i = 0; i < removed; i++) {
+      this.waveManager.onEntityDestroyed();
+    }
+  }
+
+  /**
+   * Spawns a boss enemy.
+   */
+  private spawnBoss(bossId: string): void {
+    if (!this.playerShip) return;
+
+    const playerPos = this.playerShip.getPosition();
+    const spawnPos = new THREE.Vector3(0, 0, playerPos.z - 1500);
+
+    const boss = createBoss(bossId, this.scene, spawnPos);
+    boss.setPlayerPosition(playerPos);
+    this.activeBoss = boss;
+    // Also add to enemies array for collision/update tracking
+    this.enemies.push(boss);
+
+    const uiSystem = this.game ? this.game.getUISystem() : null;
+    if (uiSystem) {
+      uiSystem.addCombatLogMessage(
+        `WARNING: ${boss.getBossName().toUpperCase()} DETECTED`,
+        'boss-spawn'
+      );
+    }
+
+    this.logger.info(`Boss spawned: ${boss.getBossName()} (${bossId})`);
+  }
+
+  /**
+   * Spawns a pickup at a random position near the player.
+   * Can be called by WaveManager (scheduled) or on enemy death (drop).
+   */
+  private spawnPickup(pickupType: PickupType, position?: THREE.Vector3): void {
+    if (!this.playerShip) return;
+
+    const playerPos = this.playerShip.getPosition();
+    const spawnPos = position || new THREE.Vector3(
+      playerPos.x + (Math.random() * this.horizontalLimit * 0.6 - this.horizontalLimit * 0.3),
+      playerPos.y + (Math.random() * this.verticalLimit * 0.3 - this.verticalLimit * 0.15),
+      playerPos.z - 600 - Math.random() * 300
+    );
+
+    const pickup = createPickup(pickupType, this.scene, spawnPos);
+    pickup.setPlayerPosition(playerPos);
+    this.pickups.push(pickup);
+    this.logger.debug(`Spawned pickup: ${pickupType} (${this.pickups.length} active)`);
+  }
+
+  /**
+   * Updates all active pickups in the scene.
+   */
+  private updatePickups(deltaTime: number): void {
+    if (!this.playerShip) return;
+
+    const playerPos = this.playerShip.getPosition();
+    const prevCount = this.pickups.length;
+
+    this.pickups = this.pickups.filter((pickup) => {
+      pickup.setPlayerPosition(playerPos);
+      return pickup.update(deltaTime);
+    });
+
+    // Pickups that expired or drifted off still count for wave
+    const removed = prevCount - this.pickups.length;
+    for (let i = 0; i < removed; i++) {
+      this.waveManager.onEntityDestroyed();
+    }
+  }
+
+  /**
+   * Attempts to drop a random pickup at the given position.
+   * Uses the zone's pickupDropRate to determine probability.
+   */
+  private tryDropPickup(position: THREE.Vector3): void {
+    const dropRate = this.activeZoneConfig?.pickupDropRate ?? 0.15;
+    const pickupPalette = this.activeZoneConfig?.pickupPalette ?? [];
+
+    if (pickupPalette.length === 0 || Math.random() > dropRate) return;
+
+    const type = pickupPalette[Math.floor(Math.random() * pickupPalette.length)];
+    this.spawnPickup(type, position.clone());
+  }
+
+  /**
+   * Spawns a hazard at a random position ahead of the player.
+   */
+  private spawnHazard(hazardType: import('../entities/hazards/HazardTypes').HazardType): void {
+    if (!this.playerShip) return;
+
+    const playerPos = this.playerShip.getPosition();
+    const spawnPos = new THREE.Vector3(
+      playerPos.x + (Math.random() * this.horizontalLimit - this.horizontalLimit / 2),
+      playerPos.y + (Math.random() * this.verticalLimit * 0.4 - this.verticalLimit * 0.2),
+      playerPos.z - 1400 - Math.random() * 300
+    );
+
+    const hazard = createHazard(hazardType, this.scene, spawnPos);
+    this.hazards.push(hazard);
+    this.logger.debug(`Spawned hazard: ${hazardType} (${this.hazards.length} active)`);
+  }
+
+  /**
+   * Updates all active hazards in the scene.
+   */
+  private updateHazards(deltaTime: number): void {
+    const prevCount = this.hazards.length;
+    this.hazards = this.hazards.filter((hazard) => {
+      return hazard.update(deltaTime);
+    });
+    const removed = prevCount - this.hazards.length;
+    for (let i = 0; i < removed; i++) {
+      this.waveManager.onEntityDestroyed();
+    }
+  }
+
+  /**
+   * Checks for collisions between game objects:
+   *  - Player projectiles vs asteroids
+   *  - Player projectiles vs enemies
+   *  - Player projectiles vs destructible hazards
+   *  - Enemy projectiles vs player ship
+   *  - Player ship vs asteroids (contact)
+   *  - Player ship vs enemies (contact)
+   *  - Player ship vs hazards (effect application)
+   */
+  private checkCollisions(deltaTime: number = 0): void {
+    if (!this.playerShip) return;
+
+    // Ship.getHitbox() now returns THREE.Sphere directly
+    const shipSphere = this.playerShip.getHitbox();
+
+    // God mode damage multiplier
+    const playerDmgMult = this.playerShip.getDamageMultiplier();
+
+    // Collect player projectiles
     const weaponSystem = this.playerShip.getWeaponSystem();
-    let projectiles: any[] = [];
+    let playerProjectiles: Projectile[] = [];
 
     if (weaponSystem) {
-      // Get primary and secondary weapons
       const primaryWeapon = weaponSystem.getPrimaryWeapon();
       const secondaryWeapon = weaponSystem.getSecondaryWeapon();
 
-      // Get projectiles from weapons using the getProjectiles method
       if (primaryWeapon) {
-        projectiles = projectiles.concat(primaryWeapon.getProjectiles());
+        playerProjectiles = playerProjectiles.concat(primaryWeapon.getProjectiles());
       }
-
       if (secondaryWeapon) {
-        projectiles = projectiles.concat(secondaryWeapon.getProjectiles());
+        playerProjectiles = playerProjectiles.concat(secondaryWeapon.getProjectiles());
       }
     }
 
-    // Get the UI system to send combat log messages
+    // Collect enemy projectiles
+    let enemyProjectiles: Projectile[] = [];
+    for (const enemy of this.enemies) {
+      const ep = enemy.getProjectiles();
+      if (ep.length > 0) {
+        enemyProjectiles = enemyProjectiles.concat(ep);
+      }
+    }
+
     const uiSystem = this.game ? this.game.getUISystem() : null;
 
-    // Check each asteroid for collision with the ship and projectiles
+    // --- Player projectiles vs asteroids ---
     this.asteroids = this.asteroids.filter((asteroid) => {
       if (!asteroid.isActive()) return false;
 
       const asteroidHitbox = asteroid.getHitbox();
-      let asteroidDestroyed = false;
+      let destroyed = false;
 
-      // Check for collisions with projectiles
-      if (projectiles.length > 0) {
-        for (const projectile of projectiles) {
-          // Skip inactive projectiles
-          if (!projectile.getIsActive()) continue;
+      for (const projectile of playerProjectiles) {
+        if (!projectile.getIsActive()) continue;
+        if (projectile.getHitbox().intersectsSphere(asteroidHitbox)) {
+          projectile.handleCollision();
+          asteroid.handleCollision();
+          destroyed = true;
 
-          // Get projectile hitbox
-          const projectileHitbox = projectile.getHitbox();
+          const asteroidSize = asteroid.getSize();
+          const scoreValue = Math.floor(30 + asteroidSize * 0.5);
+          this.addScore(scoreValue);
 
-          // Check for collision
-          if (projectileHitbox.intersectsSphere(asteroidHitbox)) {
-            // Collision detected!
-            this.logger.info("Projectile hit asteroid!");
-
-            // Apply damage and check if asteroid is destroyed
-            const damage = projectile.handleCollision();
-
-            // Handle asteroid destruction
-            asteroid.handleCollision();
-            asteroidDestroyed = true;
-
-            // Add score for destroying asteroid
-            // Use the asteroid's size property for scoring
-            const asteroidSize = asteroid.getSize();
-            const scoreValue = Math.floor(30 + asteroidSize * 0.5); // Larger asteroids worth more
-            this.addScore(scoreValue);
-
-            // Add a combat log message via the UI system
-            if (uiSystem) {
-              const sizeDescription =
-                asteroidSize > 40
-                  ? "large"
-                  : asteroidSize > 25
-                  ? "medium"
-                  : "small";
-              const pointsText = scoreValue > 0 ? ` (+${scoreValue} pts)` : "";
-
-              const logMessage = `${sizeDescription.toUpperCase()} ASTEROID DESTROYED${pointsText}`;
-              // Only log important events like large asteroids
-              if (sizeDescription === "large") {
-                this.logger.info(
-                  `Player destroyed ${sizeDescription} asteroid (+${scoreValue} pts)`
-                );
-              }
-
-              // Use the new UISystem method to add combat log messages
-              uiSystem.addCombatLogMessage(logMessage, "asteroid-destroyed");
-            } else {
-              this.logger.warn("Cannot add combat log - uiSystem is null");
-            }
-
-            // Play sound effect
-            if (this.game) {
-              try {
-                // Use asteroid collision sound instead, with small intensity
-                this.game.getAudioManager().playAsteroidCollisionSound("small");
-              } catch (error) {
-                this.logger.warn("Failed to play explosion sound:", error);
-              }
-            }
-
-            break; // Once asteroid is destroyed, no need to check other projectiles
+          if (uiSystem) {
+            const sizeDesc = asteroidSize > 40 ? 'LARGE' : asteroidSize > 25 ? 'MEDIUM' : 'SMALL';
+            uiSystem.addCombatLogMessage(
+              `${sizeDesc} ASTEROID DESTROYED (+${scoreValue} pts)`,
+              'asteroid-destroyed'
+            );
           }
+
+          if (this.game) {
+            try {
+              this.game.getAudioManager().playAsteroidCollisionSound('small');
+            } catch (_e) { /* ignore */ }
+          }
+
+          this.waveManager.onEntityDestroyed();
+          break;
         }
       }
 
-      // If asteroid already destroyed by projectile, no need to check ship collision
-      if (asteroidDestroyed) return false;
+      if (destroyed) return false;
 
-      // Check if the ship collides with the asteroid
-      if (this.shipBoundingSphere.intersectsSphere(asteroidHitbox)) {
-        // Collision detected!
-        this.logger.info("Collision detected between ship and asteroid!");
-
-        // Play collision sound effect if game object is available
+      // Ship vs asteroid contact
+      if (shipSphere.intersectsSphere(asteroidHitbox)) {
         if (this.game) {
           try {
-            // Play impact sound using the audio manager
-            this.game.getAudioManager().playAsteroidCollisionSound("medium");
-            this.logger.info("Playing asteroid collision sound");
-          } catch (error) {
-            this.logger.warn("Failed to play collision sound:", error);
-          }
+            this.game.getAudioManager().playAsteroidCollisionSound('medium');
+          } catch (_e) { /* ignore */ }
         }
 
-        // Check if point defense can absorb this hit
         if (this.runState.tryAbsorbHit(this.score)) {
-          // Point defense absorbed the hit!
           if (uiSystem) {
-            uiSystem.addCombatLogMessage(
-              "POINT DEFENSE ABSORBED IMPACT!",
-              "point-defense"
-            );
+            uiSystem.addCombatLogMessage('POINT DEFENSE ABSORBED IMPACT!', 'point-defense');
           }
         } else {
-          // Apply damage to the ship
           const damage = asteroid.getDamage();
           const isDestroyed = this.playerShip!.takeDamage(damage);
 
-          // Add a combat log message for the ship taking damage
           if (uiSystem) {
-            // Use the new UISystem method for damage messages
             uiSystem.addCombatLogMessage(
               `SHIP TOOK ${damage} DAMAGE FROM ASTEROID IMPACT!`,
-              "damage-taken"
+              'damage-taken'
             );
           }
-
-          // If ship is destroyed, handle game over
           if (isDestroyed) {
             this.handleShipDestruction();
           }
         }
 
-        // Handle asteroid collision
         asteroid.handleCollision();
-
-        return false; // Remove asteroid after collision
+        this.waveManager.onEntityDestroyed();
+        return false;
       }
 
-      return !asteroidDestroyed; // Keep asteroid if not destroyed
+      return true;
     });
 
+    // --- Player projectiles vs enemies ---
+    this.enemies = this.enemies.filter((enemy) => {
+      if (!enemy.isActive()) return false;
+
+      const enemyHitbox = enemy.getHitbox();
+      let destroyed = false;
+
+      for (const projectile of playerProjectiles) {
+        if (!projectile.getIsActive()) continue;
+        if (projectile.getHitbox().intersectsSphere(enemyHitbox)) {
+          const dmg = projectile.handleCollision() * playerDmgMult;
+          const killed = enemy.takeDamage(dmg);
+
+          if (killed) {
+            destroyed = true;
+            const sv = enemy.getScoreValue();
+            this.addScore(sv);
+
+            if (uiSystem) {
+              const typeName = enemy.getEnemyType().toUpperCase().replace('_', ' ');
+              uiSystem.addCombatLogMessage(
+                `${typeName} DESTROYED (+${sv} pts)`,
+                'enemy-destroyed'
+              );
+            }
+
+            if (this.game) {
+              try {
+                this.game.getAudioManager().playAsteroidCollisionSound('medium');
+              } catch (_e) { /* ignore */ }
+            }
+
+            // Try to drop a pickup
+            this.tryDropPickup(enemy.getPosition());
+
+            this.waveManager.onEntityDestroyed();
+            break;
+          }
+        }
+      }
+
+      if (destroyed) return false;
+
+      // Ship vs enemy contact
+      if (shipSphere.intersectsSphere(enemyHitbox)) {
+        const contactDmg = enemy.getContactDamage();
+
+        if (this.runState.tryAbsorbHit(this.score)) {
+          if (uiSystem) {
+            uiSystem.addCombatLogMessage('POINT DEFENSE ABSORBED IMPACT!', 'point-defense');
+          }
+        } else {
+          const isDestroyed = this.playerShip!.takeDamage(contactDmg);
+          if (uiSystem) {
+            uiSystem.addCombatLogMessage(
+              `SHIP TOOK ${contactDmg} DAMAGE FROM ENEMY COLLISION!`,
+              'damage-taken'
+            );
+          }
+          if (isDestroyed) {
+            this.handleShipDestruction();
+          }
+        }
+
+        // Destroy the enemy on contact too
+        enemy.destroy();
+        this.waveManager.onEntityDestroyed();
+        return false;
+      }
+
+      return true;
+    });
+
+    // --- Enemy projectiles vs player ship ---
+    for (const projectile of enemyProjectiles) {
+      if (!projectile.getIsActive()) continue;
+      if (projectile.getHitbox().intersectsSphere(shipSphere)) {
+        const dmg = projectile.handleCollision();
+
+        if (this.runState.tryAbsorbHit(this.score)) {
+          if (uiSystem) {
+            uiSystem.addCombatLogMessage('POINT DEFENSE ABSORBED SHOT!', 'point-defense');
+          }
+        } else {
+          const isDestroyed = this.playerShip!.takeDamage(dmg);
+          if (uiSystem) {
+            uiSystem.addCombatLogMessage(
+              `SHIP TOOK ${dmg} DAMAGE FROM ENEMY FIRE!`,
+              'damage-taken'
+            );
+          }
+          if (isDestroyed) {
+            this.handleShipDestruction();
+            break;
+          }
+        }
+      }
+    }
+
+    // --- Player projectiles vs destructible hazards ---
+    this.hazards = this.hazards.filter((hazard) => {
+      if (!hazard.isActive()) return false;
+
+      if (hazard.isDestructible()) {
+        const hazardHitbox = hazard.getHitbox();
+        for (const projectile of playerProjectiles) {
+          if (!projectile.getIsActive()) continue;
+          if (projectile.getHitbox().intersectsSphere(hazardHitbox)) {
+            const dmg = projectile.handleCollision() * playerDmgMult;
+            const killed = hazard.takeDamage(dmg);
+            if (killed) {
+              if (uiSystem) {
+                uiSystem.addCombatLogMessage('HAZARD DESTROYED', 'hazard-destroyed');
+              }
+              this.waveManager.onEntityDestroyed();
+              return false;
+            }
+          }
+        }
+      }
+
+      // --- Player ship vs hazard area (only if ship exists) ---
+      if (this.playerShip && shipSphere.intersectsSphere(hazard.getHitbox())) {
+        // ProximityMine detonates, others apply continuous effect
+        if (hazard instanceof ProximityMine) {
+          const mine = hazard as ProximityMine;
+          const blastDmg = mine.getBlastDamage();
+
+          if (this.runState.tryAbsorbHit(this.score)) {
+            if (uiSystem) {
+              uiSystem.addCombatLogMessage('POINT DEFENSE ABSORBED MINE!', 'point-defense');
+            }
+          } else {
+            const isDestroyed = this.playerShip!.takeDamage(blastDmg);
+            if (uiSystem) {
+              uiSystem.addCombatLogMessage(
+                `MINE DETONATION! ${blastDmg} DAMAGE!`,
+                'damage-taken'
+              );
+            }
+            if (isDestroyed) {
+              this.handleShipDestruction();
+            }
+          }
+          mine.detonate();
+          this.waveManager.onEntityDestroyed();
+          return false;
+        } else {
+          // Continuous effect hazards (radiation, gravity, debris)
+          hazard.applyEffect(this.playerShip!, deltaTime);
+        }
+      }
+
+      return true;
+    });
+
+    // --- Player ship vs pickups (collection) ---
+    if (this.playerShip) {
+      this.pickups = this.pickups.filter((pickup) => {
+        if (!pickup.isActive()) return false;
+
+        if (shipSphere.intersectsSphere(pickup.getHitbox())) {
+          pickup.applyPickup(this.playerShip!);
+
+          // ScoreCache adds points
+          if (pickup instanceof ScoreCache) {
+            const sv = (pickup as ScoreCache).getScoreValue();
+            this.addScore(sv);
+            if (uiSystem) {
+              uiSystem.addCombatLogMessage(`SCORE CACHE (+${sv} pts)`, 'pickup-collected');
+            }
+          } else {
+            if (uiSystem) {
+              const name = pickup.getPickupType().toUpperCase().replace('_', ' ');
+              uiSystem.addCombatLogMessage(`${name} COLLECTED`, 'pickup-collected');
+            }
+          }
+
+          pickup.destroy();
+          this.waveManager.onEntityDestroyed();
+          return false;
+        }
+
+        return true;
+      });
+    }
   }
 
   /**
@@ -1402,18 +1771,41 @@ export class Scene {
   }
 
   /**
-   * Clears all asteroids from the scene.
+   * Clears all entities (asteroids, enemies, hazards, pickups) from the scene.
    */
-  private clearAllAsteroids(): void {
-    this.logger.info(`Clearing all asteroids (${this.asteroids.length})`);
+  private clearAllEntities(): void {
+    this.logger.info(
+      `Clearing all entities (asteroids: ${this.asteroids.length}, enemies: ${this.enemies.length})`
+    );
 
-    // Remove each asteroid from the scene
     for (const asteroid of this.asteroids) {
       asteroid.dispose();
     }
-
-    // Empty the asteroids array
     this.asteroids = [];
+
+    for (const enemy of this.enemies) {
+      enemy.dispose();
+    }
+    this.enemies = [];
+
+    for (const hazard of this.hazards) {
+      hazard.dispose();
+    }
+    this.hazards = [];
+
+    for (const pickup of this.pickups) {
+      pickup.dispose();
+    }
+    this.pickups = [];
+
+    this.activeBoss = null;
+  }
+
+  /**
+   * Legacy alias for clearAllEntities.
+   */
+  private clearAllAsteroids(): void {
+    this.clearAllEntities();
   }
 
   /**
@@ -1535,5 +1927,12 @@ export class Scene {
    */
   getAsteroids(): Asteroid[] {
     return this.asteroids;
+  }
+
+  /**
+   * Gets the currently active boss, if any.
+   */
+  getActiveBoss(): BossEntity | null {
+    return this.activeBoss;
   }
 }
