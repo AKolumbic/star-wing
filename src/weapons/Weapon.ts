@@ -41,6 +41,12 @@ export abstract class Weapon {
   protected scene: THREE.Scene;
   protected isReady: boolean = true;
 
+  /** Multiplier applied to cooldown time (lower = faster fire rate) */
+  protected cooldownMultiplier: number = 1.0;
+
+  /** Multiplier applied to projectile speed */
+  protected projectileSpeedMultiplier: number = 1.0;
+
   /**
    * Creates a new weapon
    * @param props The weapon properties
@@ -76,7 +82,8 @@ export abstract class Weapon {
     // Fire the weapon
     this.lastFired = Date.now();
     this.isReady = false;
-    this.currentCooldown = this.props.cooldown;
+    // Apply cooldown multiplier from upgrades
+    this.currentCooldown = this.props.cooldown * this.cooldownMultiplier;
 
     // Reduce ammo if applicable
     if (this.props.ammo !== undefined) {
@@ -223,6 +230,48 @@ export abstract class Weapon {
    */
   getProjectiles(): any[] {
     return [];
+  }
+
+  // ===== ROGUELITE UPGRADE METHODS =====
+
+  /**
+   * Sets a multiplier for the weapon's cooldown time.
+   * Lower values = faster fire rate (e.g., 0.75 = 25% faster).
+   * Multiplies with existing multiplier for stacking.
+   * @param multiplier Cooldown time multiplier
+   */
+  setCooldownMultiplier(multiplier: number): void {
+    this.cooldownMultiplier *= multiplier;
+    // Clamp to reasonable bounds (max 3x speed increase)
+    this.cooldownMultiplier = Math.max(0.33, this.cooldownMultiplier);
+  }
+
+  /**
+   * Sets a multiplier for projectile speed.
+   * Higher values = faster projectiles (e.g., 1.3 = 30% faster).
+   * Multiplies with existing multiplier for stacking.
+   * @param multiplier Projectile speed multiplier
+   */
+  setProjectileSpeedMultiplier(multiplier: number): void {
+    this.projectileSpeedMultiplier *= multiplier;
+    // Also update the base projectile speed if set
+    if (this.props.projectileSpeed) {
+      this.props.projectileSpeed *= multiplier;
+    }
+  }
+
+  /**
+   * Gets the current cooldown multiplier.
+   */
+  getCooldownMultiplier(): number {
+    return this.cooldownMultiplier;
+  }
+
+  /**
+   * Gets the current projectile speed multiplier.
+   */
+  getProjectileSpeedMultiplier(): number {
+    return this.projectileSpeedMultiplier;
   }
 
   /**

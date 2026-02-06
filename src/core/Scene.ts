@@ -13,6 +13,7 @@ import { Game } from "./Game";
 import { Asteroid } from "../entities/Asteroid";
 import { ZoneConfig } from "./levels/ZoneConfig";
 import { MAX_ZONE_ID, ZONE_CONFIGS } from "./levels/ZoneConfigs";
+import { RunState } from "./RunState";
 
 /**
  * Scene class responsible for managing the 3D rendering environment.
@@ -101,6 +102,9 @@ export class Scene {
 
   /** Reference to the Game instance */
   private game: Game | null = null;
+
+  /** Run state tracking upgrades and computed stats */
+  private runState: RunState = new RunState();
 
   /** Last time an asteroid was spawned (in milliseconds) */
   private lastAsteroidSpawnTime: number = 0;
@@ -703,10 +707,14 @@ export class Scene {
 
   /**
    * Adds to the current score.
+   * Applies score multipliers from upgrades.
    * @param points Points to add to the score
    */
   addScore(points: number): void {
-    this.score += points;
+    // Apply score multiplier from upgrades
+    const multiplier = this.runState.getEffectiveScoreMultiplier();
+    const adjustedPoints = Math.floor(points * multiplier);
+    this.score += adjustedPoints;
   }
 
   /**
@@ -784,6 +792,14 @@ export class Scene {
     this.zoneCompletionInProgress = false;
     this.clearAllAsteroids();
     this.applyZoneConfig(this.getZoneConfig(1), true);
+
+    // Reset roguelite run state for new game
+    this.runState.reset();
+
+    // Reset ship stats if ship exists
+    if (this.playerShip) {
+      this.playerShip.resetStats();
+    }
   }
 
   /**
@@ -1113,7 +1129,9 @@ export class Scene {
     const damageRange = config?.asteroidDamageRange || [20, 60];
 
     // Randomize asteroid properties based on zone config
-    const speed = this.randomRange(speedRange[0], speedRange[1]);
+    // Apply speed factor from upgrades (Chrono Brake slows asteroids)
+    const baseSpeed = this.randomRange(speedRange[0], speedRange[1]);
+    const speed = baseSpeed * this.runState.getAsteroidSpeedFactor();
     const size = this.randomRange(sizeRange[0], sizeRange[1]);
     const damage = Math.round(this.randomRange(damageRange[0], damageRange[1]));
 
@@ -1264,26 +1282,37 @@ export class Scene {
           }
         }
 
-        // Apply damage to the ship
-        const damage = asteroid.getDamage();
-        const isDestroyed = this.playerShip!.takeDamage(damage);
+        // Check if point defense can absorb this hit
+        if (this.runState.tryAbsorbHit(this.score)) {
+          // Point defense absorbed the hit!
+          if (uiSystem) {
+            uiSystem.addCombatLogMessage(
+              "POINT DEFENSE ABSORBED IMPACT!",
+              "point-defense"
+            );
+          }
+        } else {
+          // Apply damage to the ship
+          const damage = asteroid.getDamage();
+          const isDestroyed = this.playerShip!.takeDamage(damage);
 
-        // Add a combat log message for the ship taking damage
-        if (uiSystem) {
-          // Use the new UISystem method for damage messages
-          uiSystem.addCombatLogMessage(
-            `SHIP TOOK ${damage} DAMAGE FROM ASTEROID IMPACT!`,
-            "damage-taken"
-          );
+          // Add a combat log message for the ship taking damage
+          if (uiSystem) {
+            // Use the new UISystem method for damage messages
+            uiSystem.addCombatLogMessage(
+              `SHIP TOOK ${damage} DAMAGE FROM ASTEROID IMPACT!`,
+              "damage-taken"
+            );
+          }
+
+          // If ship is destroyed, handle game over
+          if (isDestroyed) {
+            this.handleShipDestruction();
+          }
         }
 
         // Handle asteroid collision
         asteroid.handleCollision();
-
-        // If ship is destroyed, handle game over
-        if (isDestroyed) {
-          this.handleShipDestruction();
-        }
 
         return false; // Remove asteroid after collision
       }
@@ -1424,6 +1453,9 @@ export class Scene {
       );
     }
 
+    // Get weapon system reference
+    const weaponSystem = this.playerShip?.getWeaponSystem() || null;
+
     // Check if this was the final zone
     if (completedZone >= MAX_ZONE_ID) {
       this.setGameActive(false);
@@ -1431,24 +1463,53 @@ export class Scene {
         this.playerShip.setPlayerControlled(false, true);
       }
 
-      if (uiSystem) {
-        uiSystem.showZoneComplete(completedZone, null);
+      if (uiSystem && this.playerShip && weaponSystem) {
+        uiSystem.showZoneComplete(
+          this.runState,
+          this.playerShip,
+          weaponSystem,
+          completedZone,
+          null,
+          () => {
+            this.logger.info("Final zone complete - returning to menu");
+          }
+        );
       }
       return;
     }
 
-    // Apply next zone configuration
+    // Calculate next zone ID
     const nextZoneId = completedZone + 1;
-    this.applyZoneConfig(this.getZoneConfig(nextZoneId), true);
 
-    // Pause gameplay and show zone complete screen
+    // Pause gameplay and show zone complete screen with upgrade selection
     this.setGameActive(false);
     if (this.playerShip) {
       this.playerShip.setPlayerControlled(false, true);
     }
 
-    if (uiSystem) {
-      uiSystem.showZoneComplete(completedZone, nextZoneId);
+    if (uiSystem && this.playerShip && weaponSystem) {
+      // Reset per-zone flags before showing upgrade selection
+      this.runState.onZoneStart();
+
+      uiSystem.showZoneComplete(
+        this.runState,
+        this.playerShip,
+        weaponSystem,
+        completedZone,
+        nextZoneId,
+        () => {
+          // This callback runs after upgrade selection
+          this.logger.info(
+            `Zone ${completedZone} upgrades complete, transitioning to Zone ${nextZoneId}`
+          );
+
+          // Apply next zone configuration
+          this.applyZoneConfig(this.getZoneConfig(nextZoneId), true);
+
+          // Resume gameplay
+          this.resumeAfterZoneComplete();
+        }
+      );
     }
   }
 

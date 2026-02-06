@@ -7,6 +7,9 @@ import { TextCrawl } from "../../ui/TextCrawl";
 import { GameHUD } from "../../ui/GameHUD";
 import { GameOverScreen } from "../../ui/GameOverScreen";
 import { ZoneComplete } from "../../ui/ZoneComplete";
+import { RunState } from "../RunState";
+import { Ship } from "../../entities/Ship";
+import { WeaponSystem } from "../../weapons/WeaponSystem";
 import { Logger } from "../../utils/Logger";
 
 /**
@@ -418,11 +421,31 @@ export class UISystem implements GameSystem {
   }
 
   /**
-   * Shows the zone complete screen.
+   * Shows the zone complete screen with upgrade selection.
+   * @param runState The current run state for tracking upgrades
+   * @param ship The player's ship for applying upgrade effects
+   * @param weaponSystem The weapon system for applying weapon upgrades
+   * @param completedZone The zone number that was just completed
+   * @param nextZoneId The next zone ID (or null if final zone)
+   * @param onComplete Callback fired after the player selects an upgrade
    */
-  showZoneComplete(completedZone: number, nextZoneId: number | null): void {
+  showZoneComplete(
+    runState: RunState,
+    ship: Ship,
+    weaponSystem: WeaponSystem,
+    completedZone: number,
+    nextZoneId: number | null,
+    onComplete: () => void
+  ): void {
     this.logger.info("UISystem: Showing zone complete screen");
-    this.zoneCompleteScreen.show(completedZone, nextZoneId);
+    this.zoneCompleteScreen.show(
+      runState,
+      ship,
+      weaponSystem,
+      completedZone,
+      nextZoneId,
+      onComplete
+    );
   }
 
   /**

@@ -57,6 +57,15 @@ export class Ship {
   /** The ship's maximum shield strength */
   private maxShield: number = 100;
 
+  /** The ship's movement speed (base value, can be modified by upgrades) */
+  private moveSpeed: number = 5;
+
+  /** Shield regeneration rate per second (0 = no regen) */
+  private shieldRegenRate: number = 0;
+
+  /** Damage reduction multiplier (1.0 = full damage, 0.8 = 20% reduction) */
+  private damageReduction: number = 1.0;
+
   /** The ship's rotation speed */
   // private rotationSpeed: number = 0.05;
 
@@ -739,6 +748,14 @@ export class Ship {
 
       // Animate engine glow
       this.updateEngineGlow(deltaTime);
+
+      // Shield regeneration (from upgrades)
+      if (this.shieldRegenRate > 0 && this.shield < this.maxShield) {
+        this.shield = Math.min(
+          this.maxShield,
+          this.shield + this.shieldRegenRate * deltaTime
+        );
+      }
     }
 
     // Update position based on velocity
@@ -1004,7 +1021,7 @@ export class Ship {
       return;
     }
 
-    const moveSpeed = 5;
+    const moveSpeed = this.moveSpeed;
 
     // Digital-style input response (full speed or nothing)
     let moveX = 0;
@@ -1358,10 +1375,14 @@ export class Ship {
 
   /**
    * Apply damage to the ship, reducing shields first, then health.
+   * Applies damage reduction from upgrades.
    * @param amount Amount of damage to apply
    * @returns True if the ship was destroyed, false otherwise
    */
   takeDamage(amount: number): boolean {
+    // Apply damage reduction from upgrades (e.g., 0.8 = take 80% of damage)
+    amount = Math.floor(amount * this.damageReduction);
+
     // First damage goes to shields
     if (this.shield > 0) {
       if (amount <= this.shield) {
@@ -1461,5 +1482,90 @@ export class Ship {
    */
   getWeaponSystem(): WeaponSystem | null {
     return this.weaponSystem;
+  }
+
+  // ===== ROGUELITE STAT METHODS =====
+
+  /**
+   * Gets the ship's current movement speed.
+   * @returns Current movement speed
+   */
+  getMoveSpeed(): number {
+    return this.moveSpeed;
+  }
+
+  /**
+   * Sets the ship's movement speed.
+   * @param speed New movement speed
+   */
+  setMoveSpeed(speed: number): void {
+    this.moveSpeed = Math.max(1, speed);
+  }
+
+  /**
+   * Gets the shield regeneration rate (per second).
+   * @returns Current shield regen rate
+   */
+  getShieldRegenRate(): number {
+    return this.shieldRegenRate;
+  }
+
+  /**
+   * Sets the shield regeneration rate.
+   * @param rate New regen rate per second
+   */
+  setShieldRegenRate(rate: number): void {
+    this.shieldRegenRate = Math.max(0, rate);
+  }
+
+  /**
+   * Gets the damage reduction multiplier.
+   * @returns Current damage reduction (1.0 = full damage)
+   */
+  getDamageReduction(): number {
+    return this.damageReduction;
+  }
+
+  /**
+   * Sets the damage reduction multiplier.
+   * @param reduction New damage reduction (1.0 = full, 0.8 = 20% less)
+   */
+  setDamageReduction(reduction: number): void {
+    this.damageReduction = Math.max(0.1, Math.min(1.0, reduction));
+  }
+
+  /**
+   * Sets the maximum health value.
+   * @param value New max health value
+   */
+  setMaxHealth(value: number): void {
+    this.maxHealth = Math.max(1, value);
+  }
+
+  /**
+   * Sets the maximum shield value.
+   * @param value New max shield value
+   */
+  setMaxShield(value: number): void {
+    this.maxShield = Math.max(0, value);
+  }
+
+  /**
+   * Resets all stats to their default values for a new run.
+   * Called when starting a new game.
+   */
+  resetStats(): void {
+    // Reset health and shield to defaults
+    this.maxHealth = 100;
+    this.health = 100;
+    this.maxShield = 100;
+    this.shield = 100;
+
+    // Reset movement and defensive stats
+    this.moveSpeed = 5;
+    this.shieldRegenRate = 0;
+    this.damageReduction = 1.0;
+
+    this.logger.info("Ship stats reset to defaults");
   }
 }
